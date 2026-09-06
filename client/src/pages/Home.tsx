@@ -183,7 +183,7 @@ function Sidebar({
         />
       )}
       <aside
-        className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[22px] overflow-y-auto rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:static xl:inset-auto xl:h-auto xl:min-h-[860px] xl:translate-x-0 xl:shadow-none ${
+        className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[22px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-[260px]"
         }`}
       >
