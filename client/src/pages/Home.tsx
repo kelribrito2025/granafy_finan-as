@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -16,6 +17,7 @@ import {
 } from "@/components/IconlyIcons";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 type NavItem = {
   label: string;
@@ -331,11 +333,28 @@ function TransactionModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Home() {
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const [activeNav, setActiveNav] = useState("Visão geral");
   const [period, setPeriod] = useState("Mês");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  const accountInitials = (user?.name || user?.email || "NV")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join("");
+
+  const handleLogout = async () => {
+    await logout();
+    setAccountOpen(false);
+    toast.success("Sessão encerrada");
+    setLocation("/login", { replace: true });
+  };
 
   const selectNav = (item: string) => {
     setActiveNav(item);
@@ -422,6 +441,39 @@ export default function Home() {
               <span className="hidden sm:inline">Novo lançamento</span>
               <span className="sm:hidden">Novo</span>
             </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Abrir menu da conta"
+                aria-expanded={accountOpen}
+                onClick={() => setAccountOpen(open => !open)}
+                className="flex h-[42px] min-w-[42px] items-center justify-center rounded-[14px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(11,31,20,.12)] transition hover:bg-[#183526] active:scale-95"
+              >
+                {accountInitials || "NV"}
+              </button>
+              {accountOpen && (
+                <div className="popover-enter absolute right-0 top-12 z-30 w-[260px] rounded-[18px] bg-white p-3.5 shadow-[0_20px_50px_rgba(11,31,20,.18)]">
+                  <div className="flex items-center gap-3 rounded-[13px] bg-[#F8FAF9] p-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">
+                      <UsersIcon size={17} />
+                    </span>
+                    <span className="min-w-0">
+                      <strong className="block truncate text-[12.5px]">{user?.name || "Sua conta"}</strong>
+                      <span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email || "Acesso protegido"}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="mt-2 flex w-full items-center justify-between rounded-[12px] px-3 py-2.5 text-left text-[12px] font-semibold text-[#8E1F16] transition hover:bg-[#FDECEA] active:scale-[0.99]"
+                  >
+                    Sair da conta
+                    <ChevronRightIcon size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
           </header>
 
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
