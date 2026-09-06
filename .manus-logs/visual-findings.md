@@ -14,3 +14,7 @@ O modal fechou corretamente pelo botão dedicado e devolveu o foco visual ao das
 ## Pacote Iconly Outline Regular
 
 Todos os componentes Lucide visíveis foram substituídos por SVGs oficiais do Iconly, usando `currentColor` para preservar os estados verde, vermelho, neutro e branco. Nas capturas, os controles de menu, notificações, novo lançamento, KPIs de entrada/saída/margem e seta de extrato renderizaram corretamente, sem deslocar textos ou cartões. O layout full-bleed e o comportamento responsivo permaneceram inalterados. A sidebar continua disponível no breakpoint desktop amplo e pelo botão de menu nas larguras menores; seus nove itens agora usam o mesmo pacote Iconly.
+
+## Tipografia SF Pro
+
+A implementação ainda carregava Roboto. O carregamento externo foi removido e todo o painel agora usa a pilha `"SF Pro Display", "SF Pro Text", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`, também registrada no token `--font-sans` do Tailwind. A captura desktop em 1440 × 900 confirmou que a mudança preservou alinhamentos, densidade, truncamentos e dimensões dos cartões. Em dispositivos Apple, o navegador usa a SF Pro instalada no sistema; nos demais ambientes, aplica o fallback nativo equivalente.
