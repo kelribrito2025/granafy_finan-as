@@ -18,3 +18,7 @@ Todos os componentes Lucide visíveis foram substituídos por SVGs oficiais do I
 ## Tipografia SF Pro
 
 A implementação ainda carregava Roboto. O carregamento externo foi removido e todo o painel agora usa a pilha `"SF Pro Display", "SF Pro Text", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`, também registrada no token `--font-sans` do Tailwind. A captura desktop em 1440 × 900 confirmou que a mudança preservou alinhamentos, densidade, truncamentos e dimensões dos cartões. Em dispositivos Apple, o navegador usa a SF Pro instalada no sistema; nos demais ambientes, aplica o fallback nativo equivalente.
+
+## Iconly Outline Curved 48 px
+
+O pacote anterior foi substituído integralmente pelo tipo Curved (`type_id: 3`) do estilo Outline (`style_id: 5`). Os 13 SVGs oficiais usam um canvas-base interno de 48 × 48 px e são redimensionados proporcionalmente nos pontos de uso para preservar a densidade compacta do dashboard. A captura em 1440 × 900 confirmou curvas mais suaves e consistência visual na sidebar, KPIs, notificações, botão de novo lançamento, modal e seta de extrato, sem regressões de alinhamento ou layout.
