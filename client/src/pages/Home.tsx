@@ -1,43 +1,42 @@
 import {
-  ArrowDown,
-  ArrowUp,
-  BarChart3,
-  Bell,
-  Check,
-  ChevronRight,
-  FileText,
-  LayoutGrid,
-  List,
-  Menu,
-  Plus,
-  TrendingUp,
-  Users,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChartIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  DashboardIcon,
+  DocumentIcon,
+  MenuIcon,
+  NotificationIcon,
+  PlusIcon,
+  TrendUpIcon,
+  UsersIcon,
+  type IconlyIcon,
+} from "@/components/IconlyIcons";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 
 type NavItem = {
   label: string;
-  icon: LucideIcon;
+  icon: IconlyIcon;
   badge?: string;
   badgeTone?: "positive" | "negative" | "neutral";
 };
 
 const panelItems: NavItem[] = [
-  { label: "Visão geral", icon: LayoutGrid },
-  { label: "Fluxo de caixa", icon: TrendingUp },
-  { label: "Contas a pagar", icon: ArrowDown, badge: "7", badgeTone: "negative" },
-  { label: "Contas a receber", icon: ArrowUp, badge: "12", badgeTone: "positive" },
-  { label: "Lançamentos", icon: List },
-  { label: "Conciliação", icon: Check, badge: "31", badgeTone: "neutral" },
+  { label: "Visão geral", icon: DashboardIcon },
+  { label: "Fluxo de caixa", icon: TrendUpIcon },
+  { label: "Contas a pagar", icon: ArrowDownIcon, badge: "7", badgeTone: "negative" },
+  { label: "Contas a receber", icon: ArrowUpIcon, badge: "12", badgeTone: "positive" },
+  { label: "Lançamentos", icon: DocumentIcon },
+  { label: "Conciliação", icon: CheckIcon, badge: "31", badgeTone: "neutral" },
 ];
 
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: FileText },
-  { label: "Relatórios", icon: BarChart3 },
-  { label: "Clientes", icon: Users },
+  { label: "DRE", icon: DocumentIcon },
+  { label: "Relatórios", icon: ChartIcon },
+  { label: "Clientes", icon: UsersIcon },
 ];
 
 const compactBars = [36, 44, 38, 56, 50, 66, 74, 62, 88, 100];
@@ -139,7 +138,7 @@ function NavGroup({
                 : "text-[#28382E] hover:bg-[#F1FBF6]"
             }`}
           >
-            <Icon size={16} strokeWidth={2} aria-hidden="true" />
+            <Icon size={16} />
             <span className="truncate">{label}</span>
             {badge && (
               <span
@@ -201,7 +200,7 @@ function Sidebar({
             onClick={onClose}
             className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"
           >
-            <X size={17} />
+            <CloseIcon size={17} />
           </button>
         </div>
 
@@ -258,7 +257,7 @@ function TransactionModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355] transition hover:bg-[#E7ECE9] active:scale-95"
           >
-            <X size={17} />
+            <CloseIcon size={17} />
           </button>
         </div>
 
@@ -323,7 +322,7 @@ function TransactionModal({ onClose }: { onClose: () => void }) {
             Cancelar
           </button>
           <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(18,184,92,.22)] transition hover:bg-[#0F9E4E] active:scale-[0.98]">
-            <Check size={15} strokeWidth={2.5} /> Salvar lançamento
+            <CheckIcon size={15} /> Salvar lançamento
           </button>
         </div>
       </form>
@@ -363,7 +362,7 @@ export default function Home() {
               onClick={() => setMobileOpen(true)}
               className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95 xl:hidden"
             >
-              <Menu size={18} />
+              <MenuIcon size={18} />
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
               <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Bom dia, Giovani</h1>
@@ -393,7 +392,7 @@ export default function Home() {
                 onClick={() => setNotificationsOpen((open) => !open)}
                 className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95"
               >
-                <Bell size={17} />
+                <NotificationIcon size={17} />
                 <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-[#E5533D] ring-2 ring-white" />
               </button>
               {notificationsOpen && (
@@ -419,7 +418,7 @@ export default function Home() {
               onClick={() => setModalOpen(true)}
               className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white shadow-[0_10px_24px_rgba(18,184,92,.18)] transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
             >
-              <Plus size={15} strokeWidth={2.5} />
+              <PlusIcon size={15} />
               <span className="hidden sm:inline">Novo lançamento</span>
               <span className="sm:hidden">Novo</span>
             </button>
@@ -453,17 +452,17 @@ export default function Home() {
             <div className="flex min-w-0 flex-col gap-5">
               <div className="grid gap-5 sm:grid-cols-3">
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#DFF6EA]"><ArrowUp size={17} className="text-[#0A7A42]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A receber</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#DFF6EA]"><ArrowUpIcon size={17} className="text-[#0A7A42]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A receber</span></div>
                   <strong className="text-[26px] tracking-[-0.02em] text-[#0A7A42]">R$ 42.180</strong>
                   <span className="text-xs text-[#8A968D]">12 títulos · 3 vencem hoje</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#FDECEA]"><ArrowDown size={17} className="text-[#B3261E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A pagar</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#FDECEA]"><ArrowDownIcon size={17} className="text-[#B3261E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A pagar</span></div>
                   <strong className="text-[26px] tracking-[-0.02em] text-[#B3261E]">R$ 27.640</strong>
                   <span className="text-xs font-semibold text-[#B3261E]">2 em atraso · R$ 4.180</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#F1F4F2]"><BarChart3 size={17} className="text-[#28382E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">Margem líquida</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#F1F4F2]"><ChartIcon size={17} className="text-[#28382E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">Margem líquida</span></div>
                   <strong className="text-[26px] tracking-[-0.02em]">40,2%</strong>
                   <span className="text-xs font-semibold text-[#0A7A42]">+2,6 p.p. vs. agosto</span>
                 </article>
@@ -497,7 +496,7 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <h2 className="text-[15px] font-bold">Últimos lançamentos</h2>
                 <button onClick={() => toast.info("Extrato completo selecionado")} className="ml-auto flex items-center gap-1 text-[12.5px] font-semibold text-[#0A7A42] hover:text-[#0B1F14]">
-                  Ver extrato <ChevronRight size={14} />
+                  Ver extrato <ChevronRightIcon size={14} />
                 </button>
               </div>
               <div className="mt-3.5 flex flex-col gap-1.5">
