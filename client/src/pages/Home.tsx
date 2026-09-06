@@ -346,8 +346,8 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#E9EEEB] p-3 text-[#0B1F14] sm:p-6 2xl:p-10">
-      <div className="mx-auto flex w-full max-w-[1440px] gap-5 rounded-[24px] bg-[#EFF4F1] p-3 shadow-[0_18px_44px_rgba(11,31,20,.10)] sm:p-5">
+    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
+      <div className="flex min-h-screen w-full gap-5 bg-[#EFF4F1] p-3 sm:p-5">
         <Sidebar
           active={activeNav}
           onSelect={selectNav}
