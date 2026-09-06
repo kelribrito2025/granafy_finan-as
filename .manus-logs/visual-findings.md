@@ -22,3 +22,7 @@ A implementação ainda carregava Roboto. O carregamento externo foi removido e 
 ## Iconly Outline Curved 48 px
 
 O pacote anterior foi substituído integralmente pelo tipo Curved (`type_id: 3`) do estilo Outline (`style_id: 5`). Os 13 SVGs oficiais usam um canvas-base interno de 48 × 48 px e são redimensionados proporcionalmente nos pontos de uso para preservar a densidade compacta do dashboard. A captura em 1440 × 900 confirmou curvas mais suaves e consistência visual na sidebar, KPIs, notificações, botão de novo lançamento, modal e seta de extrato, sem regressões de alinhamento ou layout.
+
+## Teste com Geist Sans
+
+A pilha SF Pro foi substituída por `"Geist", "Geist Sans", ui-sans-serif, system-ui, sans-serif`, carregando os pesos 400, 500, 600 e 700 via Google Fonts. `font-variant-numeric: tabular-nums` foi habilitado globalmente para dar largura consistente aos valores financeiros. A captura desktop em 1440 × 900 mostrou melhor definição nos números, títulos mais contemporâneos e boa legibilidade nas linhas compactas, sem cortes ou regressões de layout.
