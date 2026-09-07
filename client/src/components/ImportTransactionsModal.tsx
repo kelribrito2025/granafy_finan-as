@@ -167,8 +167,8 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="import-title" className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/50 p-3 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <section className="modal-enter flex max-h-[calc(100vh-24px)] w-full max-w-[980px] flex-col overflow-hidden rounded-[22px] bg-white text-[#0B1F14]">
-        <header className="flex items-start gap-4 border-b border-[#E8EEEA] px-5 py-4 sm:px-6">
+      <section className={`modal-enter flex max-h-[calc(100dvh-24px)] w-full max-w-[980px] flex-col overflow-hidden rounded-[22px] bg-white text-[#0B1F14] ${!result && step === "preview" ? "h-[calc(100dvh-24px)]" : ""}`}>
+        <header className="flex shrink-0 items-start gap-4 border-b border-[#E8EEEA] px-5 py-4 sm:px-6">
           <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#DFF6EA] text-[#0A7A42]"><UploadIcon size={20} /></span>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Importação bancária</p>
@@ -223,14 +223,14 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             <div className="mt-6 flex justify-end gap-2.5"><button type="button" onClick={onClose} className="rounded-xl bg-[#F1F4F2] px-5 py-3 text-[12.5px] font-bold text-[#4C6355]">Cancelar</button><button type="button" disabled={previewMutation.isPending || !file || !accountId || !incomeCategoryId || !expenseCategoryId} onClick={preview} className="rounded-xl bg-[#12B85C] px-5 py-3 text-[12.5px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{previewMutation.isPending ? "Analisando..." : "Revisar lançamentos"}</button></div>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 gap-2 border-b border-[#E8EEEA] bg-[#F8FAF9] px-5 py-3 sm:grid-cols-4 sm:px-6">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-[#E8EEEA] bg-[#F8FAF9] px-5 py-3 sm:grid-cols-4 sm:px-6">
               <div><span className="block text-[9.5px] text-[#8A968D]">Arquivo</span><strong className="block truncate text-[11.5px]">{file?.name}</strong></div>
               <div><span className="block text-[9.5px] text-[#8A968D]">Selecionados</span><strong className="text-[11.5px]">{selectedRows.length} de {rows.length}</strong></div>
               <div><span className="block text-[9.5px] text-[#8A968D]">Duplicatas</span><strong className="text-[11.5px] text-[#B87500]">{rows.filter(row => row.duplicate).length}</strong></div>
               <div><span className="block text-[9.5px] text-[#8A968D]">Total líquido</span><strong className={`text-[11.5px] ${selectedTotal >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(selectedTotal)}</strong></div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 border-b border-[#E8EEEA] px-5 py-2.5 sm:px-6">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#E8EEEA] px-5 py-2.5 sm:px-6">
               <span className="mr-1 text-[10px] font-bold uppercase tracking-[.06em] text-[#8A968D]">Aplicar a todos</span>
               <button type="button" onClick={() => applyTypeToAll("entrada")} className="rounded-lg bg-[#DFF6EA] px-3 py-2 text-[10.5px] font-bold text-[#0A7A42]">Receitas</button>
               <button type="button" onClick={() => applyTypeToAll("saida")} className="rounded-lg bg-[#FDECEA] px-3 py-2 text-[10.5px] font-bold text-[#B3261E]">Despesas</button>
@@ -250,13 +250,13 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                 </tr>; })}</tbody>
               </table>
             </div>
-            <footer className="flex flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-4 sm:px-6">
+            <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-3 sm:px-6">
               <button type="button" onClick={() => setStep("setup")} className="rounded-xl bg-[#F1F4F2] px-4 py-2.5 text-[12px] font-bold text-[#4C6355]">Voltar</button>
               {rows.length > PREVIEW_PAGE_SIZE && <div className="flex items-center gap-1.5 rounded-xl bg-[#F1F4F2] p-1"><button type="button" aria-label="Página anterior" disabled={previewPage === 0} onClick={() => setPreviewPage(page => Math.max(0, page - 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">←</button><span className="min-w-[150px] text-center text-[10.5px] font-semibold text-[#607067]">Página {previewPage + 1} de {previewPageCount} · {previewPage * PREVIEW_PAGE_SIZE + 1}–{Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, rows.length)}</span><button type="button" aria-label="Próxima página" disabled={previewPage >= previewPageCount - 1} onClick={() => setPreviewPage(page => Math.min(previewPageCount - 1, page + 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">→</button></div>}
               <p className="mr-auto text-[10.5px] text-[#8A968D]">Todos os selecionados serão processados em lotes seguros.</p>
               <button type="button" disabled={confirmMutation.isPending || selectedRows.length === 0} onClick={confirm} className="rounded-xl bg-[#12B85C] px-5 py-2.5 text-[12px] font-bold text-white disabled:opacity-45">{confirmMutation.isPending ? `Importando ${selectedRows.length}...` : `Importar ${selectedRows.length} lançamento${selectedRows.length === 1 ? "" : "s"}`}</button>
             </footer>
-          </>
+          </div>
         )}
       </section>
     </div>
