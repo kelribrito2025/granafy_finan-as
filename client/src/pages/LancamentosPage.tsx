@@ -640,8 +640,8 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col bg-white text-[#0B1F14] shadow-[-20px_0_50px_rgba(11,31,20,.16)] sm:rounded-l-[20px]">
+    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 p-3 backdrop-blur-[3px] sm:p-4" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
         <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
           <div className="min-w-0">
             <h2 id="launch-title" className="text-[18px] font-bold tracking-[-.01em]">
