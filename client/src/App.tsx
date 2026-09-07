@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AuthPage from "@/pages/AuthPage";
+import LancamentosPage from "@/pages/LancamentosPage";
 import NotFound from "@/pages/NotFound";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -23,7 +24,7 @@ function AuthLoading() {
   );
 }
 
-function ProtectedDashboard() {
+function ProtectedPage({ children }: { children: ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -37,7 +38,7 @@ function ProtectedDashboard() {
     return <AuthLoading />;
   }
 
-  return <Home />;
+  return children;
 }
 
 function Router() {
@@ -45,7 +46,8 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
-      <Route path="/" component={ProtectedDashboard} />
+      <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
+      <Route path="/"><ProtectedPage><Home /></ProtectedPage></Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

@@ -359,6 +359,10 @@ export default function Home() {
 
   const selectNav = (item: string) => {
     setActiveNav(item);
+    if (item === "Lançamentos") {
+      setLocation("/lancamentos");
+      return;
+    }
     if (item !== "Visão geral") {
       toast.info(`${item} selecionado`, { description: "Esta demonstração mantém os dados da visão geral." });
     }
@@ -548,7 +552,7 @@ export default function Home() {
             <section className="min-w-0 rounded-[20px] bg-white p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <h2 className="text-[15px] font-bold">Últimos lançamentos</h2>
-                <button onClick={() => toast.info("Extrato completo selecionado")} className="ml-auto flex items-center gap-1 text-[12.5px] font-semibold text-[#0A7A42] hover:text-[#0B1F14]">
+                <button onClick={() => setLocation("/lancamentos")} className="ml-auto flex items-center gap-1 text-[12.5px] font-semibold text-[#0A7A42] hover:text-[#0B1F14]">
                   Ver extrato <ChevronRightIcon size={14} />
                 </button>
               </div>
