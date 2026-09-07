@@ -22,6 +22,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
+import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -192,7 +193,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
   const [contact, setContact] = useState(transaction?.contact ?? "");
   const [category, setCategory] = useState(transaction?.category ?? "");
   const [categoryId, setCategoryId] = useState<number | null>(transaction?.categoryId ?? null);
-  const [amount, setAmount] = useState(transaction ? String(Math.abs(transaction.amount)).replace(".", ",") : "");
+  const [amount, setAmount] = useState(transaction ? formatCurrencyValue(Math.abs(transaction.amount)) : "0,00");
   const [account, setAccount] = useState(transaction?.account ?? "");
   const [accountId, setAccountId] = useState<number | null>(transaction?.accountId ?? null);
   const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
@@ -200,8 +201,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalized = amount.includes(",") ? amount.replace(/\./g, "").replace(",", ".") : amount;
-    const parsed = Number(normalized);
+    const parsed = currencyInputToNumber(amount);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       toast.error("Informe um valor válido");
       return;
@@ -223,7 +223,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Descrição</span><input autoFocus required value={description} onChange={event => setDescription(event.target.value)} placeholder="Ex.: Plano API · Cliente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10" /></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Data</span><input required type="date" value={transactionDate} onChange={event => setTransactionDate(event.target.value)} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
-          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Valor</span><div className="flex h-11 items-center rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C] focus-within:ring-4 focus-within:ring-[#12B85C]/10"><span className="mr-2 text-xs font-bold text-[#4C6355]">R$</span><input required inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00" className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none" /></div></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Valor</span><div className="flex h-11 items-center rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C] focus-within:ring-4 focus-within:ring-[#12B85C]/10"><span className="mr-2 text-xs font-bold text-[#4C6355]">R$</span><input required inputMode="decimal" value={amount} onFocus={event => event.currentTarget.select()} onChange={event => setAmount(formatCurrencyInput(event.target.value))} placeholder="0,00" className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none" /></div></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Contato</span><input value={contact} onChange={event => setContact(event.target.value)} placeholder="Fornecedor ou cliente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span><select required value={categoryId ?? ""} onChange={event => { const id = Number(event.target.value); const selected = options.categories.find(item => item.id === id); setCategoryId(id || null); setCategory(selected?.name ?? ""); }} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option value="">Selecione</option>{options.categories.filter(item => item.type === "ambos" || item.type === type).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Conta</span><select required value={accountId ?? ""} onChange={event => { const id = Number(event.target.value); const selected = options.accounts.find(item => item.id === id); setAccountId(id || null); setAccount(selected?.name ?? ""); }} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option value="">Selecione</option>{options.accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

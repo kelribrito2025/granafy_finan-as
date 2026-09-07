@@ -18,6 +18,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
+import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -108,7 +109,7 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
   const [institution, setInstitution] = useState(account?.institution ?? "");
   const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? "corrente");
   const [color, setColor] = useState(account?.color ?? "#12B85C");
-  const [initialBalance, setInitialBalance] = useState(account ? String(account.initialBalance).replace(".", ",") : "0,00");
+  const [initialBalance, setInitialBalance] = useState(account ? formatCurrencyValue(account.initialBalance) : "0,00");
 
   const selectPreset = (preset: (typeof BANK_PRESETS)[number]) => {
     const shouldReplaceName = !name.trim() || name === institution;
@@ -128,7 +129,7 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const parsed = Number(initialBalance.replace(/\./g, "").replace(",", "."));
+    const parsed = currencyInputToNumber(initialBalance);
     if (!Number.isFinite(parsed)) return toast.error("Informe um saldo inicial válido");
     if (!institution.trim()) return toast.error("Selecione ou informe a instituição");
     await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed });
@@ -157,7 +158,7 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
           {institutionChoice === "outro" && <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da instituição</span><input autoFocus required value={institution} onChange={event => setInstitution(event.target.value)} placeholder="Digite o banco ou instituição" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>}
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da conta</span><input autoFocus={institutionChoice !== "outro"} required value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Efi principal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>
           <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={accountType} onChange={event => setAccountType(event.target.value as Account["accountType"])} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]"><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="carteira">Carteira</option><option value="cartao">Cartão</option><option value="gateway">Gateway</option><option value="outro">Outro</option></select></label>
-          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onChange={event => setInitialBalance(event.target.value)} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onFocus={event => event.currentTarget.select()} onChange={event => setInitialBalance(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Cor de identificação</span><div className="flex h-11 items-center gap-3 rounded-xl bg-[#F8FAF9] px-3 ring-1 ring-[#E1E8E3]"><input aria-label="Cor da conta" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 cursor-pointer border-0 bg-transparent" /><span className="text-[12px] font-semibold uppercase text-[#718077]">{color}</span></div></label>
         </div>
 
