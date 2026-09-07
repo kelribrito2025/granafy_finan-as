@@ -136,7 +136,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   };
 
   return (
-    <main className="min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(460px,.92fr)]">
+    <main className="min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(460px,.92fr)]">
       <BrandPanel />
 
       <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
