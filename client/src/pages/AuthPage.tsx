@@ -15,7 +15,7 @@ import { Link, useLocation } from "wouter";
 type AuthMode = "login" | "signup";
 
 const inputClass =
-  "h-14 w-full rounded-[16px] border border-[#DCE5DF] bg-[#F4F8F6] px-4 text-[14px] text-[#0B1F14] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[#9AA69E] hover:bg-[#F0F6F2] focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10";
+  "h-12 w-full rounded-[12px] border border-[#DCE5DF] bg-[#F4F8F6] px-3.5 text-[13px] text-[#0B1F14] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[#9AA69E] hover:bg-[#F0F6F2] focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10";
 
 function BrandPanel() {
   const bars = [35, 49, 43, 68, 59, 82, 74, 100];
@@ -178,13 +178,13 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <button
                 type="button"
                 onClick={() => setLocation("/")}
-                className="mt-5 flex h-12 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.24)] transition hover:bg-[#0F9E4E] active:scale-[0.985]"
+                className="mt-5 flex h-11 w-full items-center justify-center gap-2.5 rounded-[12px] bg-[#12B85C] px-5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-[#0F9E4E] active:scale-[0.985]"
               >
                 Ir para o painel <ChevronRightIcon size={16} />
               </button>
             </div>
           ) : (
-            <form className="mt-9 space-y-5" onSubmit={submit}>
+            <form className="mt-8 space-y-4" onSubmit={submit}>
               {isSignup && (
                 <label className="block">
                   <span className="mb-2 block text-[13px] font-semibold text-[#18271F]">Nome</span>
@@ -294,7 +294,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <button
                 type="submit"
                 disabled={loading || submitting}
-                className="mt-1 flex h-14 w-full items-center justify-center gap-2.5 rounded-[16px] bg-[#12B85C] px-5 text-[14px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.2)] transition duration-150 hover:bg-[#0F9E4E] hover:shadow-[0_14px_32px_rgba(18,184,92,.26)] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
+                className="mt-1 flex h-11 w-full items-center justify-center gap-2.5 rounded-[12px] bg-[#12B85C] px-5 text-[13px] font-bold text-white transition-colors duration-150 hover:bg-[#0F9E4E] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
               >
                 {loading || submitting ? (
                   <>
