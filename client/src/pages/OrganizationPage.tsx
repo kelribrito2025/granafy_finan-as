@@ -55,6 +55,7 @@ const panelItems: NavItem[] = [
 ];
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon },
+  { label: "Balanço Patrimonial", icon: ChartIcon },
   { label: "Relatórios", icon: ChartIcon },
   { label: "Clientes", icon: UsersIcon },
 ];
@@ -67,7 +68,7 @@ function formatMoney(value: number) {
 function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[]; onSelect: (label: string) => void }) {
   return <div className="flex flex-col gap-[3px]"><span className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#B3BFB7]">{title}</span>{items.map(({ label, icon: Icon }) => {
     const selected = label === "Contas e categorias";
-    return <button key={label} type="button" onClick={() => onSelect(label)} className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition active:scale-[.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}><Icon size={16} /><span className="truncate">{label}</span></button>;
+    return <button key={label} type="button" onClick={() => onSelect(label)} className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition active:scale-[.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}><Icon size={16} /><span className="truncate">{label}</span></button>;
   })}</div>;
 }
 
@@ -77,9 +78,10 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     onClose();
     if (label === "Visão geral") setLocation("/");
     else if (label === "Lançamentos") setLocation("/lancamentos");
+    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label !== "Contas e categorias") toast.info(`${label} ainda não está disponível.`);
   };
-  return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[18px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white">NV</span><div className="min-w-0"><strong className="block truncate text-sm">NV Financeiro</strong><span className="block truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span></div><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5"><span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Banco conectado</span><div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" />TiDB Cloud</div></div></aside></>;
+  return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white">NV</span><div className="min-w-0"><strong className="block truncate text-sm">NV Financeiro</strong><span className="block truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span></div><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5"><span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Banco conectado</span><div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" />TiDB Cloud</div></div></aside></>;
 }
 
 type BankPreset = { id: string; name: string; initials: string; color: string; logo?: string };

@@ -39,6 +39,7 @@ const panelItems: NavItem[] = [
 
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon },
+  { label: "Balanço Patrimonial", icon: ChartIcon },
   { label: "Relatórios", icon: ChartIcon },
   { label: "Clientes", icon: UsersIcon },
 ];
@@ -85,7 +86,7 @@ function NavGroup({
             key={label}
             type="button"
             onClick={() => onSelect(label)}
-            className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition-all duration-150 active:scale-[0.98] ${
+            className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition-all duration-150 active:scale-[0.98] ${
               selected
                 ? "bg-[#12B85C] font-bold text-white"
                 : "text-[#28382E] hover:bg-[#F1FBF6]"
@@ -135,7 +136,7 @@ function Sidebar({
         />
       )}
       <aside
-        className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[22px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${
+        className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-[260px]"
         }`}
       >
@@ -225,6 +226,10 @@ export default function Home() {
     }
     if (item === "Contas e categorias") {
       setLocation("/organizacao");
+      return;
+    }
+    if (item === "Balanço Patrimonial") {
+      setLocation("/balanco-patrimonial");
       return;
     }
     if (item !== "Visão geral") {

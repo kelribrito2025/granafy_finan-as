@@ -3,10 +3,14 @@ import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
+  balanceSheetSnapshots,
   financialAccounts,
+  type InsertBalanceSheetSnapshot,
   type InsertFinancialAccount,
+  type InsertPatrimonialItem,
   type InsertUser,
   passwordResetRequests,
+  patrimonialItems,
   transactionCategories,
   type InsertTransactionCategory,
   transactionImportBatches,
@@ -553,4 +557,122 @@ export async function listImportBatches(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(transactionImportBatches).where(eq(transactionImportBatches.userId, userId)).orderBy(desc(transactionImportBatches.createdAt)).limit(12);
+}
+
+export async function listPatrimonialItems(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(patrimonialItems)
+    .where(eq(patrimonialItems.userId, userId))
+    .orderBy(desc(patrimonialItems.isActive), patrimonialItems.balanceGroup, patrimonialItems.name);
+}
+
+export async function getPatrimonialItem(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select()
+    .from(patrimonialItems)
+    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function getPatrimonialItemByName(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select()
+    .from(patrimonialItems)
+    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.name, name)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function createPatrimonialItem(
+  userId: number,
+  values: Omit<InsertPatrimonialItem, "userId">
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const result = await db.insert(patrimonialItems).values({ userId, ...values });
+  return getPatrimonialItem(userId, Number(result[0].insertId));
+}
+
+export async function updatePatrimonialItem(
+  userId: number,
+  id: number,
+  values: Partial<Omit<InsertPatrimonialItem, "userId">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db
+    .update(patrimonialItems)
+    .set(values)
+    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)));
+  return getPatrimonialItem(userId, id);
+}
+
+export async function deletePatrimonialItem(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .delete(patrimonialItems)
+    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)));
+}
+
+export async function listBalanceSheetSnapshots(userId: number, limit = 24) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(balanceSheetSnapshots)
+    .where(eq(balanceSheetSnapshots.userId, userId))
+    .orderBy(desc(balanceSheetSnapshots.referenceDate))
+    .limit(limit);
+}
+
+export async function upsertBalanceSheetSnapshot(
+  userId: number,
+  values: Omit<InsertBalanceSheetSnapshot, "userId">
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db
+    .insert(balanceSheetSnapshots)
+    .values({ userId, ...values })
+    .onDuplicateKeyUpdate({
+      set: {
+        cashAndEquivalents: values.cashAndEquivalents,
+        currentAssets: values.currentAssets,
+        nonCurrentAssets: values.nonCurrentAssets,
+        currentLiabilities: values.currentLiabilities,
+        nonCurrentLiabilities: values.nonCurrentLiabilities,
+        declaredEquity: values.declaredEquity,
+        totalAssets: values.totalAssets,
+        totalLiabilities: values.totalLiabilities,
+        netWorth: values.netWorth,
+        itemCount: values.itemCount,
+        updatedAt: new Date(),
+      },
+    });
+  const rows = await db
+    .select()
+    .from(balanceSheetSnapshots)
+    .where(and(
+      eq(balanceSheetSnapshots.userId, userId),
+      eq(balanceSheetSnapshots.referenceDate, values.referenceDate)
+    ))
+    .limit(1);
+  return rows[0];
+}
+
+export async function deleteBalanceSheetSnapshot(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .delete(balanceSheetSnapshots)
+    .where(and(eq(balanceSheetSnapshots.userId, userId), eq(balanceSheetSnapshots.id, id)));
 }

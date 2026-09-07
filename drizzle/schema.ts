@@ -105,6 +105,69 @@ export const transactions = mysqlTable("transactions", {
   uniqueIndex("transactions_user_fingerprint_uidx").on(table.userId, table.fingerprint),
 ]);
 
+/**
+ * User-managed balance-sheet lines. Financial-account cash is calculated from
+ * the existing ledger and is intentionally not duplicated here.
+ */
+export const patrimonialItems = mysqlTable("patrimonialItems", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  balanceGroup: mysqlEnum("balanceGroup", [
+    "ativo_circulante",
+    "ativo_nao_circulante",
+    "passivo_circulante",
+    "passivo_nao_circulante",
+    "patrimonio_liquido",
+  ]).notNull(),
+  itemType: mysqlEnum("itemType", [
+    "bem",
+    "direito",
+    "estoque",
+    "investimento",
+    "obrigacao",
+    "capital",
+    "ajuste",
+    "outro",
+  ]).default("outro").notNull(),
+  acquisitionDate: date("acquisitionDate", { mode: "string" }),
+  acquisitionValue: decimal("acquisitionValue", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  currentValue: decimal("currentValue", { precision: 15, scale: 2 }).notNull(),
+  valuationMethod: mysqlEnum("valuationMethod", ["manual", "depreciacao_linear"]).default("manual").notNull(),
+  usefulLifeMonths: int("usefulLifeMonths"),
+  residualValue: decimal("residualValue", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  notes: text("notes"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("patrimonial_items_user_name_uidx").on(table.userId, table.name),
+  index("patrimonial_items_user_group_idx").on(table.userId, table.balanceGroup),
+  index("patrimonial_items_user_active_idx").on(table.userId, table.isActive),
+]);
+
+/** Immutable position captured on a reference date for the evolution chart. */
+export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  referenceDate: date("referenceDate", { mode: "string" }).notNull(),
+  cashAndEquivalents: decimal("cashAndEquivalents", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  currentAssets: decimal("currentAssets", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  nonCurrentAssets: decimal("nonCurrentAssets", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  currentLiabilities: decimal("currentLiabilities", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  nonCurrentLiabilities: decimal("nonCurrentLiabilities", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  declaredEquity: decimal("declaredEquity", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  totalAssets: decimal("totalAssets", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  totalLiabilities: decimal("totalLiabilities", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  netWorth: decimal("netWorth", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  itemCount: int("itemCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("balance_sheet_snapshots_user_date_uidx").on(table.userId, table.referenceDate),
+  index("balance_sheet_snapshots_user_created_idx").on(table.userId, table.createdAt),
+]);
+
 export type UserRecord = typeof users.$inferSelect;
 export type User = Omit<UserRecord, "passwordHash" | "categoryDefaultsVersion">;
 export type InsertUser = typeof users.$inferInsert;
@@ -116,3 +179,7 @@ export type InsertTransactionCategory = typeof transactionCategories.$inferInser
 export type TransactionImportBatchRecord = typeof transactionImportBatches.$inferSelect;
 export type TransactionRecord = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
+export type PatrimonialItemRecord = typeof patrimonialItems.$inferSelect;
+export type InsertPatrimonialItem = typeof patrimonialItems.$inferInsert;
+export type BalanceSheetSnapshotRecord = typeof balanceSheetSnapshots.$inferSelect;
+export type InsertBalanceSheetSnapshot = typeof balanceSheetSnapshots.$inferInsert;

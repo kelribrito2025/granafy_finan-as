@@ -76,6 +76,7 @@ const panelItems: NavItem[] = [
 
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon },
+  { label: "Balanço Patrimonial", icon: ChartIcon },
   { label: "Relatórios", icon: ChartIcon },
   { label: "Clientes", icon: UsersIcon },
 ];
@@ -134,7 +135,7 @@ function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[];
       {items.map(({ label, icon: Icon, badge, badgeTone = "neutral" }) => {
         const selected = label === "Lançamentos";
         return (
-          <button key={label} type="button" onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
+          <button key={label} type="button" onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
             <Icon size={16} />
             <span className="truncate">{label}</span>
             {badge && <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${selected ? "bg-white/18 text-white" : badgeClass[badgeTone]}`}>{badge}</span>}
@@ -151,13 +152,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     onClose();
     if (label === "Visão geral") setLocation("/");
     else if (label === "Contas e categorias") setLocation("/organizacao");
+    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };
 
   return (
     <>
       {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[22px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
+      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
         <div className="flex items-center gap-2.5 px-1.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white">NV</span>
           <div className="flex min-w-0 flex-col"><span className="truncate text-sm font-bold">NV Financeiro</span><span className="truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span></div>
