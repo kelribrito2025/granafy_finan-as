@@ -148,9 +148,6 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
-/** Quantas linhas o rodapé revela por vez. */
-const PAGE_SIZE = 50;
-
 function formatPercent(value: number) {
   return `${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
 }
@@ -960,7 +957,6 @@ export default function LancamentosPage() {
   const [statusFilter, setStatusFilter] = useState<"todos" | Transaction["status"]>("todos");
   const [accountFilter, setAccountFilter] = useState("todos");
   const [categoryFilter, setCategoryFilter] = useState("todos");
-  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
   const [categorizeOpen, setCategorizeOpen] = useState(false);
   const [sort, setSort] = useState<TransactionSortState>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -1011,20 +1007,14 @@ export default function LancamentosPage() {
     });
   }, [accountFilter, categoryFilter, search, statusFilter, transactions, typeFilter]);
 
-  // Um filtro novo pode deixar a lista menor que a janela já revelada; voltar ao
-  // tamanho inicial evita mostrar "50 de 12".
-  useEffect(() => {
-    setVisibleLimit(PAGE_SIZE);
-  }, [accountFilter, categoryFilter, search, statusFilter, typeFilter, sort]);
 
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
   const someSelected = !allSelected && filtered.some(item => selected.includes(item.id));
   const selectedTransactions = useMemo(() => transactions.filter(transaction => selected.includes(transaction.id)), [selected, transactions]);
   const selectedTypes = useMemo(() => Array.from(new Set(selectedTransactions.map(transaction => transaction.type))), [selectedTransactions]);
-  // Os totais e as contagens olham o mês filtrado inteiro; só a renderização é
-  // paginada. Um "Carregar mais" que mudasse os KPIs seria mentiroso.
-  const visible = useMemo(() => filtered.slice(0, visibleLimit), [filtered, visibleLimit]);
-  const groupedTransactions = useMemo(() => buildTransactionDisplayGroups(visible, sort), [visible, sort]);
+  // O extrato mostra o mês inteiro de uma vez: sem paginação, o que está na tela
+  // é sempre o que os totais do rodapé estão somando.
+  const groupedTransactions = useMemo(() => buildTransactionDisplayGroups(filtered, sort), [filtered, sort]);
   const today = todayIso();
   const counts = useMemo(() => {
     const cash = filtered.filter(item => item.type !== "transferencia");
@@ -1398,13 +1388,9 @@ export default function LancamentosPage() {
 
             <div className="flex shrink-0 items-center gap-3.5 border-t border-[#F1F4F2] pt-3.5">
               <span className="text-[12.5px] text-[#8A968D]">
-                {Math.min(visibleLimit, filtered.length).toLocaleString("pt-BR")} de {filtered.length.toLocaleString("pt-BR")} {filtered.length === 1 ? "lançamento" : "lançamentos"}
+                {filtered.length.toLocaleString("pt-BR")} {filtered.length === 1 ? "lançamento" : "lançamentos"}
+                {filtered.length !== transactions.length && ` de ${transactions.length.toLocaleString("pt-BR")} no mês`}
               </span>
-              {filtered.length > visibleLimit && (
-                <button type="button" onClick={() => setVisibleLimit(current => current + PAGE_SIZE)} className="rounded-[10px] border border-[#E3EAE5] px-3.5 py-2 text-[12.5px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">
-                  Carregar mais
-                </button>
-              )}
             </div>
           </section>
 
