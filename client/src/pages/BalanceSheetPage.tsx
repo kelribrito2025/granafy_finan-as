@@ -15,6 +15,7 @@ import {
   PlusIcon,
   SettingsIcon,
   TrendUpIcon,
+  UploadIcon,
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
@@ -37,6 +38,12 @@ import {
   type Period,
 } from "@/lib/period";
 import { trpc } from "@/lib/trpc";
+import {
+  ASSET_CATEGORIES,
+  ASSET_CATEGORY_LABELS,
+  DEPRECIABLE_CATEGORIES,
+  type AssetCategory,
+} from "@shared/assetCategory";
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -73,6 +80,13 @@ type PatrimonialItem = {
   isActive: boolean;
   bookValue: number;
   accumulatedDepreciation: number;
+  assetCategory: AssetCategory | null;
+  costCenter: string;
+  costCenterId: number | null;
+  sourceAccount: string;
+  sourceAccountId: number | null;
+  attachmentKey: string | null;
+  attachmentName: string | null;
 };
 type PatrimonialValues = {
   name: string;
@@ -85,6 +99,16 @@ type PatrimonialValues = {
   usefulLifeMonths: number | null;
   residualValue: number;
   notes: string;
+  assetCategory: AssetCategory | null;
+  costCenterId: number | null;
+  sourceAccountId: number | null;
+  attachmentKey: string | null;
+  attachmentName: string | null;
+};
+
+type OrganizationOptions = {
+  accounts: Array<{ id: number; name: string }>;
+  costCenters: Array<{ id: number; name: string }>;
 };
 type Tab = "overview" | "assets" | "liabilities" | "evolution";
 type StatementRow = { label: string; value: number; hint?: string };
@@ -271,7 +295,322 @@ function allowedTypes(group: BalanceGroup): ItemType[] {
   return ["capital", "ajuste", "outro"];
 }
 
-function ItemModal({ item, initialGroup, pending, onClose, onSave }: {
+const assetFieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
+const assetLabelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
+
+const ASSET_ATTACHMENT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp";
+const ASSET_CONTENT_TYPES: Record<string, "application/pdf" | "image/png" | "image/jpeg" | "image/webp"> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+};
+const MAX_ASSET_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+function assetFileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo"));
+    reader.onload = () => {
+      const result = String(reader.result);
+      const separator = result.indexOf(",");
+      if (separator === -1) reject(new Error("Arquivo inválido"));
+      else resolve(result.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Espelha calculateItemBookValue do servidor, inclusive o corte do residual em
+ * [0, valor de aquisição]. A prévia precisa bater com o que vai ser gravado; um
+ * número aqui diferente do balanço seria pior do que não mostrar número nenhum.
+ */
+function monthlyDepreciation(acquisitionValue: number, residualValue: number, usefulLifeMonths: number) {
+  if (usefulLifeMonths <= 0) return 0;
+  const acquisition = Math.max(0, acquisitionValue);
+  const residual = Math.min(acquisition, Math.max(0, residualValue));
+  return (acquisition - residual) / usefulLifeMonths;
+}
+
+function AssetModal({ item, pending, options, onManageOrganization, onClose, onSave }: {
+  item: PatrimonialItem | null;
+  pending: boolean;
+  options: OrganizationOptions;
+  onManageOrganization: () => void;
+  onClose: () => void;
+  onSave: (values: PatrimonialValues) => Promise<void>;
+}) {
+  const [name, setName] = useState(item?.name ?? "");
+  const [assetCategory, setAssetCategory] = useState<AssetCategory>(item?.assetCategory ?? "equipamento");
+  const [costCenterId, setCostCenterId] = useState<number | null>(item?.costCenterId ?? null);
+  const [balanceGroup, setBalanceGroup] = useState<BalanceGroup>(item?.balanceGroup ?? "ativo_nao_circulante");
+  const [acquisitionDate, setAcquisitionDate] = useState(item?.acquisitionDate ?? today());
+  const [acquisitionValue, setAcquisitionValue] = useState(item ? formatCurrencyValue(item.acquisitionValueNumber) : "0,00");
+  const [currentValue, setCurrentValue] = useState(item ? formatCurrencyValue(item.currentValueNumber) : "0,00");
+  const [valuationMethod, setValuationMethod] = useState<ValuationMethod>(
+    item?.valuationMethod ?? (DEPRECIABLE_CATEGORIES.includes(assetCategory) ? "depreciacao_linear" : "manual")
+  );
+  const [usefulLifeYears, setUsefulLifeYears] = useState(() => {
+    const months = item?.usefulLifeMonths ?? 60;
+    return String(Math.max(1, Math.round(months / 12)));
+  });
+  const [residualValue, setResidualValue] = useState(item ? formatCurrencyValue(item.residualValueNumber) : "0,00");
+  const [sourceAccountId, setSourceAccountId] = useState<number | null>(item?.sourceAccountId ?? null);
+  const [attachmentKey, setAttachmentKey] = useState(item?.attachmentKey ?? null);
+  const [attachmentName, setAttachmentName] = useState(item?.attachmentName ?? null);
+  const [notes, setNotes] = useState(item?.notes ?? "");
+  const uploadAttachment = trpc.transactions.uploadAttachment.useMutation();
+
+  const depreciates = valuationMethod === "depreciacao_linear";
+  const usefulLifeMonths = Math.max(1, Math.min(100, Number(usefulLifeYears) || 1)) * 12;
+  const acquisitionNumber = currencyInputToNumber(acquisitionValue);
+  const residualNumber = currencyInputToNumber(residualValue);
+  const monthly = depreciates && Number.isFinite(acquisitionNumber) && Number.isFinite(residualNumber)
+    ? monthlyDepreciation(acquisitionNumber, residualNumber, usefulLifeMonths)
+    : 0;
+
+  const changeCategory = (next: AssetCategory) => {
+    setAssetCategory(next);
+    // Estoque e investimento não depreciam; só sugerimos, o usuário pode trocar.
+    if (!item && !DEPRECIABLE_CATEGORIES.includes(next)) setValuationMethod("manual");
+  };
+
+  const pickAttachment = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_ASSET_ATTACHMENT_BYTES) return toast.error("O anexo deve ter no máximo 8 MB");
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const contentType = ASSET_CONTENT_TYPES[extension];
+    if (!contentType) return toast.error("Anexe um PDF ou uma imagem PNG, JPG ou WEBP");
+    try {
+      const stored = await uploadAttachment.mutateAsync({
+        fileName: file.name,
+        contentType,
+        dataBase64: await assetFileToBase64(file),
+        folder: "bens",
+      });
+      setAttachmentKey(stored.key);
+      setAttachmentName(stored.name);
+      toast.success("Nota fiscal anexada");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o anexo");
+    }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!Number.isFinite(acquisitionNumber) || acquisitionNumber <= 0) {
+      return toast.error("Informe um valor de aquisição maior que zero");
+    }
+    if (depreciates && residualNumber > acquisitionNumber) {
+      return toast.error("O valor residual não pode superar o valor de aquisição");
+    }
+    try {
+      await onSave({
+        name: name.trim(),
+        balanceGroup,
+        itemType: "bem",
+        acquisitionDate,
+        acquisitionValue: acquisitionNumber,
+        // Sem depreciação o valor contábil é o valor atual informado; com ela, o
+        // valor de aquisição é o ponto de partida do cálculo.
+        currentValue: depreciates ? acquisitionNumber : currencyInputToNumber(currentValue),
+        valuationMethod,
+        usefulLifeMonths: depreciates ? usefulLifeMonths : null,
+        residualValue: depreciates ? residualNumber : 0,
+        notes,
+        assetCategory,
+        costCenterId,
+        sourceAccountId,
+        attachmentKey,
+        attachmentName,
+      });
+    } catch (error) {
+      toast.error(safeError(error, "Não foi possível salvar o bem."));
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="asset-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px] sm:p-8" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="modal-enter flex max-h-full w-full max-w-[520px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
+          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-[#DFF6EA] text-[#0A7A42]"><ChartIcon size={19} /></span>
+          <div className="min-w-0">
+            <h2 id="asset-modal-title" className="text-[18px] font-bold tracking-[-.01em]">{item ? "Editar bem" : "Cadastrar bem"}</h2>
+            <p className="text-[12.5px] text-[#8A968D]">
+              {depreciates ? "Entra no imobilizado e passa a depreciar automaticamente" : "Entra no balanço pelo valor que você informar"}
+            </p>
+          </div>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]"><CloseIcon size={16} /></button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-[18px] overflow-y-auto px-6 py-5">
+          <label className="block">
+            <span className={assetLabelClass}>Descrição do bem</span>
+            <input autoFocus required minLength={2} maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Servidor Dell PowerEdge R760" className={assetFieldClass} />
+          </label>
+
+          <div className="flex gap-3.5">
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Categoria</span>
+              <select value={assetCategory} onChange={event => changeCategory(event.target.value as AssetCategory)} className={assetFieldClass}>
+                {ASSET_CATEGORIES.map(value => <option key={value} value={value}>{ASSET_CATEGORY_LABELS[value]}</option>)}
+              </select>
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Centro de custo</span>
+              <select value={costCenterId ?? ""} onChange={event => setCostCenterId(Number(event.target.value) || null)} className={assetFieldClass}>
+                <option value="">Nenhum</option>
+                {options.costCenters.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <div className="flex gap-3.5">
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Data de aquisição</span>
+              <input required type="date" max={today()} value={acquisitionDate} onChange={event => setAcquisitionDate(event.target.value)} className={assetFieldClass} />
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Valor de aquisição</span>
+              <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+                <span className="text-[13px] text-[#8A968D]">R$</span>
+                <input required inputMode="decimal" value={acquisitionValue} onFocus={event => event.currentTarget.select()} onChange={event => setAcquisitionValue(formatCurrencyInput(event.target.value))} className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold outline-none" />
+              </div>
+            </label>
+          </div>
+
+          <div>
+            <span className={assetLabelClass}>Método de depreciação</span>
+            <div className="flex gap-2">
+              {([["depreciacao_linear", "Linear"], ["manual", "Não deprecia"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setValuationMethod(value)}
+                  aria-pressed={valuationMethod === value}
+                  className={`h-[42px] flex-1 rounded-xl text-[13px] transition ${valuationMethod === value ? "bg-[#12B85C] font-bold text-white" : "border border-[#E3EAE5] text-[#4C6355] hover:bg-[#F8FAF9]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {depreciates ? (
+            <div className="flex gap-3.5">
+              <label className="min-w-0 flex-1">
+                <span className={assetLabelClass}>Vida útil</span>
+                <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+                  <input required type="number" min={1} max={100} value={usefulLifeYears} onChange={event => setUsefulLifeYears(event.target.value)} className="w-[52px] min-w-0 bg-transparent text-[14px] font-semibold outline-none" />
+                  <span className="truncate text-[13px] text-[#8A968D]">anos · {usefulLifeMonths} meses</span>
+                </div>
+              </label>
+              <label className="min-w-0 flex-1">
+                <span className={assetLabelClass}>Valor residual</span>
+                <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+                  <span className="text-[13px] text-[#8A968D]">R$</span>
+                  <input inputMode="decimal" value={residualValue} onFocus={event => event.currentTarget.select()} onChange={event => setResidualValue(formatCurrencyInput(event.target.value))} className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold outline-none" />
+                </div>
+              </label>
+            </div>
+          ) : (
+            <label className="block">
+              <span className={assetLabelClass}>Valor atual no balanço</span>
+              <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+                <span className="text-[13px] text-[#8A968D]">R$</span>
+                <input inputMode="decimal" value={currentValue} onFocus={event => event.currentTarget.select()} onChange={event => setCurrentValue(formatCurrencyInput(event.target.value))} className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold outline-none" />
+              </div>
+            </label>
+          )}
+
+          <div>
+            <span className={assetLabelClass}>Grupo no balanço</span>
+            <div className="flex gap-2">
+              {([["ativo_nao_circulante", "Não circulante"], ["ativo_circulante", "Circulante"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setBalanceGroup(value)}
+                  aria-pressed={balanceGroup === value}
+                  className={`h-[42px] flex-1 rounded-xl text-[13px] transition ${balanceGroup === value ? "bg-[#DFF6EA] font-bold text-[#0A7A42]" : "border border-[#E3EAE5] text-[#4C6355] hover:bg-[#F8FAF9]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3.5">
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Conta de origem</span>
+              <select value={sourceAccountId ?? ""} onChange={event => setSourceAccountId(Number(event.target.value) || null)} className={assetFieldClass}>
+                <option value="">Não informar</option>
+                {options.accounts.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+              </select>
+            </label>
+            <div className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Nota fiscal</span>
+              {attachmentName ? (
+                <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5">
+                  <DocumentIcon size={15} />
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0A7A42]">{attachmentName}</span>
+                  <button type="button" aria-label="Remover anexo" onClick={() => { setAttachmentKey(null); setAttachmentName(null); }} className="shrink-0 rounded-lg p-1 text-[#8A968D] hover:bg-[#E7ECE9]"><CloseIcon size={14} /></button>
+                </div>
+              ) : (
+                <label className={`flex h-[46px] cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#C9D5CD] px-3.5 ${uploadAttachment.isPending ? "opacity-60" : "hover:bg-[#F8FAF9]"}`}>
+                  <UploadIcon size={15} />
+                  <span className="truncate text-[13px] font-semibold text-[#0A7A42]">{uploadAttachment.isPending ? "Enviando..." : "Anexar PDF ou imagem"}</span>
+                  <input type="file" accept={ASSET_ATTACHMENT_ACCEPT} disabled={uploadAttachment.isPending} onChange={event => { void pickAttachment(event.target.files?.[0]); event.target.value = ""; }} className="hidden" />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <label className="block">
+            <span className={assetLabelClass}>Observações</span>
+            <textarea maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Nota fiscal, número de série, contrato ou responsável" className="min-h-[74px] w-full resize-y rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 py-3 text-[14px] outline-none focus:border-[#12B85C]" />
+          </label>
+
+          {depreciates && monthly > 0 && (
+            <div className="flex items-start gap-3 rounded-[14px] bg-[#F1FBF6] p-3.5">
+              <span className="mt-0.5 shrink-0 text-[#0A7A42]"><CheckIcon size={16} /></span>
+              <div>
+                <strong className="block text-[12.5px] font-semibold text-[#0A7A42]">
+                  Depreciação estimada: {formatMoney(monthly)} por mês
+                </strong>
+                <span className="mt-0.5 block text-[12px] leading-relaxed text-[#4C6355]">
+                  O bem entra no imobilizado por {formatMoney(acquisitionNumber)} e chega a {formatMoney(Math.min(acquisitionNumber, Math.max(0, residualNumber)))} ao fim dos {usefulLifeMonths} meses.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {options.accounts.length === 0 && (
+            <button type="button" onClick={onManageOrganization} className="w-full rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-left text-[11px] font-bold text-[#725517]">
+              Cadastre uma conta financeira para poder informar a origem do pagamento
+            </button>
+          )}
+        </div>
+
+        <div className="flex shrink-0 gap-3 border-t border-[#EDF1EE] px-6 py-4">
+          <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Cancelar</button>
+          <button type="submit" disabled={pending || uploadAttachment.isPending} className="h-12 flex-[2] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-60">
+            {pending ? "Salvando..." : item ? "Salvar bem" : "Cadastrar bem"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * Obrigações, capital social e ajustes não têm depreciação, categoria de
+ * imobilizado nem nota fiscal — o formulário enxuto existe para eles não
+ * ficarem sem tela de cadastro depois que o modal de bem virou específico.
+ */
+function LiabilityModal({ item, initialGroup, pending, onClose, onSave }: {
   item: PatrimonialItem | null;
   initialGroup: BalanceGroup;
   pending: boolean;
@@ -280,128 +619,112 @@ function ItemModal({ item, initialGroup, pending, onClose, onSave }: {
 }) {
   const [name, setName] = useState(item?.name ?? "");
   const [balanceGroup, setBalanceGroup] = useState<BalanceGroup>(item?.balanceGroup ?? initialGroup);
-  const [itemType, setItemType] = useState<ItemType>(
-    item?.itemType ?? allowedTypes(initialGroup)[0]
-  );
-  const [acquisitionDate, setAcquisitionDate] = useState(item?.acquisitionDate ?? "");
-  const [acquisitionValue, setAcquisitionValue] = useState(item ? formatCurrencyValue(item.acquisitionValueNumber) : "0,00");
+  const [itemType, setItemType] = useState<ItemType>(item?.itemType ?? "obrigacao");
   const [currentValue, setCurrentValue] = useState(item ? formatCurrencyValue(item.currentValueNumber) : "0,00");
-  const [valuationMethod, setValuationMethod] = useState<ValuationMethod>(item?.valuationMethod ?? "manual");
-  const [usefulLifeMonths, setUsefulLifeMonths] = useState(item?.usefulLifeMonths?.toString() ?? "60");
-  const [residualValue, setResidualValue] = useState(item ? formatCurrencyValue(item.residualValueNumber) : "0,00");
+  const [acquisitionDate, setAcquisitionDate] = useState(item?.acquisitionDate ?? today());
   const [notes, setNotes] = useState(item?.notes ?? "");
+
+  const allowedTypes: ItemType[] = balanceGroup.startsWith("passivo_")
+    ? ["obrigacao", "outro"]
+    : ["capital", "ajuste", "outro"];
 
   const changeGroup = (group: BalanceGroup) => {
     setBalanceGroup(group);
-    const types = allowedTypes(group);
+    const types: ItemType[] = group.startsWith("passivo_") ? ["obrigacao", "outro"] : ["capital", "ajuste", "outro"];
     if (!types.includes(itemType)) setItemType(types[0]);
-    if (!group.startsWith("ativo_")) setValuationMethod("manual");
   };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const acquisition = currencyInputToNumber(acquisitionValue);
-    const current = currencyInputToNumber(currentValue);
-    const residual = currencyInputToNumber(residualValue);
-    if (![acquisition, current, residual].every(Number.isFinite)) {
-      toast.error("Revise os valores monetários informados.");
-      return;
-    }
+    const value = currencyInputToNumber(currentValue);
+    if (!Number.isFinite(value)) return toast.error("Revise o valor informado.");
     try {
       await onSave({
         name: name.trim(),
         balanceGroup,
         itemType,
-        acquisitionDate: acquisitionDate || null,
-        acquisitionValue: acquisition,
-        currentValue: current,
-        valuationMethod,
-        usefulLifeMonths: valuationMethod === "depreciacao_linear"
-          ? Number(usefulLifeMonths)
-          : null,
-        residualValue: residual,
+        acquisitionDate,
+        acquisitionValue: value,
+        currentValue: value,
+        valuationMethod: "manual",
+        usefulLifeMonths: null,
+        residualValue: 0,
         notes,
+        assetCategory: null,
+        costCenterId: null,
+        sourceAccountId: null,
+        attachmentKey: null,
+        attachmentName: null,
       });
     } catch (error) {
-      toast.error(safeError(error, "Não foi possível salvar o item patrimonial."));
+      toast.error(safeError(error, "Não foi possível salvar a linha do balanço."));
     }
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="item-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <form onSubmit={submit} className="modal-enter max-h-[calc(100vh-32px)] w-full max-w-[680px] overflow-y-auto rounded-[22px] bg-white p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Cadastro patrimonial</p>
-            <h2 id="item-modal-title" className="mt-1 text-xl font-bold">{item ? "Editar item" : "Novo item patrimonial"}</h2>
-            <p className="mt-1 text-xs text-[#8A968D]">Cadastre bens, direitos, obrigações, capital e ajustes.</p>
+    <div role="dialog" aria-modal="true" aria-labelledby="liability-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px] sm:p-8" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="modal-enter flex max-h-full w-full max-w-[460px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
+          <div className="min-w-0">
+            <h2 id="liability-modal-title" className="text-[18px] font-bold tracking-[-.01em]">
+              {item ? "Editar linha do balanço" : "Nova obrigação ou linha de PL"}
+            </h2>
+            <p className="text-[12.5px] text-[#8A968D]">Dívidas, capital social e ajustes patrimoniais</p>
           </div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355]"><CloseIcon size={17} /></button>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]"><CloseIcon size={16} /></button>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome do item</span>
-            <input autoFocus required minLength={2} maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Veículo de entregas" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" />
+        <div className="min-h-0 flex-1 space-y-[18px] overflow-y-auto px-6 py-5">
+          <label className="block">
+            <span className={assetLabelClass}>Nome</span>
+            <input autoFocus required minLength={2} maxLength={120} value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Empréstimo Inter PJ" className={assetFieldClass} />
           </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Grupo patrimonial</span>
-            <select value={balanceGroup} onChange={event => changeGroup(event.target.value as BalanceGroup)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]">
-              {Object.entries(groupLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span>
-            <select value={itemType} onChange={event => setItemType(event.target.value as ItemType)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]">
-              {allowedTypes(balanceGroup).map(value => <option key={value} value={value}>{typeLabels[value]}</option>)}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Data de aquisição</span>
-            <input type="date" max={today()} value={acquisitionDate} onChange={event => setAcquisitionDate(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Valor de aquisição</span>
-            <input value={acquisitionValue} onFocus={event => event.currentTarget.select()} onChange={event => setAcquisitionValue(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Valor atual</span>
-            <input value={currentValue} onFocus={event => event.currentTarget.select()} onChange={event => setCurrentValue(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Avaliação</span>
-            <select value={valuationMethod} onChange={event => setValuationMethod(event.target.value as ValuationMethod)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]">
-              <option value="manual">Valor atual informado</option>
-              {balanceGroup.startsWith("ativo_") && <option value="depreciacao_linear">Depreciação linear automática</option>}
-            </select>
-          </label>
-          {valuationMethod === "depreciacao_linear" && (
-            <>
-              <label>
-                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Vida útil em meses</span>
-                <input required type="number" min={1} max={1200} value={usefulLifeMonths} onChange={event => setUsefulLifeMonths(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" />
-              </label>
-              <label>
-                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Valor residual</span>
-                <input value={residualValue} onFocus={event => event.currentTarget.select()} onChange={event => setResidualValue(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" />
-              </label>
-              <p className="sm:col-span-2 rounded-xl bg-[#F1FBF6] px-3.5 py-3 text-[11px] leading-relaxed text-[#4C6355]">
-                O valor contábil será calculado pela data, vida útil e valor residual. O valor atual fica como segurança caso os dados de depreciação sejam removidos.
-              </p>
-            </>
-          )}
-          <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Observações</span>
-            <textarea maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Detalhes, matrícula, contrato, localização ou responsável" className="min-h-[82px] w-full resize-y rounded-xl bg-[#F8FAF9] px-3.5 py-3 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" />
+          <div className="flex gap-3.5">
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Grupo</span>
+              <select value={balanceGroup} onChange={event => changeGroup(event.target.value as BalanceGroup)} className={assetFieldClass}>
+                <option value="passivo_circulante">Passivo circulante</option>
+                <option value="passivo_nao_circulante">Passivo não circulante</option>
+                <option value="patrimonio_liquido">Patrimônio líquido</option>
+              </select>
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Tipo</span>
+              <select value={itemType} onChange={event => setItemType(event.target.value as ItemType)} className={assetFieldClass}>
+                {allowedTypes.map(value => <option key={value} value={value}>{typeLabels[value]}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-3.5">
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Data</span>
+              <input required type="date" max={today()} value={acquisitionDate} onChange={event => setAcquisitionDate(event.target.value)} className={assetFieldClass} />
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className={assetLabelClass}>Valor</span>
+              <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+                <span className="text-[13px] text-[#8A968D]">R$</span>
+                <input required inputMode="decimal" value={currentValue} onFocus={event => event.currentTarget.select()} onChange={event => setCurrentValue(formatCurrencyInput(event.target.value))} className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold outline-none" />
+              </div>
+            </label>
+          </div>
+          <label className="block">
+            <span className={assetLabelClass}>Observações</span>
+            <textarea maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Contrato, credor, vencimento ou responsável" className="min-h-[74px] w-full resize-y rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 py-3 text-[14px] outline-none focus:border-[#12B85C]" />
           </label>
         </div>
-        <div className="mt-6 flex gap-2.5">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355]">Cancelar</button>
-          <button disabled={pending} type="submit" className="flex-1 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white disabled:opacity-50">{pending ? "Salvando..." : "Salvar item"}</button>
+
+        <div className="flex shrink-0 gap-3 border-t border-[#EDF1EE] px-6 py-4">
+          <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Cancelar</button>
+          <button type="submit" disabled={pending} className="h-12 flex-[2] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-60">
+            {pending ? "Salvando..." : "Salvar"}
+          </button>
         </div>
       </form>
     </div>
   );
 }
+
 
 function SnapshotModal({ pending, onClose, onSave }: {
   pending: boolean;
@@ -577,6 +900,11 @@ export default function BalanceSheetPage() {
   const [newItemGroup, setNewItemGroup] = useState<BalanceGroup>("ativo_nao_circulante");
   const utils = trpc.useUtils();
   const overviewQuery = trpc.balanceSheet.overview.useQuery(undefined);
+  const organizationQuery = trpc.organization.options.useQuery();
+  const organizationOptions: OrganizationOptions = {
+    accounts: organizationQuery.data?.accounts ?? [],
+    costCenters: organizationQuery.data?.costCenters ?? [],
+  };
   const data = overviewQuery.data;
   const refresh = async () => { await utils.balanceSheet.overview.invalidate(); };
   const createItem = trpc.balanceSheet.createItem.useMutation({ onSuccess: refresh });
@@ -592,18 +920,29 @@ export default function BalanceSheetPage() {
   const summary = data?.summary;
   const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] active:scale-95";
 
+  // Bem e obrigação têm formulários diferentes; o grupo decide qual abrir.
   const openNew = (group?: BalanceGroup) => {
     setEditingItem(null);
     setNewItemGroup(group ?? "ativo_nao_circulante");
     setItemModal(true);
     if (group?.startsWith("passivo_")) setTab("liabilities");
   };
+  const openEdit = (item: PatrimonialItem) => {
+    setEditingItem(item);
+    setNewItemGroup(item.balanceGroup);
+    setItemModal(true);
+  };
+  const editingIsAsset = editingItem
+    ? editingItem.balanceGroup.startsWith("ativo_")
+    : newItemGroup.startsWith("ativo_");
   const saveItem = async (values: PatrimonialValues) => {
     if (editingItem) await updateItem.mutateAsync({ id: editingItem.id, ...values });
     else await createItem.mutateAsync(values);
     setItemModal(false);
     setEditingItem(null);
-    toast.success(editingItem ? "Item patrimonial atualizado" : "Item patrimonial cadastrado");
+    toast.success(editingIsAsset
+      ? (editingItem ? "Bem atualizado" : "Bem cadastrado no imobilizado")
+      : (editingItem ? "Linha do balanço atualizada" : "Linha do balanço cadastrada"));
   };
   const handleDelete = async (item: PatrimonialItem) => {
     if (!window.confirm(`Excluir “${item.name}”? Os fechamentos históricos serão preservados.`)) return;
@@ -910,14 +1249,16 @@ export default function BalanceSheetPage() {
                 </section>
               )}
 
-              {(tab === "assets" || tab === "liabilities") && <section className="min-h-[430px] flex-1 rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="mb-4 flex items-center"><div><h2 className="text-[15px] font-bold">{tab === "assets" ? "Bens e direitos da empresa" : "Obrigações e patrimônio líquido"}</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">{tab === "assets" ? "Ativos circulantes, imobilizados, estoques e investimentos" : "Dívidas de curto e longo prazo, capital e ajustes"}</p></div><span className="ml-auto rounded-lg bg-[#F1F4F2] px-2.5 py-1 text-[10.5px] font-bold text-[#607067]">{tab === "assets" ? assetItems.length : liabilityItems.length} {(tab === "assets" ? assetItems.length : liabilityItems.length) === 1 ? "cadastrado" : "cadastrados"}</span></div><ItemList items={tab === "assets" ? assetItems : liabilityItems} emptyTitle={tab === "assets" ? "Nenhum bem ou direito cadastrado" : "Nenhuma obrigação ou linha de PL"} emptyText={tab === "assets" ? "Cadastre imóveis, veículos, equipamentos, estoque, investimentos e outros bens da empresa." : "Cadastre fornecedores, empréstimos, financiamentos, capital social e ajustes patrimoniais."} onCreate={() => openNew(tab === "assets" ? "ativo_nao_circulante" : "passivo_circulante")} onEdit={item => { setEditingItem(item); setItemModal(true); }} onToggle={item => toggleItem.mutate({ id: item.id })} onDelete={handleDelete} /></section>}
+              {(tab === "assets" || tab === "liabilities") && <section className="min-h-[430px] flex-1 rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="mb-4 flex items-center"><div><h2 className="text-[15px] font-bold">{tab === "assets" ? "Bens e direitos da empresa" : "Obrigações e patrimônio líquido"}</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">{tab === "assets" ? "Ativos circulantes, imobilizados, estoques e investimentos" : "Dívidas de curto e longo prazo, capital e ajustes"}</p></div><span className="ml-auto rounded-lg bg-[#F1F4F2] px-2.5 py-1 text-[10.5px] font-bold text-[#607067]">{tab === "assets" ? assetItems.length : liabilityItems.length} {(tab === "assets" ? assetItems.length : liabilityItems.length) === 1 ? "cadastrado" : "cadastrados"}</span></div><ItemList items={tab === "assets" ? assetItems : liabilityItems} emptyTitle={tab === "assets" ? "Nenhum bem ou direito cadastrado" : "Nenhuma obrigação ou linha de PL"} emptyText={tab === "assets" ? "Cadastre imóveis, veículos, equipamentos, estoque, investimentos e outros bens da empresa." : "Cadastre fornecedores, empréstimos, financiamentos, capital social e ajustes patrimoniais."} onCreate={() => openNew(tab === "assets" ? "ativo_nao_circulante" : "passivo_circulante")} onEdit={openEdit} onToggle={item => toggleItem.mutate({ id: item.id })} onDelete={handleDelete} /></section>}
 
               {tab === "evolution" && <section className="grid flex-1 gap-4 2xl:grid-cols-[1fr_360px]"><article className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="flex items-start"><div><h2 className="text-[15px] font-bold">Evolução do patrimônio líquido</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">Ativos menos passivos em cada posição registrada</p></div><span className="ml-auto rounded-lg bg-[#DFF6EA] px-2.5 py-1 text-[10px] font-bold text-[#0A7A42]">{data?.history.length ?? 0} {(data?.history.length ?? 0) === 1 ? "posição" : "posições"}</span></div>{(data?.history.length ?? 0) === 0 ? <div className="flex min-h-[340px] flex-col items-center justify-center text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><ChartIcon size={23} /></span><strong className="mt-3 text-[14px]">A evolução começa no primeiro fechamento</strong><p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">Registre a posição atual para criar o primeiro ponto real do histórico patrimonial.</p><button type="button" onClick={() => setSnapshotModal(true)} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white">Registrar primeira posição</button></div> : <div className="mt-5"><EvolutionChart history={data?.history ?? []} /><div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#EDF1EE] pt-4"><div><span className="text-[10px] text-[#8A968D]">Primeira posição</span><strong className="mt-1 block text-[13px]">{formatMoney(data?.history[0]?.netWorth ?? 0)}</strong></div><div><span className="text-[10px] text-[#8A968D]">Posição mais recente</span><strong className="mt-1 block text-[13px] text-[#0A7A42]">{formatMoney(data?.history.at(-1)?.netWorth ?? 0)}</strong></div></div></div>}</article><aside className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="flex items-center"><h2 className="text-[14px] font-bold">Fechamentos</h2><button type="button" onClick={() => setSnapshotModal(true)} className="ml-auto text-[11px] font-bold text-[#0A7A42]">Adicionar</button></div><div className="mt-4 space-y-2">{data?.history.slice().reverse().map(snapshot => <div key={snapshot.id} className="rounded-[14px] bg-[#F8FAF9] p-3"><div className="flex items-start"><div><strong className="block text-[12px]">{formatDate(snapshot.referenceDate)}</strong><span className="mt-0.5 block text-[10px] text-[#8A968D]">{snapshot.itemCount} {snapshot.itemCount === 1 ? "item" : "itens"} no fechamento</span></div><button type="button" aria-label={`Excluir posição de ${formatDate(snapshot.referenceDate)}`} onClick={async () => { if (!window.confirm("Excluir esta posição histórica?")) return; await deleteSnapshot.mutateAsync({ id: snapshot.id }); toast.success("Posição removida"); }} className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg bg-[#FDECEA] text-[#B3261E]"><DeleteIcon size={12} /></button></div><div className="mt-3 grid grid-cols-2 gap-2"><span className="text-[9.5px] text-[#718077]">Ativos <b className="block text-[10.5px] text-[#0A7A42]">{formatMoney(snapshot.totalAssets)}</b></span><span className="text-[9.5px] text-[#718077]">Patrimônio <b className={`block text-[10.5px] ${snapshot.netWorth >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(snapshot.netWorth)}</b></span></div></div>)}{(data?.history.length ?? 0) === 0 && <p className="rounded-xl bg-[#F8FAF9] p-3 text-[11px] leading-relaxed text-[#8A968D]">Nenhuma posição registrada até o momento.</p>}</div></aside></section>}
             </>
           )}
         </section>
       </div>
-      {itemModal && <ItemModal item={editingItem} initialGroup={newItemGroup} pending={createItem.isPending || updateItem.isPending} onClose={() => { setItemModal(false); setEditingItem(null); }} onSave={saveItem} />}
+      {itemModal && (editingIsAsset
+        ? <AssetModal item={editingItem} pending={createItem.isPending || updateItem.isPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setItemModal(false); setEditingItem(null); }} onSave={saveItem} />
+        : <LiabilityModal item={editingItem} initialGroup={newItemGroup} pending={createItem.isPending || updateItem.isPending} onClose={() => { setItemModal(false); setEditingItem(null); }} onSave={saveItem} />)}
       {snapshotModal && <SnapshotModal pending={captureSnapshot.isPending} onClose={() => setSnapshotModal(false)} onSave={saveSnapshot} />}
     </main>
   );

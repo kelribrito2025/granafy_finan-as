@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { ASSET_CATEGORIES, assetItemType } from "@shared/assetCategory";
 import {
   addDays,
   BALANCE_GROUPS,
@@ -38,7 +39,21 @@ export const patrimonialItemValuesSchema = z.object({
   usefulLifeMonths: z.number().int().min(1).max(1_200).nullable(),
   residualValue: moneySchema,
   notes: z.string().trim().max(2_000).default(""),
+  assetCategory: z.enum(ASSET_CATEGORIES).nullable().default(null),
+  costCenterId: z.number().int().positive().nullable().default(null),
+  sourceAccountId: z.number().int().positive().nullable().default(null),
+  attachmentKey: z.string().trim().max(255).nullable().default(null),
+  attachmentName: z.string().trim().max(180).nullable().default(null),
 }).superRefine((value, ctx) => {
+  if (value.balanceGroup.startsWith("ativo_") && !value.assetCategory) {
+    ctx.addIssue({ code: "custom", path: ["assetCategory"], message: "Escolha a categoria do bem" });
+  }
+  if (!value.balanceGroup.startsWith("ativo_") && value.assetCategory) {
+    ctx.addIssue({ code: "custom", path: ["assetCategory"], message: "Categoria de bem só se aplica a ativos" });
+  }
+  if (Boolean(value.attachmentKey) !== Boolean(value.attachmentName)) {
+    ctx.addIssue({ code: "custom", path: ["attachmentKey"], message: "Anexo incompleto" });
+  }
   if (value.acquisitionDate && value.acquisitionDate > new Date().toISOString().slice(0, 10)) {
     ctx.addIssue({
       code: "custom",
@@ -86,6 +101,46 @@ export const patrimonialItemValuesSchema = z.object({
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Resolve os vínculos e o tipo contábil antes de gravar. `itemType` é sempre
+ * derivado da categoria nos ativos: deixar os dois entrarem soltos permitiria um
+ * item categorizado como Estoque chegar ao banco como "bem".
+ */
+async function resolveItemValues(
+  userId: number,
+  input: z.infer<typeof patrimonialItemValuesSchema>
+) {
+  let costCenter = "";
+  if (input.costCenterId) {
+    const found = await db.getCostCenter(userId, input.costCenterId);
+    if (!found?.isActive) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Centro de custo não encontrado ou inativo" });
+    }
+    costCenter = found.name;
+  }
+
+  let sourceAccount = "";
+  if (input.sourceAccountId) {
+    const found = await db.getFinancialAccount(userId, input.sourceAccountId);
+    if (!found?.isActive) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de origem não encontrada ou inativa" });
+    }
+    sourceAccount = found.name;
+  }
+
+  return {
+    ...input,
+    itemType: input.assetCategory ? assetItemType(input.assetCategory) : input.itemType,
+    costCenter,
+    costCenterId: input.costCenterId,
+    sourceAccount,
+    sourceAccountId: input.sourceAccountId,
+    acquisitionValue: input.acquisitionValue.toFixed(2),
+    currentValue: input.currentValue.toFixed(2),
+    residualValue: input.residualValue.toFixed(2),
+  };
 }
 
 async function calculatePosition(userId: number, referenceDate: string) {
@@ -167,10 +222,7 @@ export const balanceSheetRouter = router({
       }
       try {
         return await db.createPatrimonialItem(ctx.user.id, {
-          ...input,
-          acquisitionValue: input.acquisitionValue.toFixed(2),
-          currentValue: input.currentValue.toFixed(2),
-          residualValue: input.residualValue.toFixed(2),
+          ...await resolveItemValues(ctx.user.id, input),
           isActive: true,
         });
       } catch (error) {
@@ -193,12 +245,7 @@ export const balanceSheetRouter = router({
         });
       }
       try {
-        return await db.updatePatrimonialItem(ctx.user.id, id, {
-          ...values,
-          acquisitionValue: values.acquisitionValue.toFixed(2),
-          currentValue: values.currentValue.toFixed(2),
-          residualValue: values.residualValue.toFixed(2),
-        });
+        return await db.updatePatrimonialItem(ctx.user.id, id, await resolveItemValues(ctx.user.id, values));
       } catch (error) {
         return persistenceError(error);
       }

@@ -210,13 +210,21 @@ const ATTACHMENT_CONTENT_TYPES = [
   "image/webp",
 ] as const;
 
+/** Pastas de anexo. O nome entra na chave, então a lista é fechada. */
+const ATTACHMENT_FOLDERS = ["lancamentos", "bens"] as const;
+type AttachmentFolder = (typeof ATTACHMENT_FOLDERS)[number];
+
 /**
- * Todo anexo mora sob o prefixo do dono. Ler exige que a chave comece com o
+ * Todo anexo mora sob o prefixo do dono. Ler exige que a chave comece com um
  * prefixo do usuário da requisição, então uma chave vazada não serve para
  * alcançar o anexo de outra conta.
  */
-function attachmentPrefix(userId: number) {
-  return `lancamentos/${userId}/`;
+function attachmentPrefix(userId: number, folder: AttachmentFolder) {
+  return `${folder}/${userId}/`;
+}
+
+function ownsAttachment(userId: number, key: string) {
+  return ATTACHMENT_FOLDERS.some(folder => key.startsWith(attachmentPrefix(userId, folder)));
 }
 
 /**
@@ -613,6 +621,7 @@ export const transactionsRouter = router({
       fileName: z.string().trim().min(1).max(180),
       contentType: z.enum(ATTACHMENT_CONTENT_TYPES),
       dataBase64: z.string().min(1),
+      folder: z.enum(ATTACHMENT_FOLDERS).default("lancamentos"),
     }))
     .mutation(async ({ ctx, input }) => {
       const data = Buffer.from(input.dataBase64, "base64");
@@ -623,7 +632,7 @@ export const transactionsRouter = router({
       const safeName = input.fileName.replace(/[^\w.\-]+/g, "_").slice(-120);
       try {
         const stored = await storagePut(
-          `${attachmentPrefix(ctx.user.id)}${Date.now()}_${safeName}`,
+          `${attachmentPrefix(ctx.user.id, input.folder)}${Date.now()}_${safeName}`,
           data,
           input.contentType
         );
@@ -642,7 +651,7 @@ export const transactionsRouter = router({
   attachmentUrl: protectedProcedure
     .input(z.object({ key: z.string().trim().min(1).max(255) }))
     .query(async ({ ctx, input }) => {
-      if (!input.key.startsWith(attachmentPrefix(ctx.user.id))) {
+      if (!ownsAttachment(ctx.user.id, input.key)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Anexo não pertence a esta conta" });
       }
       try {

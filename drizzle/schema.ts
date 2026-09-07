@@ -171,6 +171,28 @@ export const patrimonialItems = mysqlTable("patrimonialItems", {
   acquisitionValue: decimal("acquisitionValue", { precision: 15, scale: 2 }).default("0.00").notNull(),
   currentValue: decimal("currentValue", { precision: 15, scale: 2 }).notNull(),
   valuationMethod: mysqlEnum("valuationMethod", ["manual", "depreciacao_linear"]).default("manual").notNull(),
+  /**
+   * Taxonomia visível do imobilizado. `itemType` continua sendo a classificação
+   * contábil e é derivada desta — ver assetItemType em shared/assetCategory.ts.
+   */
+  assetCategory: mysqlEnum("assetCategory", [
+    "equipamento",
+    "veiculo",
+    "imovel",
+    "software",
+    "movel",
+    "estoque",
+    "investimento",
+    "direito",
+    "outro",
+  ]),
+  costCenter: varchar("costCenter", { length: 120 }).default("").notNull(),
+  costCenterId: int("costCenterId"),
+  /** De onde saiu o dinheiro. É só registro: não gera lançamento nem baixa saldo. */
+  sourceAccount: varchar("sourceAccount", { length: 80 }).default("").notNull(),
+  sourceAccountId: int("sourceAccountId"),
+  attachmentKey: varchar("attachmentKey", { length: 255 }),
+  attachmentName: varchar("attachmentName", { length: 180 }),
   usefulLifeMonths: int("usefulLifeMonths"),
   residualValue: decimal("residualValue", { precision: 15, scale: 2 }).default("0.00").notNull(),
   notes: text("notes"),
