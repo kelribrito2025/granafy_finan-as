@@ -347,14 +347,32 @@ export async function deleteTransaction(userId: number, id: number) {
     .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)));
 }
 
+export const TRANSACTION_DELETE_CHUNK_SIZE = 500;
+
+export function chunkTransactionIds(ids: number[], chunkSize = TRANSACTION_DELETE_CHUNK_SIZE) {
+  const uniqueIds = Array.from(new Set(ids));
+  return Array.from(
+    { length: Math.ceil(uniqueIds.length / chunkSize) },
+    (_, index) => uniqueIds.slice(index * chunkSize, (index + 1) * chunkSize),
+  );
+}
+
 export async function deleteTransactions(userId: number, ids: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  if (ids.length === 0) return;
+  const chunks = chunkTransactionIds(ids);
+  if (chunks.length === 0) return 0;
 
-  return db
-    .delete(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, ids)));
+  return db.transaction(async tx => {
+    let deletedCount = 0;
+    for (const chunk of chunks) {
+      const result = await tx
+        .delete(financialTransactions)
+        .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk)));
+      deletedCount += Number(result[0].affectedRows ?? 0);
+    }
+    return deletedCount;
+  });
 }
 
 export async function listFinancialAccounts(userId: number) {

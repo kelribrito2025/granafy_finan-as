@@ -79,6 +79,8 @@ function summarize(records: TransactionRecord[]) {
   return { incoming, outgoing, balance: incoming - outgoing };
 }
 
+const MAX_BULK_DELETE_IDS = 20_000;
+
 export const transactionsRouter = router({
   list: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
     const { start, end } = periodBounds(input.year, input.month);
@@ -244,10 +246,13 @@ export const transactionsRouter = router({
     return { success: true } as const;
   }),
 
-  deleteMany: protectedProcedure.input(z.object({ ids: z.array(z.number().int().positive()).min(1).max(500) })).mutation(async ({ ctx, input }) => {
-    await db.deleteTransactions(ctx.user.id, Array.from(new Set(input.ids)));
-    return { success: true } as const;
+  deleteMany: protectedProcedure.input(z.object({
+    ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_DELETE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
+  })).mutation(async ({ ctx, input }) => {
+    const ids = Array.from(new Set(input.ids));
+    const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
+    return { success: true, requestedCount: ids.length, deletedCount } as const;
   }),
 });
 
-export { periodBounds, signedAmount, summarize, toTransaction, transactionValuesSchema };
+export { MAX_BULK_DELETE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesSchema };

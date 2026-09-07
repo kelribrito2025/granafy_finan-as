@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
-import { periodBounds, signedAmount, summarize } from "./routers/transactions";
+import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
+import { MAX_BULK_DELETE_IDS, periodBounds, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
   return {
@@ -47,5 +48,17 @@ describe("transactions helpers", () => {
       outgoing: 150,
       balance: 200,
     });
+  });
+
+  it("splits 668 selected ids into safe database chunks", () => {
+    const chunks = chunkTransactionIds(Array.from({ length: 668 }, (_, index) => index + 1));
+    expect(TRANSACTION_DELETE_CHUNK_SIZE).toBe(500);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.map(chunk => chunk.length)).toEqual([500, 168]);
+    expect(MAX_BULK_DELETE_IDS).toBeGreaterThanOrEqual(668);
+  });
+
+  it("deduplicates selected ids before chunking", () => {
+    expect(chunkTransactionIds([1, 2, 2, 3], 2)).toEqual([[1, 2], [3]]);
   });
 });

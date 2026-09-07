@@ -114,6 +114,12 @@ function formatDate(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+function safeErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof Error)) return fallback;
+  const message = error.message.trim();
+  return message.startsWith("[") || message.includes('"code"') ? fallback : message;
+}
+
 function defaultDateForMonth(year: number, month: number) {
   const now = new Date();
   if (now.getFullYear() === year && now.getMonth() + 1 === month) return now.toISOString().slice(0, 10);
@@ -331,12 +337,15 @@ export default function LancamentosPage() {
   };
 
   const removeSelected = async () => {
+    if (selected.length === 0) return;
+    const selectedCount = selected.length;
+    if (!window.confirm(`Excluir permanentemente ${selectedCount.toLocaleString("pt-BR")} lançamentos selecionados?`)) return;
     try {
-      await deleteManyMutation.mutateAsync({ ids: selected });
+      const result = await deleteManyMutation.mutateAsync({ ids: selected });
       setSelected([]);
-      toast.success("Lançamentos removidos do banco");
+      toast.success(`${result.deletedCount.toLocaleString("pt-BR")} lançamento${result.deletedCount === 1 ? " removido" : "s removidos"} do banco`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível excluir os lançamentos");
+      toast.error(safeErrorMessage(error, "Não foi possível excluir os lançamentos selecionados. Tente novamente."));
     }
   };
 
@@ -404,7 +413,7 @@ export default function LancamentosPage() {
           </section>
 
           <section className="min-h-0 flex-1 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#E1E8E3]">
-            {selected.length > 0 && <div className="flex items-center gap-3 border-b border-[#E8EEEA] bg-[#F1FBF6] px-4 py-2.5"><strong className="text-[12px] text-[#0A7A42]">{selected.length} selecionado{selected.length > 1 ? "s" : ""}</strong><button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="ml-auto text-[12px] font-semibold text-[#B3261E] disabled:opacity-50">Excluir selecionados</button></div>}
+            {selected.length > 0 && <div className="flex items-center gap-3 border-b border-[#E8EEEA] bg-[#F1FBF6] px-4 py-2.5"><strong className="text-[12px] text-[#0A7A42]">{selected.length} selecionado{selected.length > 1 ? "s" : ""}</strong><button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="ml-auto text-[12px] font-semibold text-[#B3261E] disabled:opacity-50">{deleteManyMutation.isPending ? "Excluindo em lotes..." : "Excluir selecionados"}</button></div>}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1060px] border-collapse text-left">
                 <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} className="h-4 w-4 accent-[#12B85C]" /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{visibleColumns.date && <th className="w-24 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <th className="min-w-[180px] py-3">Categoria</th>}{visibleColumns.amount && <th className="w-32 py-3 text-right">Valor</th>}{visibleColumns.account && <th className="w-20 py-3 text-center">Conta</th>}{visibleColumns.status && <th className="w-20 py-3 text-center">Status</th>}<th className="w-14 py-3 pr-3" /></tr></thead>
