@@ -65,6 +65,19 @@ export const transactionCategories = mysqlTable("transactionCategories", {
   index("transaction_categories_user_active_idx").on(table.userId, table.isActive),
 ]);
 
+export const costCenters = mysqlTable("costCenters", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  color: varchar("color", { length: 7 }).default("#4C6355").notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("cost_centers_user_name_uidx").on(table.userId, table.name),
+  index("cost_centers_user_active_idx").on(table.userId, table.isActive),
+]);
+
 export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
@@ -81,7 +94,7 @@ export const transactionImportBatches = mysqlTable("transactionImportBatches", {
 export const transactions = mysqlTable("transactions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  type: mysqlEnum("type", ["entrada", "saida"]).notNull(),
+  type: mysqlEnum("type", ["entrada", "saida", "transferencia"]).notNull(),
   transactionDate: date("transactionDate", { mode: "string" }).notNull(),
   description: varchar("description", { length: 180 }).notNull(),
   contact: varchar("contact", { length: 120 }).default("").notNull(),
@@ -90,8 +103,22 @@ export const transactions = mysqlTable("transactions", {
   account: varchar("account", { length: 80 }).notNull(),
   accountId: int("accountId"),
   categoryId: int("categoryId"),
+  costCenter: varchar("costCenter", { length: 120 }).default("").notNull(),
+  costCenterId: int("costCenterId"),
   status: mysqlEnum("status", ["Pago", "Pendente"]).default("Pendente").notNull(),
   recurring: boolean("recurring").default(false).notNull(),
+  /** Quantos meses a recorrência cobre. Null quando `recurring` é falso. */
+  recurringMonths: int("recurringMonths"),
+  /** Chave do anexo no storage. O nome original fica em `attachmentName`. */
+  attachmentKey: varchar("attachmentKey", { length: 255 }),
+  attachmentName: varchar("attachmentName", { length: 180 }),
+  /**
+   * Une as duas pernas de uma transferência: uma saída na conta de origem e uma
+   * entrada na de destino, ambas com type "transferencia" e o mesmo grupo.
+   * Manter duas linhas faz o saldo por conta continuar sendo a soma de `amount`,
+   * sem nenhuma regra especial.
+   */
+  transferGroupId: varchar("transferGroupId", { length: 36 }),
   importBatchId: varchar("importBatchId", { length: 36 }),
   externalId: varchar("externalId", { length: 160 }),
   fingerprint: varchar("fingerprint", { length: 64 }),
@@ -102,6 +129,8 @@ export const transactions = mysqlTable("transactions", {
   index("transactions_user_status_idx").on(table.userId, table.status),
   index("transactions_user_account_idx").on(table.userId, table.accountId),
   index("transactions_user_category_idx").on(table.userId, table.categoryId),
+  index("transactions_user_cost_center_idx").on(table.userId, table.costCenterId),
+  index("transactions_user_transfer_group_idx").on(table.userId, table.transferGroupId),
   uniqueIndex("transactions_user_fingerprint_uidx").on(table.userId, table.fingerprint),
 ]);
 
@@ -176,6 +205,8 @@ export type FinancialAccountRecord = typeof financialAccounts.$inferSelect;
 export type InsertFinancialAccount = typeof financialAccounts.$inferInsert;
 export type TransactionCategoryRecord = typeof transactionCategories.$inferSelect;
 export type InsertTransactionCategory = typeof transactionCategories.$inferInsert;
+export type CostCenterRecord = typeof costCenters.$inferSelect;
+export type InsertCostCenter = typeof costCenters.$inferInsert;
 export type TransactionImportBatchRecord = typeof transactionImportBatches.$inferSelect;
 export type TransactionRecord = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
