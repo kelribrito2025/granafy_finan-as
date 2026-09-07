@@ -109,6 +109,13 @@ export const transactions = mysqlTable("transactions", {
   recurring: boolean("recurring").default(false).notNull(),
   /** Quantos meses a recorrência cobre. Null quando `recurring` é falso. */
   recurringMonths: int("recurringMonths"),
+  /**
+   * Une as parcelas de uma mesma série recorrente. `recurrenceIndex` é a posição
+   * dentro dela, de 1 até `recurringMonths`, e serve para mostrar "3/12" e para
+   * atingir só as parcelas seguintes ao editar.
+   */
+  recurrenceGroupId: varchar("recurrenceGroupId", { length: 36 }),
+  recurrenceIndex: int("recurrenceIndex"),
   /** Chave do anexo no storage. O nome original fica em `attachmentName`. */
   attachmentKey: varchar("attachmentKey", { length: 255 }),
   attachmentName: varchar("attachmentName", { length: 180 }),
@@ -131,6 +138,7 @@ export const transactions = mysqlTable("transactions", {
   index("transactions_user_category_idx").on(table.userId, table.categoryId),
   index("transactions_user_cost_center_idx").on(table.userId, table.costCenterId),
   index("transactions_user_transfer_group_idx").on(table.userId, table.transferGroupId),
+  index("transactions_user_recurrence_group_idx").on(table.userId, table.recurrenceGroupId),
   uniqueIndex("transactions_user_fingerprint_uidx").on(table.userId, table.fingerprint),
 ]);
 

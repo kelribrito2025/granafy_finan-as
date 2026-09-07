@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
 import { storageGetSignedUrl, storagePut } from "../storage";
 
 /** Categoria fixa das duas pernas da transferência: não é receita nem despesa. */
@@ -25,7 +26,8 @@ const transactionValuesBaseSchema = z.object({
   costCenterId: z.number().int().positive().nullable().optional(),
   status: z.enum(["Pago", "Pendente"]),
   recurring: z.boolean().default(false),
-  recurringMonths: z.number().int().min(1).max(120).nullable().optional(),
+  recurringMonths: z.number().int().min(1).max(MAX_RECURRENCE_MONTHS).nullable().optional(),
+  recurrenceStart: z.enum(["este_mes", "proximo_mes"]).default("este_mes"),
   attachmentKey: z.string().trim().max(255).nullable().optional(),
   attachmentName: z.string().trim().max(180).nullable().optional(),
 });
@@ -58,8 +60,16 @@ function refineTransactionValues(value: TransactionValuesInput, ctx: z.Refinemen
 }
 
 const transactionValuesSchema = transactionValuesBaseSchema.superRefine(refineTransactionValues);
+
+/**
+ * "single" mexe só no lançamento aberto. "following" alcança também as parcelas
+ * seguintes da mesma série que ainda não foram pagas — mês já pago é histórico e
+ * nunca é reescrito nem apagado por essa via.
+ */
+const seriesScopeSchema = z.enum(["single", "following"]).default("single");
+
 const transactionUpdateSchema = transactionValuesBaseSchema
-  .extend({ id: z.number().int().positive() })
+  .extend({ id: z.number().int().positive(), scope: seriesScopeSchema })
   .superRefine(refineTransactionValues);
 
 const periodSchema = z.object({
@@ -97,6 +107,8 @@ function toTransaction(record: TransactionRecord) {
     status: record.status,
     recurring: record.recurring,
     recurringMonths: record.recurringMonths,
+    recurrenceGroupId: record.recurrenceGroupId,
+    recurrenceIndex: record.recurrenceIndex,
     attachmentKey: record.attachmentKey,
     attachmentName: record.attachmentName,
     transferGroupId: record.transferGroupId,
@@ -207,6 +219,71 @@ function attachmentPrefix(userId: number) {
   return `lancamentos/${userId}/`;
 }
 
+/**
+ * As linhas que uma única submissão do formulário produz.
+ *
+ * Sem recorrência é uma linha (ou duas, na transferência). Com recorrência é uma
+ * por mês, todas no mesmo grupo. Só a primeira parcela herda a situação escolhida:
+ * dinheiro de novembro não foi recebido hoje, e marcá-lo como pago inflaria o
+ * caixa e as contas a receber do painel.
+ */
+async function buildRowsForCreate(userId: number, input: TransactionValuesInput) {
+  const dates = input.recurring && input.recurringMonths
+    ? buildRecurrenceDates(input.transactionDate, input.recurringMonths, input.recurrenceStart as RecurrenceStart)
+    : [input.transactionDate];
+  const recurrenceGroupId = dates.length > 1 ? randomUUID() : null;
+  const statusFor = (index: number) => (index === 0 ? input.status : "Pendente" as const);
+  const recurrenceIndexFor = (index: number) => (recurrenceGroupId ? index + 1 : null);
+
+  if (input.type === "transferencia") {
+    const legs = await buildTransferLegs(userId, input);
+    return dates.flatMap((transactionDate, index) => {
+      // Cada mês é uma transferência inteira, com o seu próprio par.
+      const shared = {
+        transactionDate,
+        status: statusFor(index),
+        transferGroupId: randomUUID(),
+        recurrenceGroupId,
+        recurrenceIndex: recurrenceIndexFor(index),
+        recurringMonths: input.recurring ? input.recurringMonths ?? null : null,
+      };
+      return [{ ...legs.origin, ...shared }, { ...legs.destination, ...shared }];
+    });
+  }
+
+  const {
+    destinationAccountId: _unusedDestination,
+    recurrenceStart: _unusedStart,
+    ...normalized
+  } = await resolveTransactionOrganization(userId, input);
+  const amount = signedAmount(input).toFixed(2);
+
+  return dates.map((transactionDate, index) => ({
+    ...normalized,
+    transactionDate,
+    amount,
+    status: statusFor(index),
+    costCenterId: normalized.costCenterId ?? null,
+    recurringMonths: normalized.recurringMonths ?? null,
+    attachmentKey: normalized.attachmentKey ?? null,
+    attachmentName: normalized.attachmentName ?? null,
+    recurrenceGroupId,
+    recurrenceIndex: recurrenceIndexFor(index),
+  }));
+}
+
+/**
+ * As linhas alcançadas por uma ação de escopo "following": a clicada, as pernas
+ * da mesma transferência, e as parcelas posteriores ainda não pagas.
+ */
+function selectSeriesTargets(group: TransactionRecord[], clicked: TransactionRecord) {
+  return group.filter(record =>
+    record.id === clicked.id ||
+    (clicked.transferGroupId != null && record.transferGroupId === clicked.transferGroupId) ||
+    (record.transactionDate > clicked.transactionDate && record.status !== "Pago")
+  );
+}
+
 const MAX_BULK_DELETE_IDS = 20_000;
 const MAX_BULK_UPDATE_IDS = 20_000;
 
@@ -314,68 +391,91 @@ export const transactionsRouter = router({
   }),
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
-    if (input.type === "transferencia") {
-      const legs = await buildTransferLegs(ctx.user.id, input);
-      const transferGroupId = randomUUID();
-      const records = await db.createTransferPair(
-        ctx.user.id,
-        { ...legs.origin, transferGroupId },
-        { ...legs.destination, transferGroupId }
-      );
-      if (records.length !== 2) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar a transferência" });
-      return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
+    const rows = await buildRowsForCreate(ctx.user.id, input);
+    const records = await db.createTransactionSeries(ctx.user.id, rows);
+    if (records.length !== rows.length) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
     }
-
-    const { destinationAccountId: _unusedDestination, ...normalized } =
-      await resolveTransactionOrganization(ctx.user.id, input);
-    const record = await db.createTransaction(ctx.user.id, {
-      ...normalized,
-      costCenterId: normalized.costCenterId ?? null,
-      recurringMonths: normalized.recurringMonths ?? null,
-      attachmentKey: normalized.attachmentKey ?? null,
-      attachmentName: normalized.attachmentName ?? null,
-      amount: signedAmount(normalized).toFixed(2),
-    });
-    if (!record) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
-    return toTransaction(record);
+    const first = records.find(record => Number(record.amount) < 0 && record.type === "transferencia") ?? records[0];
+    const monthCount = new Set(records.map(record => record.transactionDate)).size;
+    return { ...toTransaction(first), createdCount: records.length, monthCount };
   }),
 
   update: protectedProcedure.input(transactionUpdateSchema).mutation(async ({ ctx, input }) => {
-    const { id, ...values } = input;
+    const { id, scope, ...values } = input;
     const existing = await db.getTransactionById(ctx.user.id, id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
-    // Editar uma perna reescreve as duas: uma transferência é uma coisa só.
-    if (existing.transferGroupId || values.type === "transferencia") {
-      if (!existing.transferGroupId || values.type !== "transferencia") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Não é possível converter uma transferência em entrada ou saída. Exclua e lance de novo.",
-        });
-      }
-      const legs = await buildTransferLegs(ctx.user.id, values);
-      const records = await db.updateTransferPair(
-        ctx.user.id,
-        existing.transferGroupId,
-        { ...legs.origin, transferGroupId: existing.transferGroupId },
-        { ...legs.destination, transferGroupId: existing.transferGroupId }
-      );
-      if (!records) throw new TRPCError({ code: "NOT_FOUND", message: "Transferência incompleta no banco" });
-      return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
+    const wasTransfer = Boolean(existing.transferGroupId);
+    if (wasTransfer !== (values.type === "transferencia")) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Não é possível converter uma transferência em entrada ou saída. Exclua e lance de novo.",
+      });
     }
 
-    const { destinationAccountId: _unusedDestination, ...normalized } =
-      await resolveTransactionOrganization(ctx.user.id, values);
-    const record = await db.updateTransaction(ctx.user.id, id, {
-      ...normalized,
-      costCenterId: normalized.costCenterId ?? null,
-      recurringMonths: normalized.recurringMonths ?? null,
-      attachmentKey: normalized.attachmentKey ?? null,
-      attachmentName: normalized.attachmentName ?? null,
-      amount: signedAmount(normalized).toFixed(2),
-    });
+    // Cada parcela guarda a própria data e a própria situação: alcançar as
+    // seguintes muda o conteúdo do lançamento, não o calendário nem o que já
+    // foi quitado.
+    const seriesId = scope === "following" ? existing.recurrenceGroupId : null;
+    const group = seriesId ? await db.getRecurrenceGroup(ctx.user.id, seriesId) : [];
+    const targets = seriesId ? selectSeriesTargets(group, existing) : [existing];
+
+    if (wasTransfer) {
+      const legs = await buildTransferLegs(ctx.user.id, values);
+      const transferGroupIds = Array.from(new Set(
+        targets.map(record => record.transferGroupId).filter((value): value is string => Boolean(value))
+      ));
+      for (const transferGroupId of transferGroupIds) {
+        const month = targets.find(record => record.transferGroupId === transferGroupId)!;
+        const isClicked = transferGroupId === existing.transferGroupId;
+        const shared = {
+          transactionDate: isClicked ? values.transactionDate : month.transactionDate,
+          status: isClicked ? values.status : month.status,
+          transferGroupId,
+          recurrenceGroupId: month.recurrenceGroupId,
+          recurrenceIndex: month.recurrenceIndex,
+          recurringMonths: month.recurringMonths,
+        };
+        const updated = await db.updateTransferPair(
+          ctx.user.id,
+          transferGroupId,
+          { ...legs.origin, ...shared },
+          { ...legs.destination, ...shared }
+        );
+        if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Transferência incompleta no banco" });
+      }
+      const refreshed = await db.getTransactionById(ctx.user.id, id);
+      if (!refreshed) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+      return { ...toTransaction(refreshed), updatedCount: targets.length };
+    }
+
+    const {
+      destinationAccountId: _unusedDestination,
+      recurrenceStart: _unusedStart,
+      ...normalized
+    } = await resolveTransactionOrganization(ctx.user.id, values);
+    const amount = signedAmount(values).toFixed(2);
+
+    for (const target of targets) {
+      const isClicked = target.id === existing.id;
+      await db.updateTransaction(ctx.user.id, target.id, {
+        ...normalized,
+        transactionDate: isClicked ? values.transactionDate : target.transactionDate,
+        status: isClicked ? values.status : target.status,
+        costCenterId: normalized.costCenterId ?? null,
+        recurringMonths: target.recurringMonths,
+        attachmentKey: normalized.attachmentKey ?? null,
+        attachmentName: normalized.attachmentName ?? null,
+        recurrenceGroupId: target.recurrenceGroupId,
+        recurrenceIndex: target.recurrenceIndex,
+        amount,
+      });
+    }
+
+    const record = await db.getTransactionById(ctx.user.id, id);
     if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
-    return toTransaction(record);
+    return { ...toTransaction(record), updatedCount: targets.length };
   }),
 
   duplicate: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
@@ -424,8 +524,12 @@ export const transactionsRouter = router({
       costCenter: existing.costCenter,
       costCenterId: existing.costCenterId,
       status: existing.status,
-      recurring: existing.recurring,
-      recurringMonths: existing.recurringMonths,
+      // A cópia nasce avulsa: herdar o grupo faria uma parcela fantasma aparecer
+      // dentro de uma série que não a conhece.
+      recurring: false,
+      recurringMonths: null,
+      recurrenceGroupId: null,
+      recurrenceIndex: null,
     });
     if (!record) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível duplicar o lançamento" });
     return toTransaction(record);
@@ -554,17 +658,27 @@ export const transactionsRouter = router({
       }
     }),
 
-  delete: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-    const existing = await db.getTransactionById(ctx.user.id, input.id);
-    if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
-    // Apagar só uma perna deixaria o saldo de uma das contas errado para sempre.
-    if (existing.transferGroupId) {
-      const deletedCount = await db.deleteTransferGroup(ctx.user.id, existing.transferGroupId);
-      return { success: true, deletedCount } as const;
-    }
-    await db.deleteTransaction(ctx.user.id, input.id);
-    return { success: true, deletedCount: 1 } as const;
-  }),
+  delete: protectedProcedure
+    .input(z.object({ id: z.number().int().positive(), scope: seriesScopeSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await db.getTransactionById(ctx.user.id, input.id);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+
+      if (input.scope === "following" && existing.recurrenceGroupId) {
+        const group = await db.getRecurrenceGroup(ctx.user.id, existing.recurrenceGroupId);
+        const ids = selectSeriesTargets(group, existing).map(record => record.id);
+        const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
+        return { success: true, deletedCount } as const;
+      }
+
+      // Apagar só uma perna deixaria o saldo de uma das contas errado para sempre.
+      if (existing.transferGroupId) {
+        const deletedCount = await db.deleteTransferGroup(ctx.user.id, existing.transferGroupId);
+        return { success: true, deletedCount } as const;
+      }
+      await db.deleteTransaction(ctx.user.id, input.id);
+      return { success: true, deletedCount: 1 } as const;
+    }),
 
   deleteMany: protectedProcedure.input(z.object({
     ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_DELETE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),

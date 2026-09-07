@@ -276,7 +276,8 @@ export type TransactionValues = Pick<
   InsertTransaction,
   "type" | "transactionDate" | "description" | "contact" | "category" | "amount" | "account" | "status" | "recurring" |
   "accountId" | "categoryId" | "importBatchId" | "externalId" | "fingerprint" |
-  "costCenter" | "costCenterId" | "recurringMonths" | "attachmentKey" | "attachmentName" | "transferGroupId"
+  "costCenter" | "costCenterId" | "recurringMonths" | "attachmentKey" | "attachmentName" | "transferGroupId" |
+  "recurrenceGroupId" | "recurrenceIndex"
 >;
 
 export async function listTransactionsByPeriod(userId: number, startDate: string, endDate: string) {
@@ -621,6 +622,40 @@ export async function deleteTransferGroup(userId: number, transferGroupId: strin
     .delete(financialTransactions)
     .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.transferGroupId, transferGroupId)));
   return Number(result[0].affectedRows ?? 0);
+}
+
+/**
+ * Grava uma série inteira numa transação só. Uma série pela metade deixaria o
+ * usuário com parcelas faltando no meio e sem sinal de que algo falhou.
+ */
+export async function createTransactionSeries(userId: number, rows: TransactionValues[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (rows.length === 0) return [];
+
+  const ids = await db.transaction(async tx => {
+    const inserted: number[] = [];
+    for (const row of rows) {
+      const result = await tx.insert(financialTransactions).values({ userId, ...row });
+      inserted.push(Number(result[0].insertId));
+    }
+    return inserted;
+  });
+
+  return getTransactionsByIds(userId, ids);
+}
+
+export async function getRecurrenceGroup(userId: number, recurrenceGroupId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.recurrenceGroupId, recurrenceGroupId)
+    ))
+    .orderBy(financialTransactions.transactionDate, financialTransactions.id);
 }
 
 export async function getTransactionsByFingerprints(userId: number, fingerprints: string[]) {

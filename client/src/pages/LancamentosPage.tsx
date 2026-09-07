@@ -58,6 +58,8 @@ type Transaction = {
   status: "Pago" | "Pendente";
   recurring: boolean;
   recurringMonths: number | null;
+  recurrenceGroupId: string | null;
+  recurrenceIndex: number | null;
   attachmentKey: string | null;
   attachmentName: string | null;
   transferGroupId: string | null;
@@ -65,9 +67,11 @@ type Transaction = {
   updatedAt: Date;
 };
 
+type SeriesScope = "single" | "following";
+
 type TransactionInput =
-  Omit<Transaction, "id" | "createdAt" | "updatedAt" | "importBatchId" | "transferGroupId">
-  & { amount: number; destinationAccountId: number | null };
+  Omit<Transaction, "id" | "createdAt" | "updatedAt" | "importBatchId" | "transferGroupId" | "recurrenceGroupId" | "recurrenceIndex">
+  & { amount: number; destinationAccountId: number | null; recurrenceStart: "este_mes" | "proximo_mes" };
 
 type OrganizationOptions = {
   accounts: Array<{ id: number; name: string; institution: string; color: string }>;
@@ -257,6 +261,43 @@ function SortableColumnHeader({ label, sortKey, sort, onSort, className = "" }: 
   );
 }
 
+function SeriesScopeDialog({ action, transaction, pending, onCancel, onConfirm }: {
+  action: "save" | "delete";
+  transaction: Transaction;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: (scope: SeriesScope) => void;
+}) {
+  const total = transaction.recurringMonths ?? 0;
+  const position = transaction.recurrenceIndex ?? 1;
+  const verb = action === "delete" ? "Excluir" : "Salvar";
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="series-scope-title" className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onCancel()}>
+      <div className="modal-enter w-full max-w-[420px] rounded-[20px] bg-white p-6 text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.16)]">
+        <h2 id="series-scope-title" className="text-[18px] font-bold tracking-[-.01em]">
+          {action === "delete" ? "Excluir lançamento recorrente" : "Salvar lançamento recorrente"}
+        </h2>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A968D]">
+          Este é a parcela {position} de {total}. Escolha o alcance da mudança.
+        </p>
+        <div className="mt-5 flex flex-col gap-2">
+          <button type="button" disabled={pending} onClick={() => onConfirm("single")} className="rounded-[12px] border border-[#E3EAE5] px-4 py-3 text-left text-[13px] font-semibold hover:bg-[#F8FAF9] disabled:opacity-50">
+            {verb} só esta parcela
+            <span className="mt-0.5 block text-[11px] font-normal text-[#8A968D]">As outras ficam como estão.</span>
+          </button>
+          <button type="button" disabled={pending} onClick={() => onConfirm("following")} className="rounded-[12px] bg-[#12B85C] px-4 py-3 text-left text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-50">
+            {verb} esta e as próximas
+            <span className="mt-0.5 block text-[11px] font-normal text-white/85">Parcelas anteriores e meses já pagos não são tocados.</span>
+          </button>
+        </div>
+        <button type="button" disabled={pending} onClick={onCancel} className="mt-3 h-11 w-full rounded-[12px] bg-[#F1F4F2] text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9] disabled:opacity-50">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TypeBadge({ type, amount }: { type: TransactionType; amount: number }) {
   if (type === "transferencia") {
     // As duas pernas usam o mesmo tipo; o sinal diz se esta linha sai ou entra.
@@ -298,6 +339,20 @@ const AMOUNT_COLOR: Record<TransactionType, string> = {
   saida: "text-[#B3261E]",
   transferencia: "text-[#0B1F14]",
 };
+
+/**
+ * Mesma regra de âncora do servidor (server/recurrence.ts): o dia vem sempre da
+ * data original e encolhe só quando o mês de destino é mais curto. Aqui serve
+ * apenas para mostrar as datas ao usuário antes de salvar.
+ */
+function addMonthAnchored(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const targetYear = month === 12 ? year + 1 : year;
+  const targetMonth = month === 12 ? 1 : month + 1;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDay);
+  return `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+}
 
 const ATTACHMENT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp";
 const ATTACHMENT_CONTENT_TYPES: Record<string, "application/pdf" | "image/png" | "image/jpeg" | "image/webp"> = {
@@ -343,12 +398,18 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
   const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
   const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
   const [recurringMonths, setRecurringMonths] = useState(transaction?.recurringMonths ?? 12);
+  const [recurrenceStart, setRecurrenceStart] = useState<"este_mes" | "proximo_mes">("este_mes");
   const [attachmentKey, setAttachmentKey] = useState(transaction?.attachmentKey ?? null);
   const [attachmentName, setAttachmentName] = useState(transaction?.attachmentName ?? null);
   const uploadAttachment = trpc.transactions.uploadAttachment.useMutation();
 
   const isTransfer = type === "transferencia";
   const editingTransfer = Boolean(transaction?.transferGroupId);
+  // Uma série já criada tem datas próprias; recriá-la exigiria apagar e lançar de novo.
+  const editingSeries = Boolean(transaction?.recurrenceGroupId);
+  const firstInstallmentDate = recurrenceStart === "proximo_mes" ? addMonthAnchored(transactionDate) : transactionDate;
+  const lastInstallmentDate = Array.from({ length: Math.max(0, recurringMonths - 1) })
+    .reduce<string>(date => addMonthAnchored(date), firstInstallmentDate);
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" })
     .format(new Date(`${transactionDate}T00:00:00Z`));
 
@@ -420,6 +481,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
       status,
       recurring,
       recurringMonths: recurring ? recurringMonths : null,
+      recurrenceStart,
       attachmentKey,
       attachmentName,
     });
@@ -575,9 +637,37 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
               </span>
             )}
           </div>
-          {recurring && (
+          {recurring && !transaction && (
+            <>
+              <div className="mt-3 flex gap-2">
+                {([["este_mes", "Começar neste mês"], ["proximo_mes", "Só no mês que vem"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRecurrenceStart(value)}
+                    aria-pressed={recurrenceStart === value}
+                    className={`h-9 flex-1 rounded-[10px] text-[12px] transition ${
+                      recurrenceStart === value
+                        ? "bg-white font-bold text-[#0A7A42] ring-1 ring-[#CFE2D7]"
+                        : "text-[#4C6355] hover:bg-white/60"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-[#4C6355]">
+                {recurringMonths === 1
+                  ? `Uma parcela só, em ${formatDate(firstInstallmentDate)}.`
+                  : `${recurringMonths} lançamentos, de ${formatDate(firstInstallmentDate)} até ${formatDate(lastInstallmentDate)}. Só o primeiro segue a situação escolhida acima; os demais nascem em aberto.`}
+              </p>
+            </>
+          )}
+          {recurring && transaction && (
             <p className="mt-2 text-[11px] leading-relaxed text-[#4C6355]">
-              O prazo fica registrado no lançamento. Os meses seguintes ainda não são gerados automaticamente.
+              {editingSeries
+                ? `Parcela ${transaction.recurrenceIndex ?? 1} de ${transaction.recurringMonths ?? recurringMonths}. Ao salvar, você escolhe se a mudança vale só para esta ou também para as próximas em aberto.`
+                : "Alterar o prazo aqui não cria as parcelas: para gerar uma série, exclua e lance de novo."}
             </p>
           )}
         </div>
@@ -715,6 +805,11 @@ export default function LancamentosPage() {
   const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
+  const [seriesPrompt, setSeriesPrompt] = useState<
+    | { action: "save"; transaction: Transaction; input: TransactionInput }
+    | { action: "delete"; transaction: Transaction }
+    | null
+  >(null);
   const deleteManyMutation = trpc.transactions.deleteMany.useMutation({ onSuccess: refresh });
   const updateManyMutation = trpc.transactions.updateMany.useMutation({ onSuccess: refresh });
   const toggleStatusMutation = trpc.transactions.toggleStatus.useMutation({ onSuccess: refresh });
@@ -750,17 +845,36 @@ export default function LancamentosPage() {
       : { key, direction: key === "amount" ? "desc" : "asc" });
   };
 
-  const saveTransaction = async (input: TransactionInput) => {
+  const commitSave = async (input: TransactionInput, target: Transaction | null, scope: SeriesScope) => {
     try {
-      if (editing) await updateMutation.mutateAsync({ id: editing.id, ...input });
-      else await createMutation.mutateAsync(input);
+      if (target) {
+        const result = await updateMutation.mutateAsync({ id: target.id, ...input, scope });
+        toast.success(result.updatedCount > 1
+          ? `${result.updatedCount} parcelas atualizadas`
+          : "Lançamento atualizado no banco");
+        if (selected.includes(target.id)) setSelected([]);
+      } else {
+        const result = await createMutation.mutateAsync(input);
+        toast.success(result.monthCount > 1
+          ? `${result.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
+          : "Lançamento salvo no banco");
+      }
       setModalOpen(false);
-      if (editing && selected.includes(editing.id)) setSelected([]);
       setEditing(null);
-      toast.success(editing ? "Lançamento atualizado no banco" : "Lançamento salvo no banco");
+      setSeriesPrompt(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
     }
+  };
+
+  const saveTransaction = async (input: TransactionInput) => {
+    // Só perguntamos o alcance quando existe série: sem isso o modal salvaria
+    // silenciosamente meses que o usuário não estava olhando.
+    if (editing?.recurrenceGroupId) {
+      setSeriesPrompt({ action: "save", transaction: editing, input });
+      return;
+    }
+    await commitSave(input, editing, "single");
   };
 
   const duplicate = async (transaction: Transaction) => {
@@ -773,12 +887,28 @@ export default function LancamentosPage() {
     }
   };
 
-  const remove = async (id: number) => {
+  const commitDelete = async (transaction: Transaction, scope: SeriesScope) => {
     try {
-      await deleteMutation.mutateAsync({ id });
-      setSelected(current => current.filter(item => item !== id));
+      const result = await deleteMutation.mutateAsync({ id: transaction.id, scope });
+      setSelected(current => current.filter(item => item !== transaction.id));
       setActionOpen(null);
-      toast.success("Lançamento removido do banco");
+      setSeriesPrompt(null);
+      toast.success(result.deletedCount > 1
+        ? `${result.deletedCount} lançamentos removidos`
+        : "Lançamento removido do banco");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir");
+    }
+  };
+
+  const remove = async (transaction: Transaction) => {
+    if (transaction.recurrenceGroupId) {
+      setActionOpen(null);
+      setSeriesPrompt({ action: "delete", transaction });
+      return;
+    }
+    try {
+      await commitDelete(transaction, "single");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível excluir");
     }
@@ -914,7 +1044,7 @@ export default function LancamentosPage() {
                 <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><SelectionCheckbox label="Selecionar todos" checked={allSelected} mixed={someSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{dateColumnVisible && <th className="w-24 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} className="min-w-[180px]" />}{visibleColumns.amount && <SortableColumnHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} className="w-32 text-right" />}{visibleColumns.account && <SortableColumnHeader label="Conta" sortKey="account" sort={sort} onSort={toggleSort} className="w-20 text-center" />}{visibleColumns.status && <SortableColumnHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-20 text-center" />}<th className="w-14 py-3 pr-3" /></tr></thead>
                 <tbody>{groupedTransactions.flatMap(group => [
                   ...(group.date ? [<tr key={`group-${group.date}`}><td colSpan={tableDataColumnCount + 2} className="border-b border-[#DDE5E0] bg-[#EDF2EF] p-0"><button type="button" aria-label={`${collapsedDates.has(group.date) ? "Expandir" : "Recolher"} lançamentos de ${formatDate(group.date)}`} aria-expanded={!collapsedDates.has(group.date)} onClick={() => setCollapsedDates(current => { const next = new Set(current); if (next.has(group.date)) next.delete(group.date); else next.add(group.date); return next; })} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12.5px] text-[#28382E] transition hover:bg-[#E5ECE7]"><ChevronRightIcon size={16} className={`transition-transform ${collapsedDates.has(group.date) ? "" : "rotate-90"}`} /><strong className="text-[13px]">{formatDate(group.date)}</strong><span className="rounded-md bg-white/75 px-2 py-0.5 text-[10.5px] font-semibold text-[#718077]">{group.items.length} lançamento{group.items.length === 1 ? "" : "s"}</span><span className="ml-auto text-[10.5px] font-medium text-[#718077]">Total do dia <strong className={group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}>{formatMoney(group.total)}</strong></span></button></td></tr>] : []),
-                  ...(!group.date || !collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><SelectionCheckbox label={`Selecionar ${transaction.description}`} checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} /></td>{visibleColumns.type && <td className="py-2.5"><TypeBadge type={transaction.type} amount={transaction.amount} /></td>}{dateColumnVisible && <td className="py-2.5 text-[#607067]">{formatDate(transaction.transactionDate)}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title="Recorrente" className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F1F4F2] text-[18px] text-[#718077]">↻</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact || "—"}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} disabled={toggleStatusMutation.isPending} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] disabled:opacity-50 ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction.id)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
+                  ...(!group.date || !collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><SelectionCheckbox label={`Selecionar ${transaction.description}`} checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} /></td>{visibleColumns.type && <td className="py-2.5"><TypeBadge type={transaction.type} amount={transaction.amount} /></td>}{dateColumnVisible && <td className="py-2.5 text-[#607067]">{formatDate(transaction.transactionDate)}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title={transaction.recurrenceGroupId ? `Parcela ${transaction.recurrenceIndex ?? 1} de ${transaction.recurringMonths ?? 1}` : "Recorrente"} className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#F1F4F2] px-1.5 text-[11px] font-bold text-[#718077]">{transaction.recurrenceGroupId ? `${transaction.recurrenceIndex ?? 1}/${transaction.recurringMonths ?? 1}` : "↻"}</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact || "—"}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} disabled={toggleStatusMutation.isPending} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] disabled:opacity-50 ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
                 ])}</tbody>
               </table>
               {transactionsQuery.isLoading && <div className="flex items-center justify-center gap-3 px-5 py-16 text-[12.5px] text-[#718077]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando seus lançamentos...</div>}
@@ -928,7 +1058,7 @@ export default function LancamentosPage() {
       </div>
 
       {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
-      {bulkEditOpen && <BulkEditModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setBulkEditOpen(false)} onSave={saveBulkChanges} />}
+      {seriesPrompt && <SeriesScopeDialog action={seriesPrompt.action} transaction={seriesPrompt.transaction} pending={mutationPending || deleteMutation.isPending} onCancel={() => setSeriesPrompt(null)} onConfirm={scope => { if (seriesPrompt.action === "save") void commitSave(seriesPrompt.input, seriesPrompt.transaction, scope); else void commitDelete(seriesPrompt.transaction, scope); }} />}{bulkEditOpen && <BulkEditModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setBulkEditOpen(false)} onSave={saveBulkChanges} />}
       {importOpen && <ImportTransactionsModal onClose={() => setImportOpen(false)} onImported={refresh} onManageOrganization={() => setLocation("/organizacao")} />}
     </main>
   );
