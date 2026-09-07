@@ -25,6 +25,8 @@ import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
+import { todayIso } from "@/lib/period";
+import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -79,8 +81,6 @@ type OrganizationOptions = {
   costCenters: Array<{ id: number; name: string; color: string }>;
 };
 
-type ColumnKey = "type" | "date" | "description" | "recurring" | "contact" | "category" | "amount" | "account" | "status";
-
 const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 const panelItems: NavItem[] = [
@@ -108,22 +108,6 @@ const badgeClass = {
   negative: "bg-[#FDECEA] text-[#8E1F16]",
   neutral: "bg-[#F1F4F2] text-[#4C6355]",
 };
-
-const columns: Array<{ key: ColumnKey; label: string }> = [
-  { key: "type", label: "Tipo" },
-  { key: "date", label: "Data" },
-  { key: "description", label: "Descrição" },
-  { key: "recurring", label: "Recorrência" },
-  { key: "contact", label: "Contato" },
-  { key: "category", label: "Categoria" },
-  { key: "amount", label: "Valor" },
-  { key: "account", label: "Conta" },
-  { key: "status", label: "Status" },
-];
-
-const defaultColumnVisibility = () => Object.fromEntries(
-  columns.map(column => [column.key, column.key !== "date"])
-) as Record<ColumnKey, boolean>;
 
 function ColumnCheckState({ checked, mixed = false }: { checked: boolean; mixed?: boolean }) {
   return (
@@ -162,6 +146,24 @@ function SelectionCheckbox({ checked, mixed = false, label, onChange }: {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+/** Quantas linhas o rodapé revela por vez. */
+const PAGE_SIZE = 50;
+
+function formatPercent(value: number) {
+  return `${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
+}
+
+/** "Sexta, 05 de setembro" — o cabeçalho de dia do extrato. */
+function formatDayLabel(isoDate: string) {
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${isoDate}T00:00:00Z`));
+  return label.replace(/^./, letter => letter.toUpperCase());
 }
 
 function formatDate(value: string) {
@@ -239,6 +241,41 @@ function AccountBadge({ account }: { account: string }) {
   return <span className={`inline-flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-[10px] font-bold ${styles[account] ?? "bg-[#F1F4F2] text-[#4C6355]"}`}>{account}</span>;
 }
 
+/** Colunas do extrato. Uma constante só para cabeçalho e linhas nunca desalinharem. */
+const ROW_GRID = "grid grid-cols-[22px_minmax(0,1fr)_168px_132px_124px_120px_28px] items-center gap-3";
+
+const STATUS_TONE: Record<RowStatus["tone"], string> = {
+  positive: "bg-[#DFF6EA] text-[#0A7A42]",
+  negative: "bg-[#FDECEA] text-[#8E1F16]",
+  neutral: "bg-[#F1F4F2] text-[#4C6355]",
+};
+
+function KpiCard({ label, value, valueClass, hint, hintClass }: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  hint: string;
+  hintClass?: string;
+}) {
+  return (
+    <article className="flex flex-col gap-2.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+      <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]">{label}</span>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? ""}`}>{value}</strong>
+      <span className={`text-[12px] ${hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
+    </article>
+  );
+}
+
+/** Chip removível de um filtro ativo. */
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button type="button" onClick={onClear} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#DFF6EA] px-3.5 text-[13px] font-semibold text-[#0A7A42] hover:bg-[#CFEBDD]">
+      {label}
+      <CloseIcon size={13} />
+    </button>
+  );
+}
+
 function SummaryCard({ label, value, tone, active, onClick }: { label: string; value: string; tone: "default" | "negative" | "positive"; active?: boolean; onClick: () => void }) {
   return (
     <button type="button" aria-pressed={active} onClick={onClick} className={`w-full rounded-[17px] bg-white p-4 text-left ring-1 transition hover:bg-[#FAFCFB] active:scale-[.99] ${active ? `ring-2 ${tone === "negative" ? "ring-[#E5533D]" : "ring-[#12B85C]"}` : "ring-[#E1E8E3]"}`}>
@@ -252,12 +289,122 @@ function SortableColumnHeader({ label, sortKey, sort, onSort, className = "" }: 
   const active = sort?.key === sortKey;
   const ariaSort = active ? (sort.direction === "asc" ? "ascending" : "descending") : "none";
   return (
-    <th aria-sort={ariaSort} className={className}>
-      <button type="button" onClick={() => onSort(sortKey)} title={`Ordenar por ${label}`} className={`group flex w-full items-center gap-1.5 py-3 transition hover:text-[#0A7A42] ${className.includes("text-right") ? "justify-end" : className.includes("text-center") ? "justify-center" : "justify-start"}`}>
-        <span>{label}</span>
-        <span aria-hidden="true" className={`text-[10px] leading-none ${active ? "text-[#12B85C]" : "text-[#BCC6BF] group-hover:text-[#74B68F]"}`}>{active ? sort.direction === "asc" ? "↑" : "↓" : "↕"}</span>
+    <button
+      type="button"
+      aria-sort={ariaSort}
+      onClick={() => onSort(sortKey)}
+      title={`Ordenar por ${label}`}
+      className={`group flex items-center gap-1.5 transition hover:text-[#0A7A42] ${className || "justify-start"}`}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className={`text-[10px] leading-none ${active ? "text-[#12B85C]" : "text-[#BCC6BF] group-hover:text-[#74B68F]"}`}>
+        {active ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * A segunda linha da descrição. Prioriza o que exige ação — atraso primeiro —
+ * e só depois o contexto. Com ordenação ligada não há cabeçalho de dia, então a
+ * data entra aqui para não sumir da tela.
+ */
+function rowSubtitle(transaction: Transaction, status: RowStatus, showDate: boolean) {
+  const parts: string[] = [];
+  if (showDate) parts.push(formatDate(transaction.transactionDate));
+  if (status.tone === "negative" && status.daysLate) {
+    parts.push(`Vencido em ${formatDate(transaction.transactionDate)} · ${status.daysLate} ${status.daysLate === 1 ? "dia" : "dias"} de atraso`);
+  } else if (transaction.type === "transferencia") {
+    parts.push("Movimentação interna");
+  } else if (transaction.recurrenceGroupId) {
+    parts.push(`Parcela ${transaction.recurrenceIndex ?? 1} de ${transaction.recurringMonths ?? 1} · recorrente`);
+  } else if (transaction.recurring) {
+    parts.push("Recorrente");
+  }
+  if (transaction.contact) parts.push(transaction.contact);
+  return parts.join(" · ");
+}
+
+function TransactionGridRow({ transaction, status, selected, showDate, pendingStatus, onToggleSelect, onToggleStatus, onCategorize, onEdit, onDuplicate, onDelete, menuOpen, onMenu }: {
+  transaction: Transaction;
+  status: RowStatus;
+  selected: boolean;
+  showDate: boolean;
+  pendingStatus: boolean;
+  onToggleSelect: () => void;
+  onToggleStatus: () => void;
+  onCategorize: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  menuOpen: boolean;
+  onMenu: () => void;
+}) {
+  const isTransfer = transaction.type === "transferencia";
+  const subtitle = rowSubtitle(transaction, status, showDate);
+  // Só três fundos: selecionado, atrasado e o resto. Pintar todo pago de verde
+  // deixaria a tela inteira verde e o alerta de atraso deixaria de saltar.
+  const background = selected
+    ? "bg-[#F1FBF6]"
+    : status.tone === "negative"
+      ? "bg-[#FDECEA]"
+      : "bg-[#F8FAF9]";
+  const amountClass = isTransfer
+    ? "text-[#8A968D]"
+    : transaction.amount >= 0
+      ? "text-[#0A7A42]"
+      : "text-[#B3261E]";
+  const monogramClass = isTransfer
+    ? "bg-[#F1F4F2] text-[#4C6355]"
+    : transaction.amount >= 0
+      ? "bg-[#DFF6EA] text-[#0A7A42]"
+      : "bg-white text-[#8E1F16]";
+
+  return (
+    <div className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}>
+      <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} />
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[12px] font-bold ${monogramClass}`}>
+          {monogram(monogramSource(transaction.description, transaction.contact))}
+        </span>
+        <div className="min-w-0">
+          <span className="block truncate font-semibold">{transaction.description}</span>
+          {subtitle && (
+            <span className={`block truncate text-[11.5px] ${status.tone === "negative" ? "text-[#8E1F16]" : "text-[#8A968D]"}`}>
+              {subtitle}
+            </span>
+          )}
+        </div>
+      </div>
+      {transaction.categoryId || transaction.category ? (
+        <span className="truncate text-[#4C6355]">{transaction.category}</span>
+      ) : (
+        <button type="button" onClick={onCategorize} className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#0A7A42] hover:underline">
+          <PlusIcon size={13} />Categorizar
+        </button>
+      )}
+      <span className="truncate text-[#4C6355]">{transaction.account}</span>
+      <button
+        type="button"
+        disabled={pendingStatus}
+        onClick={onToggleStatus}
+        title={transaction.status === "Pago" ? "Marcar como pendente" : "Marcar como pago"}
+        className={`justify-self-start rounded-md px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50 ${STATUS_TONE[status.tone]}`}
+      >
+        {status.label}
       </button>
-    </th>
+      <span className={`text-right font-bold ${amountClass}`}>{formatMoney(transaction.amount)}</span>
+      <button type="button" aria-label={`Ações de ${transaction.description}`} onClick={onMenu} className="flex h-7 w-7 items-center justify-center justify-self-end rounded-lg text-[#B3BFB7] hover:bg-white">
+        <MenuIcon size={16} />
+      </button>
+      {menuOpen && (
+        <div className="popover-enter absolute right-2 top-11 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
+          <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button>
+          <button type="button" onClick={onEdit} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button>
+          <button type="button" onClick={onDelete} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -724,54 +871,83 @@ type BulkTransactionChanges = {
   recurring?: boolean;
 };
 
-function BulkEditModal({ selectedCount, selectedTypes, options, pending, onClose, onSave }: { selectedCount: number; selectedTypes: Transaction["type"][]; options: OrganizationOptions; pending: boolean; onClose: () => void; onSave: (changes: BulkTransactionChanges) => Promise<void> }) {
-  const [status, setStatus] = useState("");
-  const [transactionDate, setTransactionDate] = useState("");
-  const [accountId, setAccountId] = useState("");
+/**
+ * A barra de seleção só oferece categorizar, então o modal é só o seletor. Ele
+ * recusa uma categoria incompatível com o tipo dos selecionados antes de mandar
+ * ao servidor, que também valida — a checagem aqui existe para o usuário não
+ * descobrir a recusa depois de escolher.
+ */
+function CategorizeModal({ selectedCount, selectedTypes, options, pending, onClose, onSave }: {
+  selectedCount: number;
+  selectedTypes: TransactionType[];
+  options: OrganizationOptions;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (categoryId: number) => Promise<void>;
+}) {
   const [categoryId, setCategoryId] = useState("");
-  const [recurring, setRecurring] = useState("");
-  // Trocar a conta de uma perna de transferência descasaria o par, então o
-  // servidor recusa. Desabilitar aqui evita que o usuário só descubra ao salvar.
   const hasTransfer = selectedTypes.includes("transferencia");
   const compatibleCategories = options.categories.filter(category => selectedTypes.length === 1
     ? category.type === "ambos" || category.type === selectedTypes[0]
     : category.type === "ambos");
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    const changes: BulkTransactionChanges = {};
-    if (status) changes.status = status as Transaction["status"];
-    if (transactionDate) changes.transactionDate = transactionDate;
-    if (accountId) changes.accountId = Number(accountId);
-    if (categoryId) changes.categoryId = Number(categoryId);
-    if (recurring) changes.recurring = recurring === "sim";
-    if (Object.keys(changes).length === 0) return toast.info("Escolha ao menos um campo para alterar.");
-    await onSave(changes);
-  };
-
-  const selectClass = "h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]";
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150D]/45 p-4 backdrop-blur-[2px]">
-      <form onSubmit={submit} className="modal-enter w-full max-w-[570px] rounded-[22px] bg-white p-5 ring-1 ring-black/5 sm:p-6">
+    <div role="dialog" aria-modal="true" aria-labelledby="categorize-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form
+        onSubmit={async event => {
+          event.preventDefault();
+          if (!categoryId) return toast.info("Escolha uma categoria.");
+          await onSave(Number(categoryId));
+        }}
+        className="modal-enter w-full max-w-[440px] rounded-[22px] bg-white p-6 text-[#0B1F14]"
+      >
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#DFF6EA] text-[#0A7A42]"><EditIcon size={20} /></span>
-          <div><span className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Edição em lote</span><h2 className="mt-1 text-[20px] font-bold">Alterar lançamentos</h2><p className="mt-1 text-[12px] text-[#718077]">Somente os campos escolhidos serão aplicados aos {selectedCount.toLocaleString("pt-BR")} itens selecionados.</p></div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#F1F4F2] text-[#4C6355]"><CloseIcon size={16} /></button>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Em lote</p>
+            <h2 id="categorize-title" className="mt-1 text-xl font-bold">Categorizar lançamentos</h2>
+            <p className="mt-1 text-[12px] text-[#8A968D]">
+              A categoria escolhida vale para {selectedCount === 1 ? "o item selecionado" : `os ${selectedCount.toLocaleString("pt-BR")} itens selecionados`}.
+            </p>
+          </div>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355]"><CloseIcon size={17} /></button>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={status} onChange={event => setStatus(event.target.value)} className={selectClass}><option value="">Manter atual</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label>
-          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Data</span><input type="date" value={transactionDate} onChange={event => setTransactionDate(event.target.value)} className={selectClass} /></label>
-          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Conta</span><select disabled={hasTransfer} value={accountId} onChange={event => setAccountId(event.target.value)} className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}><option value="">Manter atual</option>{options.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Categoria</span><select disabled={hasTransfer} value={categoryId} onChange={event => setCategoryId(event.target.value)} className={`${selectClass} disabled:cursor-not-allowed disabled:opacity-50`}><option value="">Manter atual</option>{compatibleCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Recorrência</span><select value={recurring} onChange={event => setRecurring(event.target.value)} className={selectClass}><option value="">Manter atual</option><option value="sim">Recorrente</option><option value="nao">Não recorrente</option></select></label>
+
+        <label className="mt-5 block">
+          <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Categoria</span>
+          <select
+            autoFocus
+            disabled={hasTransfer}
+            value={categoryId}
+            onChange={event => setCategoryId(event.target.value)}
+            className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="">Selecione</option>
+            {compatibleCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+        </label>
+
+        {hasTransfer && (
+          <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-[11px] leading-relaxed text-[#725517]">
+            A seleção inclui transferências, que têm categoria fixa. Tire-as da seleção para categorizar o restante.
+          </p>
+        )}
+        {!hasTransfer && selectedTypes.length > 1 && compatibleCategories.length === 0 && (
+          <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-[11px] leading-relaxed text-[#725517]">
+            A seleção combina entradas e saídas. Para categorizar em conjunto, cadastre uma categoria do tipo “Ambos”.
+          </p>
+        )}
+
+        <div className="mt-6 flex gap-2.5">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355]">Cancelar</button>
+          <button type="submit" disabled={pending || hasTransfer || !categoryId} className="flex-1 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white disabled:opacity-50">
+            {pending ? "Aplicando..." : "Aplicar categoria"}
+          </button>
         </div>
-        {hasTransfer && <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-[11px] text-[#725517]">A seleção inclui transferências. Conta e categoria não podem ser trocadas em lote porque as duas pernas precisam continuar apontando para contas diferentes. Edite a transferência individualmente.</p>}
-        {!hasTransfer && selectedTypes.length > 1 && compatibleCategories.length === 0 && <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-[11px] text-[#7A5A14]">A seleção combina receitas e despesas. Para alterar a categoria em conjunto, cadastre uma categoria do tipo “Ambos”.</p>}
-        <div className="mt-5 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">Cancelar</button><button type="submit" disabled={pending} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60"><CheckIcon size={16} />{pending ? "Aplicando..." : "Aplicar alterações"}</button></div>
       </form>
     </div>
   );
 }
+
 
 export default function LancamentosPage() {
   const { user, logout } = useAuth();
@@ -782,13 +958,14 @@ export default function LancamentosPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"todos" | Transaction["type"]>("todos");
   const [statusFilter, setStatusFilter] = useState<"todos" | Transaction["status"]>("todos");
+  const [accountFilter, setAccountFilter] = useState("todos");
+  const [categoryFilter, setCategoryFilter] = useState("todos");
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
+  const [categorizeOpen, setCategorizeOpen] = useState(false);
   const [sort, setSort] = useState<TransactionSortState>(null);
-  const [columnsOpen, setColumnsOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(defaultColumnVisibility);
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -826,18 +1003,51 @@ export default function LancamentosPage() {
     const normalized = search.trim().toLowerCase();
     return transactions.filter(item => {
       const matchesSearch = !normalized || [item.description, item.contact, item.category, item.account].some(value => value.toLowerCase().includes(normalized));
-      return matchesSearch && (typeFilter === "todos" || item.type === typeFilter) && (statusFilter === "todos" || item.status === statusFilter);
+      return matchesSearch
+        && (typeFilter === "todos" || item.type === typeFilter)
+        && (statusFilter === "todos" || item.status === statusFilter)
+        && (accountFilter === "todos" || item.account === accountFilter)
+        && (categoryFilter === "todos" || item.category === categoryFilter);
     });
-  }, [search, statusFilter, transactions, typeFilter]);
+  }, [accountFilter, categoryFilter, search, statusFilter, transactions, typeFilter]);
 
-  const visibleCount = Object.values(visibleColumns).filter(Boolean).length;
-  const dateColumnVisible = visibleColumns.date || sort !== null;
-  const tableDataColumnCount = visibleCount + (sort && !visibleColumns.date ? 1 : 0);
+  // Um filtro novo pode deixar a lista menor que a janela já revelada; voltar ao
+  // tamanho inicial evita mostrar "50 de 12".
+  useEffect(() => {
+    setVisibleLimit(PAGE_SIZE);
+  }, [accountFilter, categoryFilter, search, statusFilter, typeFilter, sort]);
+
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
   const someSelected = !allSelected && filtered.some(item => selected.includes(item.id));
   const selectedTransactions = useMemo(() => transactions.filter(transaction => selected.includes(transaction.id)), [selected, transactions]);
   const selectedTypes = useMemo(() => Array.from(new Set(selectedTransactions.map(transaction => transaction.type))), [selectedTransactions]);
-  const groupedTransactions = useMemo(() => buildTransactionDisplayGroups(filtered, sort), [filtered, sort]);
+  // Os totais e as contagens olham o mês filtrado inteiro; só a renderização é
+  // paginada. Um "Carregar mais" que mudasse os KPIs seria mentiroso.
+  const visible = useMemo(() => filtered.slice(0, visibleLimit), [filtered, visibleLimit]);
+  const groupedTransactions = useMemo(() => buildTransactionDisplayGroups(visible, sort), [visible, sort]);
+  const today = todayIso();
+  const counts = useMemo(() => {
+    const cash = filtered.filter(item => item.type !== "transferencia");
+    const pendings = cash.filter(item => item.status === "Pendente");
+    return {
+      incoming: cash.filter(item => item.amount > 0).length,
+      outgoing: cash.filter(item => item.amount < 0).length,
+      pending: pendings.length,
+      late: pendings.filter(item => rowStatus(item, today).tone === "negative").length,
+      uncategorized: filtered.filter(item => !item.category).length,
+    };
+  }, [filtered, today]);
+  const selectedTotal = useMemo(
+    () => transactions.filter(item => selected.includes(item.id)).reduce((sum, item) => sum + item.amount, 0),
+    [selected, transactions]
+  );
+  const periodLabel = useMemo(() => {
+    const last = new Date(Date.UTC(period.year, period.month, 0)).getUTCDate();
+    const short = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" })
+      .format(new Date(Date.UTC(period.year, period.month - 1, 1)))
+      .replace(".", "");
+    return `01–${last} ${short} ${period.year}`;
+  }, [period.month, period.year]);
   const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthCursor).replace(/^./, letter => letter.toUpperCase());
   const mutationPending = createMutation.isPending || updateMutation.isPending;
@@ -941,23 +1151,14 @@ export default function LancamentosPage() {
     }
   };
 
-  const editSelected = () => {
-    if (selectedTransactions.length === 1) {
-      setEditing(selectedTransactions[0]);
-      setModalOpen(true);
-      return;
-    }
-    setBulkEditOpen(true);
-  };
-
-  const saveBulkChanges = async (changes: BulkTransactionChanges) => {
+  const categorizeSelected = async (categoryId: number) => {
     try {
-      const result = await updateManyMutation.mutateAsync({ ids: selected, changes });
-      setBulkEditOpen(false);
+      const result = await updateManyMutation.mutateAsync({ ids: selected, changes: { categoryId } });
+      setCategorizeOpen(false);
       setSelected([]);
-      toast.success(`${result.matchedCount.toLocaleString("pt-BR")} lançamento${result.matchedCount === 1 ? " atualizado" : "s atualizados"}`);
+      toast.success(`${result.matchedCount.toLocaleString("pt-BR")} lançamento${result.matchedCount === 1 ? " categorizado" : "s categorizados"}`);
     } catch (error) {
-      toast.error(safeErrorMessage(error, "Não foi possível alterar os lançamentos selecionados."));
+      toast.error(safeErrorMessage(error, "Não foi possível categorizar os lançamentos selecionados."));
     }
   };
 
@@ -998,6 +1199,10 @@ export default function LancamentosPage() {
               <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}><ChevronRightIcon size={15} /></button>
             </div>
+            <label className="relative order-4 min-w-[200px] flex-1 lg:order-none lg:max-w-[280px]">
+              <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
+              <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar lançamento…" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
+            </label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" aria-label="Importar lançamentos" onClick={() => setImportOpen(true)} className={toolButton}><UploadIcon size={17} /></button>
@@ -1018,50 +1223,198 @@ export default function LancamentosPage() {
             </div>
           </header>
 
-          <section className="flex flex-wrap items-center gap-2.5">
-            <button type="button" onClick={() => setFiltersOpen(value => !value)} className={`flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[12.5px] font-semibold ring-1 transition ${filtersOpen || typeFilter !== "todos" || statusFilter !== "todos" ? "bg-[#DFF6EA] text-[#0A7A42] ring-[#BDE8CF]" : "bg-white text-[#4C6355] ring-[#DFE6E1] hover:bg-[#F1FBF6]"}`}><FilterIcon size={16} />Filtrar</button>
-            <label className="relative min-w-[210px] flex-1 sm:max-w-[310px]"><SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A968D]" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar lançamento" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[12.5px] outline-none ring-1 ring-[#DFE6E1] placeholder:text-[#AAB4AD] focus:ring-2 focus:ring-[#12B85C]" /></label>
-            <div className="relative ml-auto"><button type="button" aria-label="Configurar colunas" onClick={() => setColumnsOpen(value => !value)} className={toolButton}><SettingsIcon size={17} /></button>
-              {columnsOpen && <div className="popover-enter absolute right-0 top-12 z-40 w-[290px] rounded-[18px] bg-white p-4 shadow-[0_22px_60px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><div className="flex items-center"><strong className="text-[14px]">Colunas</strong><span className="ml-auto text-[12px] font-semibold text-[#8A968D]">{visibleCount} de {columns.length}</span></div><div className="mt-3 space-y-1">{columns.map(column => <button key={column.key} type="button" onClick={() => setVisibleColumns(current => ({ ...current, [column.key]: !current[column.key] }))} className="flex w-full items-center gap-3 rounded-[11px] px-2.5 py-2 text-left text-[12.5px] hover:bg-[#F1FBF6]"><span className="grid h-5 w-3 grid-cols-2 gap-[2px]">{Array.from({ length: 6 }).map((_, index) => <i key={index} className="h-[3px] w-[3px] rounded-full bg-[#AAB4AD]" />)}</span><span className="flex-1">{column.label}</span><ColumnCheckState checked={visibleColumns[column.key]} /></button>)}</div><button type="button" onClick={() => setVisibleColumns(defaultColumnVisibility())} className="mt-3 w-full rounded-xl bg-[#F1F4F2] px-3 py-2.5 text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Restaurar padrão</button></div>}
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Entradas do período"
+              value={formatMoney(summary.incoming)}
+              valueClass="text-[#0A7A42]"
+              hint={`${counts.incoming.toLocaleString("pt-BR")} ${counts.incoming === 1 ? "lançamento" : "lançamentos"}`}
+            />
+            <KpiCard
+              label="Saídas do período"
+              value={formatMoney(summary.outgoing)}
+              valueClass="text-[#B3261E]"
+              hint={`${counts.outgoing.toLocaleString("pt-BR")} ${counts.outgoing === 1 ? "lançamento" : "lançamentos"}`}
+            />
+            <KpiCard
+              label="Resultado"
+              value={formatMoney(summary.balance)}
+              hint={summary.incoming > 0 ? `margem ${formatPercent((summary.balance / summary.incoming) * 100)}` : "sem entradas no período"}
+              hintClass={summary.balance >= 0 ? "font-semibold text-[#0A7A42]" : "font-semibold text-[#B3261E]"}
+            />
+            <KpiCard
+              label="Pendentes"
+              value={counts.pending.toLocaleString("pt-BR")}
+              hint={counts.pending === 0
+                ? "nada em aberto neste mês"
+                : `${counts.uncategorized} sem categoria · ${counts.late} ${counts.late === 1 ? "atrasado" : "atrasados"}`}
+              hintClass={counts.late > 0 ? "font-semibold text-[#8E1F16]" : "text-[#8A968D]"}
+            />
+          </section>
+
+          <section className="flex min-h-0 flex-1 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-[12px] bg-[#F1F4F2] p-1.5">
+                {([["todos", "Todos"], ["entrada", "Entradas"], ["saida", "Saídas"], ["transferencia", "Transferências"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { setTypeFilter(value); setSelected([]); }}
+                    aria-pressed={typeFilter === value}
+                    className={`rounded-[9px] px-3.5 py-[7px] text-[13px] transition ${typeFilter === value ? "bg-[#12B85C] font-bold text-white" : "text-[#4C6355] hover:bg-white"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[13px] text-[#28382E] ring-1 ring-[#E3EAE5]">
+                <ChartIcon size={14} />{periodLabel}
+              </span>
+              {accountFilter !== "todos" && <FilterChip label={`Conta: ${accountFilter}`} onClear={() => setAccountFilter("todos")} />}
+              {categoryFilter !== "todos" && <FilterChip label={`Categoria: ${categoryFilter}`} onClear={() => setCategoryFilter("todos")} />}
+              {statusFilter !== "todos" && <FilterChip label={`Situação: ${statusFilter === "Pago" ? "Pago" : "Em aberto"}`} onClear={() => setStatusFilter("todos")} />}
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(value => !value)}
+                aria-expanded={filtersOpen}
+                className={`flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[13px] font-semibold transition ${filtersOpen ? "bg-[#DFF6EA] text-[#0A7A42]" : "border border-dashed border-[#C9D5CD] text-[#4C6355] hover:bg-[#F8FAF9]"}`}
+              >
+                <PlusIcon size={13} />Filtro
+              </button>
+            </div>
+
+            {filtersOpen && (
+              <div className="grid gap-3 rounded-[14px] bg-[#F8FAF9] p-3.5 sm:grid-cols-4">
+                <label>
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Conta</span>
+                  <select value={accountFilter} onChange={event => setAccountFilter(event.target.value)} className="h-9 w-full rounded-[10px] bg-white px-3 text-[12px] outline-none ring-1 ring-[#E3EAE5]">
+                    <option value="todos">Todas</option>
+                    {organizationOptions.accounts.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Categoria</span>
+                  <select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)} className="h-9 w-full rounded-[10px] bg-white px-3 text-[12px] outline-none ring-1 ring-[#E3EAE5]">
+                    <option value="todos">Todas</option>
+                    {organizationOptions.categories.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Situação</span>
+                  <select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 w-full rounded-[10px] bg-white px-3 text-[12px] outline-none ring-1 ring-[#E3EAE5]">
+                    <option value="todos">Todas</option>
+                    <option value="Pago">Pago</option>
+                    <option value="Pendente">Em aberto</option>
+                  </select>
+                </label>
+                <div className="flex items-end">
+                  <button type="button" onClick={() => { setTypeFilter("todos"); setStatusFilter("todos"); setAccountFilter("todos"); setCategoryFilter("todos"); setSearch(""); }} className="h-9 w-full rounded-[10px] bg-[#F1F4F2] text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">
+                    Limpar filtros
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selected.length > 0 && (
+              <div aria-live="polite" className="modal-enter flex flex-wrap items-center gap-2.5 rounded-[14px] bg-[#0B1F14] px-3.5 py-3 text-white">
+                <SelectionCheckbox checked mixed label="Limpar seleção" onChange={() => setSelected([])} />
+                <span className="text-[13px] font-semibold">
+                  {selected.length.toLocaleString("pt-BR")} {selected.length === 1 ? "lançamento selecionado" : "lançamentos selecionados"} · {formatMoney(selectedTotal)}
+                </span>
+                <button type="button" disabled={updateManyMutation.isPending} onClick={() => setCategorizeOpen(true)} className="ml-auto rounded-[10px] bg-[#12321F] px-3.5 py-2 text-[12.5px] font-semibold hover:bg-[#1A4229] disabled:opacity-50">Categorizar</button>
+                <button type="button" disabled={updateManyMutation.isPending} onClick={markSelectedPaid} className="rounded-[10px] bg-[#12B85C] px-3.5 py-2 text-[12.5px] font-bold hover:bg-[#0F9E4E] disabled:opacity-50">Marcar como pago</button>
+                <button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="flex items-center gap-2 rounded-[10px] px-3.5 py-2 text-[12.5px] font-semibold text-[#F4A497] hover:bg-[#12321F] disabled:opacity-50">
+                  <DeleteIcon size={13} />Excluir
+                </button>
+              </div>
+            )}
+
+            <div className="min-h-0 flex-1 overflow-auto">
+              <div className="min-w-[940px]">
+                <div className={`${ROW_GRID} border-b border-[#F1F4F2] px-3 pb-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]`}>
+                  <SelectionCheckbox checked={allSelected} mixed={someSelected} label="Selecionar todos" onChange={() => setSelected(allSelected ? [] : filtered.map(item => item.id))} />
+                  <span>Descrição</span>
+                  <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} />
+                  <SortableColumnHeader label="Conta" sortKey="account" sort={sort} onSort={toggleSort} />
+                  <SortableColumnHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
+                  <SortableColumnHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} className="justify-end" />
+                  <span />
+                </div>
+
+                {transactionsQuery.isLoading && (
+                  <div className="flex items-center justify-center gap-3 py-16 text-[12.5px] text-[#718077]">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando lançamentos...
+                  </div>
+                )}
+                {transactionsQuery.isError && (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <strong className="text-[14px] text-[#B3261E]">Não foi possível carregar os lançamentos</strong>
+                    <button type="button" onClick={() => transactionsQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button>
+                  </div>
+                )}
+                {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span>
+                    <strong className="mt-3 text-[14px]">Nenhum lançamento encontrado</strong>
+                    <p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">Ajuste os filtros ou lance o primeiro movimento deste mês.</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1 pt-1">
+                  {groupedTransactions.flatMap(group => [
+                    ...(group.date ? [(
+                      <div key={`group-${group.date}`} className="flex items-center gap-2.5 px-3 pb-1 pt-3">
+                        <button type="button" onClick={() => setCollapsedDates(current => { const next = new Set(current); if (next.has(group.date!)) next.delete(group.date!); else next.add(group.date!); return next; })} className="text-[11.5px] font-bold uppercase tracking-[.06em] text-[#8A968D] hover:text-[#0B1F14]">
+                          {formatDayLabel(group.date)}
+                        </button>
+                        <span className="h-px flex-1 bg-[#F1F4F2]" />
+                        <span className={`text-[12px] font-semibold ${group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(group.total)}</span>
+                      </div>
+                    )] : []),
+                    ...(!group.date || !collapsedDates.has(group.date)
+                      ? group.items.map(transaction => (
+                        <TransactionGridRow
+                          key={transaction.id}
+                          transaction={transaction}
+                          status={rowStatus(transaction, today)}
+                          selected={selected.includes(transaction.id)}
+                          showDate={sort !== null}
+                          pendingStatus={toggleStatusMutation.isPending}
+                          menuOpen={actionOpen === transaction.id}
+                          onMenu={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)}
+                          onToggleSelect={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])}
+                          onToggleStatus={() => markPaid(transaction)}
+                          onCategorize={() => { setSelected([transaction.id]); setCategorizeOpen(true); }}
+                          onEdit={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }}
+                          onDuplicate={() => duplicate(transaction)}
+                          onDelete={() => remove(transaction)}
+                        />
+                      ))
+                      : []),
+                  ])}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3.5 border-t border-[#F1F4F2] pt-3.5">
+              <span className="text-[12.5px] text-[#8A968D]">
+                {Math.min(visibleLimit, filtered.length).toLocaleString("pt-BR")} de {filtered.length.toLocaleString("pt-BR")} {filtered.length === 1 ? "lançamento" : "lançamentos"}
+              </span>
+              {filtered.length > visibleLimit && (
+                <button type="button" onClick={() => setVisibleLimit(current => current + PAGE_SIZE)} className="rounded-[10px] border border-[#E3EAE5] px-3.5 py-2 text-[12.5px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">
+                  Carregar mais
+                </button>
+              )}
             </div>
           </section>
 
-          {selected.length > 0 && <section aria-live="polite" className="modal-enter flex flex-wrap items-center gap-2 rounded-[16px] bg-white px-3 py-3 ring-1 ring-[#DCE5DF] sm:px-4">
-            <button type="button" disabled={updateManyMutation.isPending} onClick={markSelectedPaid} className="flex h-9 items-center gap-2 rounded-[10px] bg-[#F1FBF6] px-3.5 text-[12px] font-bold text-[#0A7A42] ring-1 ring-[#CFE9DA] transition hover:bg-[#E4F7ED] active:scale-[.98] disabled:opacity-50"><CheckIcon size={16} />Marcar como pago</button>
-            <button type="button" disabled={updateManyMutation.isPending} onClick={editSelected} className="flex h-9 items-center gap-2 rounded-[10px] bg-white px-3.5 text-[12px] font-bold text-[#3F5146] ring-1 ring-[#DCE5DF] transition hover:bg-[#F4F8F6] active:scale-[.98] disabled:opacity-50"><EditIcon size={16} />Editar</button>
-            <button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="flex h-9 items-center gap-2 rounded-[10px] bg-white px-3.5 text-[12px] font-bold text-[#B3261E] ring-1 ring-[#F0D1CE] transition hover:bg-[#FDECEA] active:scale-[.98] disabled:opacity-50"><DeleteIcon size={16} />{deleteManyMutation.isPending ? "Excluindo..." : "Excluir"}</button>
-            <strong className="ml-auto text-[12px] font-semibold text-[#607067]">{selected.length.toLocaleString("pt-BR")} {selected.length === 1 ? "item selecionado" : "itens selecionados"}</strong>
-          </section>}
-
-          {filtersOpen && <section className="grid gap-3 rounded-[16px] bg-white p-3.5 ring-1 ring-[#DFE6E1] sm:grid-cols-3"><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option><option value="transferencia">Transferências</option></select></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label><div className="flex items-end"><button type="button" onClick={() => { setTypeFilter("todos"); setStatusFilter("todos"); setSearch(""); }} className="h-9 w-full rounded-[10px] bg-[#F1F4F2] text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Limpar filtros</button></div></section>}
-
-          <section className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard label="Saldo do período" value={formatMoney(summary.balance)} tone="default" active={typeFilter === "todos"} onClick={() => { setTypeFilter("todos"); setSelected([]); }} />
-            <SummaryCard label="Saídas" value={formatMoney(-summary.outgoing)} tone="negative" active={typeFilter === "saida"} onClick={() => { setTypeFilter(current => current === "saida" ? "todos" : "saida"); setSelected([]); }} />
-            <SummaryCard label="Entradas" value={formatMoney(summary.incoming)} tone="positive" active={typeFilter === "entrada"} onClick={() => { setTypeFilter(current => current === "entrada" ? "todos" : "entrada"); setSelected([]); }} />
-          </section>
-
-          <section className="relative min-h-0 flex-1 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#E1E8E3]">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1060px] border-collapse text-left">
-                <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><SelectionCheckbox label="Selecionar todos" checked={allSelected} mixed={someSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{dateColumnVisible && <th className="w-24 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} className="min-w-[180px]" />}{visibleColumns.amount && <SortableColumnHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} className="w-32 text-right" />}{visibleColumns.account && <SortableColumnHeader label="Conta" sortKey="account" sort={sort} onSort={toggleSort} className="w-20 text-center" />}{visibleColumns.status && <SortableColumnHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-20 text-center" />}<th className="w-14 py-3 pr-3" /></tr></thead>
-                <tbody>{groupedTransactions.flatMap(group => [
-                  ...(group.date ? [<tr key={`group-${group.date}`}><td colSpan={tableDataColumnCount + 2} className="border-b border-[#DDE5E0] bg-[#EDF2EF] p-0"><button type="button" aria-label={`${collapsedDates.has(group.date) ? "Expandir" : "Recolher"} lançamentos de ${formatDate(group.date)}`} aria-expanded={!collapsedDates.has(group.date)} onClick={() => setCollapsedDates(current => { const next = new Set(current); if (next.has(group.date)) next.delete(group.date); else next.add(group.date); return next; })} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12.5px] text-[#28382E] transition hover:bg-[#E5ECE7]"><ChevronRightIcon size={16} className={`transition-transform ${collapsedDates.has(group.date) ? "" : "rotate-90"}`} /><strong className="text-[13px]">{formatDate(group.date)}</strong><span className="rounded-md bg-white/75 px-2 py-0.5 text-[10.5px] font-semibold text-[#718077]">{group.items.length} lançamento{group.items.length === 1 ? "" : "s"}</span><span className="ml-auto text-[10.5px] font-medium text-[#718077]">Total do dia <strong className={group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}>{formatMoney(group.total)}</strong></span></button></td></tr>] : []),
-                  ...(!group.date || !collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><SelectionCheckbox label={`Selecionar ${transaction.description}`} checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} /></td>{visibleColumns.type && <td className="py-2.5"><TypeBadge type={transaction.type} amount={transaction.amount} /></td>}{dateColumnVisible && <td className="py-2.5 text-[#607067]">{formatDate(transaction.transactionDate)}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title={transaction.recurrenceGroupId ? `Parcela ${transaction.recurrenceIndex ?? 1} de ${transaction.recurringMonths ?? 1}` : "Recorrente"} className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[#F1F4F2] px-1.5 text-[11px] font-bold text-[#718077]">{transaction.recurrenceGroupId ? `${transaction.recurrenceIndex ?? 1}/${transaction.recurringMonths ?? 1}` : "↻"}</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact || "—"}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} disabled={toggleStatusMutation.isPending} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] disabled:opacity-50 ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
-                ])}</tbody>
-              </table>
-              {transactionsQuery.isLoading && <div className="flex items-center justify-center gap-3 px-5 py-16 text-[12.5px] text-[#718077]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando seus lançamentos...</div>}
-              {transactionsQuery.isError && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><strong className="text-[14px] text-[#B3261E]">Não foi possível carregar os lançamentos</strong><button type="button" onClick={() => transactionsQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-semibold text-[#8E1F16]">Tentar novamente</button></div>}
-            </div>
-            {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && <div className="absolute inset-x-0 bottom-0 top-[41px] flex flex-col items-center justify-center px-5 py-8 text-center"><DocumentIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">{transactions.length === 0 ? "Nenhum lançamento salvo neste mês" : "Nenhum lançamento encontrado"}</strong><span className="mt-1 text-[12px] text-[#8A968D]">{transactions.length === 0 ? "Crie o primeiro lançamento para começar." : "Ajuste a busca ou limpe os filtros."}</span>{transactions.length === 0 && <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white"><PlusIcon size={14} className="mr-1 inline" />Novo lançamento</button>}</div>}
-          </section>
 
           <footer className="sticky bottom-1 z-20 grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
         </section>
       </div>
 
       {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
-      {seriesPrompt && <SeriesScopeDialog action={seriesPrompt.action} transaction={seriesPrompt.transaction} pending={mutationPending || deleteMutation.isPending} onCancel={() => setSeriesPrompt(null)} onConfirm={scope => { if (seriesPrompt.action === "save") void commitSave(seriesPrompt.input, seriesPrompt.transaction, scope); else void commitDelete(seriesPrompt.transaction, scope); }} />}{bulkEditOpen && <BulkEditModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setBulkEditOpen(false)} onSave={saveBulkChanges} />}
+      {seriesPrompt && <SeriesScopeDialog action={seriesPrompt.action} transaction={seriesPrompt.transaction} pending={mutationPending || deleteMutation.isPending} onCancel={() => setSeriesPrompt(null)} onConfirm={scope => { if (seriesPrompt.action === "save") void commitSave(seriesPrompt.input, seriesPrompt.transaction, scope); else void commitDelete(seriesPrompt.transaction, scope); }} />}{categorizeOpen && <CategorizeModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setCategorizeOpen(false)} onSave={categorizeSelected} />}
       {importOpen && <ImportTransactionsModal onClose={() => setImportOpen(false)} onImported={refresh} onManageOrganization={() => setLocation("/organizacao")} />}
     </main>
   );
