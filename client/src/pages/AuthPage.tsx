@@ -7,6 +7,7 @@ import {
   ShowIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { PasswordResetPanel } from "@/pages/PasswordResetPage";
 import { FormEvent, useEffect, useState } from "react";
@@ -138,10 +139,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   };
 
   return (
-    <main className="min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(460px,.92fr)]">
+    <main className="relative min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(460px,.92fr)]">
       <BrandPanel />
 
       <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
+        <ThemeToggle showLabel={false} className="absolute right-5 top-6 z-20 sm:right-10 sm:top-9 lg:right-12 xl:right-16" />
         <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2.5 lg:hidden">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(18,184,92,.2)]">

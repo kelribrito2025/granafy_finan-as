@@ -16,6 +16,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -343,6 +344,7 @@ export default function Home() {
                       <span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email || "Acesso protegido"}</span>
                     </span>
                   </div>
+                  <ThemeToggle className="mt-2 rounded-[12px] bg-[#F8FAF9] p-2" />
                   <button
                     type="button"
                     onClick={handleLogout}
