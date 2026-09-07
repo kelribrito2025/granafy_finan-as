@@ -4,16 +4,18 @@ import {
   ChartIcon,
   CheckIcon,
   ChevronRightIcon,
+  ShowIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
 
 type AuthMode = "login" | "signup";
 
 const inputClass =
-  "h-12 w-full rounded-[13px] border border-[#DCE5DF] bg-white px-4 text-[13px] text-[#0B1F14] outline-none transition placeholder:text-[#A7B1AA] focus:border-[#12B85C] focus:ring-4 focus:ring-[#12B85C]/10";
+  "h-14 w-full rounded-[16px] border border-[#DCE5DF] bg-[#F4F8F6] px-4 text-[14px] text-[#0B1F14] outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-[#9AA69E] hover:bg-[#F0F6F2] focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10";
 
 function BrandPanel() {
   const bars = [35, 49, 43, 68, 59, 82, 74, 100];
@@ -99,6 +101,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const isSignup = mode === "signup";
 
@@ -133,11 +136,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#EFF4F1] text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(460px,.92fr)]">
+    <main className="min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(460px,.92fr)]">
       <BrandPanel />
 
-      <section className="flex min-h-screen flex-col px-5 py-5 sm:px-9 sm:py-8 lg:px-12 xl:px-16">
-        <div className="flex items-center justify-between lg:justify-end">
+      <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
+        <div className="flex items-center justify-between lg:hidden">
           <div className="flex items-center gap-2.5 lg:hidden">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(18,184,92,.2)]">
               NV
@@ -147,46 +150,17 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <p className="text-[10px] text-[#8A968D]">Número Virtual LTDA</p>
             </div>
           </div>
-          <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-semibold text-[#4C6355] shadow-[0_8px_24px_rgba(11,31,20,.05)]">
-            Ambiente seguro
-          </span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col justify-center py-8 sm:py-10">
-          <div className="grid grid-cols-2 rounded-[14px] bg-[#E5ECE8] p-1">
-            <Link
-              href="/login"
-              className={`rounded-[10px] px-4 py-2.5 text-center text-[12.5px] transition-all duration-150 ${
-                !isSignup
-                  ? "bg-white font-bold text-[#0B1F14] shadow-[0_5px_16px_rgba(11,31,20,.08)]"
-                  : "font-medium text-[#718077] hover:text-[#0B1F14]"
-              }`}
-            >
-              Entrar
-            </Link>
-            <Link
-              href="/cadastro"
-              className={`rounded-[10px] px-4 py-2.5 text-center text-[12.5px] transition-all duration-150 ${
-                isSignup
-                  ? "bg-white font-bold text-[#0B1F14] shadow-[0_5px_16px_rgba(11,31,20,.08)]"
-                  : "font-medium text-[#718077] hover:text-[#0B1F14]"
-              }`}
-            >
-              Criar conta
-            </Link>
-          </div>
-
-          <div className="mt-7">
-            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#12B85C]">
-              {isSignup ? "Primeiros passos" : "Bem-vindo de volta"}
-            </p>
-            <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-[-0.04em] sm:text-[34px]">
-              {isSignup ? "Crie sua conta financeira" : "Acesse seu painel"}
+        <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
+          <div>
+            <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.045em] sm:text-[38px]">
+              {isSignup ? "Crie sua conta" : "Acesse sua conta"}
             </h1>
-            <p className="mt-3 text-[13.5px] leading-6 text-[#718077]">
+            <p className="mt-3 text-[15px] leading-6 text-[#718077]">
               {isSignup
-                ? "Cadastre seus dados para começar a organizar a operação do seu negócio."
-                : "Entre para consultar seu caixa, lançamentos e pendências com segurança."}
+                ? "Comece agora a organizar sua operação financeira."
+                : "Bem-vindo de volta ao NV Financeiro."}
             </p>
           </div>
 
@@ -210,10 +184,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               </button>
             </div>
           ) : (
-            <form className="mt-6 space-y-4" onSubmit={submit}>
+            <form className="mt-9 space-y-5" onSubmit={submit}>
               {isSignup && (
                 <label className="block">
-                  <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Nome</span>
+                  <span className="mb-2 block text-[13px] font-semibold text-[#18271F]">Nome</span>
                   <input
                     className={inputClass}
                     type="text"
@@ -230,7 +204,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               )}
 
               <label className="block">
-                <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">E-mail</span>
+                <span className="mb-2 block text-[13px] font-semibold text-[#18271F]">E-mail</span>
                 <input
                   className={inputClass}
                   type="email"
@@ -245,36 +219,69 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Senha</span>
-                <input
-                  className={inputClass}
-                  type="password"
-                  name="password"
-                  autoComplete={isSignup ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={event => setPassword(event.target.value)}
-                  placeholder="Mínimo de 8 caracteres"
-                  minLength={8}
-                  maxLength={128}
-                  required
-                />
-              </label>
-
-              {isSignup && (
-                <label className="block">
-                  <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Confirmar senha</span>
+                <span className="mb-2 flex items-center justify-between gap-4 text-[13px] font-semibold text-[#18271F]">
+                  Senha
+                  {!isSignup && (
+                    <button
+                      type="button"
+                      onClick={() => toast.info("A recuperação de senha será adicionada em breve.")}
+                      className="text-[12.5px] font-semibold text-[#0A9650] transition-colors hover:text-[#0B1F14]"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  )}
+                </span>
+                <span className="relative block">
                   <input
-                    className={inputClass}
-                    type="password"
-                    name="passwordConfirmation"
-                    autoComplete="new-password"
-                    value={passwordConfirmation}
-                    onChange={event => setPasswordConfirmation(event.target.value)}
-                    placeholder="Digite a senha novamente"
+                    className={`${inputClass} pr-13`}
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    autoComplete={isSignup ? "new-password" : "current-password"}
+                    value={password}
+                    onChange={event => setPassword(event.target.value)}
+                    placeholder="Mínimo de 8 caracteres"
                     minLength={8}
                     maxLength={128}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(value => !value)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    aria-pressed={showPassword}
+                    className="absolute inset-y-0 right-0 flex w-13 items-center justify-center text-[#718077] transition-colors hover:text-[#0A9650] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12B85C]"
+                  >
+                    <ShowIcon size={21} />
+                  </button>
+                </span>
+              </label>
+
+              {isSignup && (
+                <label className="block">
+                  <span className="mb-2 block text-[13px] font-semibold text-[#18271F]">Confirmar senha</span>
+                  <span className="relative block">
+                    <input
+                      className={`${inputClass} pr-13`}
+                      type={showPassword ? "text" : "password"}
+                      name="passwordConfirmation"
+                      autoComplete="new-password"
+                      value={passwordConfirmation}
+                      onChange={event => setPasswordConfirmation(event.target.value)}
+                      placeholder="Digite a senha novamente"
+                      minLength={8}
+                      maxLength={128}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(value => !value)}
+                      aria-label={showPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+                      aria-pressed={showPassword}
+                      className="absolute inset-y-0 right-0 flex w-13 items-center justify-center text-[#718077] transition-colors hover:text-[#0A9650] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12B85C]"
+                    >
+                      <ShowIcon size={21} />
+                    </button>
+                  </span>
                 </label>
               )}
 
@@ -287,7 +294,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <button
                 type="submit"
                 disabled={loading || submitting}
-                className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.24)] transition duration-150 hover:bg-[#0F9E4E] hover:shadow-[0_14px_32px_rgba(18,184,92,.28)] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
+                className="mt-1 flex h-14 w-full items-center justify-center gap-2.5 rounded-[16px] bg-[#12B85C] px-5 text-[14px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.2)] transition duration-150 hover:bg-[#0F9E4E] hover:shadow-[0_14px_32px_rgba(18,184,92,.26)] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
               >
                 {loading || submitting ? (
                   <>
@@ -295,32 +302,27 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                     Aguarde...
                   </>
                 ) : (
-                  <>
-                    {isSignup ? "Criar minha conta" : "Entrar no painel"}
-                    <ChevronRightIcon size={16} />
-                  </>
+                  isSignup ? "Criar minha conta" : "Entrar"
                 )}
               </button>
             </form>
           )}
 
           {!user && (
-            <div className="mt-6 border-t border-[#DCE5DF] pt-5 text-center text-[11.5px] text-[#718077]">
-              {isSignup ? "Já possui uma conta?" : "Ainda não possui uma conta?"}{" "}
+            <div className="mt-7 text-center text-[14px] text-[#718077]">
+              {isSignup ? "Já tem uma conta?" : "Não tem uma conta?"}{" "}
               <Link
                 href={isSignup ? "/login" : "/cadastro"}
-                className="font-bold text-[#0A7A42] hover:text-[#0B1F14]"
+                className="font-semibold text-[#0A9650] transition-colors hover:text-[#0B1F14]"
               >
-                {isSignup ? "Entrar" : "Criar conta"}
+                {isSignup ? "Entre agora" : "Cadastre-se grátis"}
               </Link>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] text-[#9AA69E]">
-          <span>© 2026 NV Financeiro</span>
-          <span className="h-1 w-1 rounded-full bg-[#C9D2CC]" />
-          <span>Privacidade e segurança</span>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-[#9AA69E] lg:justify-start">
+          <span>© 2026 NV Financeiro · Todos os direitos reservados</span>
         </div>
       </section>
     </main>
