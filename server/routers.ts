@@ -100,7 +100,10 @@ export const appRouter = router({
           });
         }
 
-        await db.updateLastSignedIn(record.id);
+        await Promise.all([
+          db.updateLastSignedIn(record.id),
+          db.ensureDefaultTransactionCategories(record.id),
+        ]);
         await setLocalSession(ctx.req, ctx.res, record.id);
         return db.toPublicUser({ ...record, lastSignedIn: new Date() });
       }),

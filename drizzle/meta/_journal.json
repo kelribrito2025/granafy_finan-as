@@ -43,6 +43,13 @@
       "when": 1788788005938,
       "tag": "0005_solid_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1788791480051,
+      "tag": "0006_pink_pepper_potts",
+      "breakpoints": true
     }
   ]
 }

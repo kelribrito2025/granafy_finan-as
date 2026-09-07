@@ -16,6 +16,10 @@ import {
   type UserRecord,
   users,
 } from "../drizzle/schema";
+import {
+  DEFAULT_CATEGORY_CATALOG_VERSION,
+  defaultCategoryValues,
+} from "./defaultCategories";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -59,7 +63,11 @@ export async function getDb() {
 }
 
 export function toPublicUser(record: UserRecord): User {
-  const { passwordHash: _passwordHash, ...user } = record;
+  const {
+    passwordHash: _passwordHash,
+    categoryDefaultsVersion: _categoryDefaultsVersion,
+    ...user
+  } = record;
   return user;
 }
 
@@ -71,16 +79,21 @@ export async function createLocalUser(input: {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
-  const result = await db.insert(users).values({
-    openId: `local_${randomUUID()}`,
-    email: input.email,
-    name: input.name,
-    passwordHash: input.passwordHash,
-    loginMethod: "password",
-    lastSignedIn: new Date(),
+  const insertedId = await db.transaction(async tx => {
+    const result = await tx.insert(users).values({
+      openId: `local_${randomUUID()}`,
+      email: input.email,
+      name: input.name,
+      passwordHash: input.passwordHash,
+      loginMethod: "password",
+      categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION,
+      lastSignedIn: new Date(),
+    });
+    const userId = Number(result[0].insertId);
+    await tx.insert(transactionCategories).values(defaultCategoryValues(userId));
+    return userId;
   });
 
-  const insertedId = Number(result[0].insertId);
   const record = await getUserRecordById(insertedId);
   if (!record) throw new Error("Created user could not be loaded");
 
@@ -108,6 +121,34 @@ export async function updateLastSignedIn(id: number) {
   if (!db) throw new Error("Database is not available");
 
   await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, id));
+}
+
+export async function ensureDefaultTransactionCategories(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [record] = await db
+    .select({ version: users.categoryDefaultsVersion })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!record) throw new Error("User not found");
+  if (record.version >= DEFAULT_CATEGORY_CATALOG_VERSION) {
+    return { applied: false, version: record.version };
+  }
+
+  await db.transaction(async tx => {
+    await tx
+      .insert(transactionCategories)
+      .values(defaultCategoryValues(userId))
+      .onDuplicateKeyUpdate({ set: { userId } });
+    await tx
+      .update(users)
+      .set({ categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION })
+      .where(eq(users.id, userId));
+  });
+
+  return { applied: true, version: DEFAULT_CATEGORY_CATALOG_VERSION };
 }
 
 export async function getRecentPasswordResetRequest(userId: number, since: Date) {

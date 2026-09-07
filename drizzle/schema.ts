@@ -19,6 +19,7 @@ export const users = mysqlTable("users", {
   passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  categoryDefaultsVersion: int("categoryDefaultsVersion").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -105,7 +106,7 @@ export const transactions = mysqlTable("transactions", {
 ]);
 
 export type UserRecord = typeof users.$inferSelect;
-export type User = Omit<UserRecord, "passwordHash">;
+export type User = Omit<UserRecord, "passwordHash" | "categoryDefaultsVersion">;
 export type InsertUser = typeof users.$inferInsert;
 export type PasswordResetRequest = typeof passwordResetRequests.$inferSelect;
 export type FinancialAccountRecord = typeof financialAccounts.$inferSelect;

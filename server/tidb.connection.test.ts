@@ -37,6 +37,10 @@ describe("TiDB Cloud connection", () => {
         "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transactions' AND COLUMN_NAME IN ('accountId', 'categoryId', 'importBatchId', 'externalId', 'fingerprint')"
       );
       expect(Number(columns[0]?.count)).toBe(5);
+      const [userColumns] = await connection.query<Array<{ count: number }>>(
+        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'categoryDefaultsVersion'"
+      );
+      expect(Number(userColumns[0]?.count)).toBe(1);
     } finally {
       await connection.end();
     }
