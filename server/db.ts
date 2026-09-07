@@ -4,7 +4,9 @@ import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
   balanceSheetSnapshots,
+  costCenters,
   financialAccounts,
+  type InsertCostCenter,
   type InsertBalanceSheetSnapshot,
   type InsertFinancialAccount,
   type InsertPatrimonialItem,
@@ -273,7 +275,8 @@ export async function getUserByOpenId(openId: string) {
 export type TransactionValues = Pick<
   InsertTransaction,
   "type" | "transactionDate" | "description" | "contact" | "category" | "amount" | "account" | "status" | "recurring" |
-  "accountId" | "categoryId" | "importBatchId" | "externalId" | "fingerprint"
+  "accountId" | "categoryId" | "importBatchId" | "externalId" | "fingerprint" |
+  "costCenter" | "costCenterId" | "recurringMonths" | "attachmentKey" | "attachmentName" | "transferGroupId"
 >;
 
 export async function listTransactionsByPeriod(userId: number, startDate: string, endDate: string) {
@@ -508,6 +511,116 @@ export async function deleteTransactionCategory(userId: number, id: number) {
   if (used.length) return false;
   await db.delete(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.id, id)));
   return true;
+}
+
+export async function listCostCenters(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(costCenters).where(eq(costCenters.userId, userId)).orderBy(desc(costCenters.isActive), costCenters.name);
+}
+
+export async function getCostCenter(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id))).limit(1);
+  return rows[0];
+}
+
+export async function getCostCenterByName(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.name, name))).limit(1);
+  return rows[0];
+}
+
+export async function createCostCenter(userId: number, values: Omit<InsertCostCenter, "userId">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const result = await db.insert(costCenters).values({ userId, ...values });
+  return getCostCenter(userId, Number(result[0].insertId));
+}
+
+export async function updateCostCenter(userId: number, id: number, values: Partial<Omit<InsertCostCenter, "userId">>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(costCenters).set(values).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id)));
+  if (values.name) {
+    await db.update(financialTransactions).set({ costCenter: values.name }).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.costCenterId, id)));
+  }
+  return getCostCenter(userId, id);
+}
+
+/** Recusa a exclusão enquanto houver lançamento apontando para o centro de custo. */
+export async function deleteCostCenter(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.costCenterId, id))).limit(1);
+  if (used.length) return false;
+  await db.delete(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id)));
+  return true;
+}
+
+/**
+ * Grava as duas pernas da transferência numa transação só: ou entram as duas, ou
+ * nenhuma. Meia transferência deixaria o saldo das contas errado.
+ */
+export async function createTransferPair(
+  userId: number,
+  origin: TransactionValues,
+  destination: TransactionValues
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const ids = await db.transaction(async tx => {
+    const originResult = await tx.insert(financialTransactions).values({ userId, ...origin });
+    const destinationResult = await tx.insert(financialTransactions).values({ userId, ...destination });
+    return [Number(originResult[0].insertId), Number(destinationResult[0].insertId)];
+  });
+
+  const rows = await getTransactionsByIds(userId, ids);
+  return rows;
+}
+
+export async function getTransferGroup(userId: number, transferGroupId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.transferGroupId, transferGroupId)))
+    .orderBy(financialTransactions.amount);
+}
+
+/** Reescreve as duas pernas de uma transferência existente, atomicamente. */
+export async function updateTransferPair(
+  userId: number,
+  transferGroupId: string,
+  origin: TransactionValues,
+  destination: TransactionValues
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const existing = await getTransferGroup(userId, transferGroupId);
+  if (existing.length !== 2) return null;
+  const [outgoing, incoming] = Number(existing[0].amount) <= Number(existing[1].amount)
+    ? [existing[0], existing[1]]
+    : [existing[1], existing[0]];
+
+  await db.transaction(async tx => {
+    await tx.update(financialTransactions).set(origin).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, outgoing.id)));
+    await tx.update(financialTransactions).set(destination).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, incoming.id)));
+  });
+  return getTransferGroup(userId, transferGroupId);
+}
+
+export async function deleteTransferGroup(userId: number, transferGroupId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const result = await db
+    .delete(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.transferGroupId, transferGroupId)));
+  return Number(result[0].affectedRows ?? 0);
 }
 
 export async function getTransactionsByFingerprints(userId: number, fingerprints: string[]) {

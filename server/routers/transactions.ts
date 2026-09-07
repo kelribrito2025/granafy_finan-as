@@ -1,22 +1,65 @@
 import { TRPCError } from "@trpc/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
-const transactionValuesSchema = z.object({
-  type: z.enum(["entrada", "saida"]),
+/** Categoria fixa das duas pernas da transferência: não é receita nem despesa. */
+export const TRANSFER_CATEGORY = "Transferência";
+
+const transactionValuesBaseSchema = z.object({
+  type: z.enum(["entrada", "saida", "transferencia"]),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   description: z.string().trim().min(2, "Informe a descrição").max(180),
   contact: z.string().trim().max(120).default(""),
-  category: z.string().trim().min(2, "Informe a categoria").max(120),
+  // Obrigatória para entrada e saída; a transferência recebe TRANSFER_CATEGORY.
+  category: z.string().trim().max(120).default(""),
   amount: z.number().finite().positive("O valor deve ser maior que zero").max(999_999_999_999.99),
   account: z.string().trim().min(1, "Informe a conta").max(80),
   accountId: z.number().int().positive().nullable().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
+  destinationAccountId: z.number().int().positive().nullable().optional(),
+  costCenter: z.string().trim().max(120).default(""),
+  costCenterId: z.number().int().positive().nullable().optional(),
   status: z.enum(["Pago", "Pendente"]),
   recurring: z.boolean().default(false),
+  recurringMonths: z.number().int().min(1).max(120).nullable().optional(),
+  attachmentKey: z.string().trim().max(255).nullable().optional(),
+  attachmentName: z.string().trim().max(180).nullable().optional(),
 });
+
+type TransactionValuesInput = z.infer<typeof transactionValuesBaseSchema>;
+
+function refineTransactionValues(value: TransactionValuesInput, ctx: z.RefinementCtx) {
+  if (value.type === "transferencia") {
+    if (!value.accountId) {
+      ctx.addIssue({ code: "custom", path: ["accountId"], message: "Escolha a conta de origem" });
+    }
+    if (!value.destinationAccountId) {
+      ctx.addIssue({ code: "custom", path: ["destinationAccountId"], message: "Escolha a conta de destino" });
+    }
+    if (value.accountId && value.accountId === value.destinationAccountId) {
+      ctx.addIssue({ code: "custom", path: ["destinationAccountId"], message: "A conta de destino precisa ser diferente da origem" });
+    }
+  } else if (value.category.length < 2) {
+    ctx.addIssue({ code: "custom", path: ["category"], message: "Informe a categoria" });
+  }
+  if (value.recurring && !value.recurringMonths) {
+    ctx.addIssue({ code: "custom", path: ["recurringMonths"], message: "Informe por quantos meses repetir" });
+  }
+  if (!value.recurring && value.recurringMonths) {
+    ctx.addIssue({ code: "custom", path: ["recurringMonths"], message: "O prazo só se aplica a lançamentos recorrentes" });
+  }
+  if (Boolean(value.attachmentKey) !== Boolean(value.attachmentName)) {
+    ctx.addIssue({ code: "custom", path: ["attachmentKey"], message: "Anexo incompleto" });
+  }
+}
+
+const transactionValuesSchema = transactionValuesBaseSchema.superRefine(refineTransactionValues);
+const transactionUpdateSchema = transactionValuesBaseSchema
+  .extend({ id: z.number().int().positive() })
+  .superRefine(refineTransactionValues);
 
 const periodSchema = z.object({
   year: z.number().int().min(2000).max(2200),
@@ -30,7 +73,7 @@ function periodBounds(year: number, month: number) {
   return { start, end };
 }
 
-function signedAmount(input: z.infer<typeof transactionValuesSchema>) {
+function signedAmount(input: TransactionValuesInput) {
   const absolute = Math.abs(input.amount);
   return input.type === "saida" ? -absolute : absolute;
 }
@@ -47,15 +90,26 @@ function toTransaction(record: TransactionRecord) {
     account: record.account,
     accountId: record.accountId,
     categoryId: record.categoryId,
+    costCenter: record.costCenter,
+    costCenterId: record.costCenterId,
     importBatchId: record.importBatchId,
     status: record.status,
     recurring: record.recurring,
+    recurringMonths: record.recurringMonths,
+    attachmentKey: record.attachmentKey,
+    attachmentName: record.attachmentName,
+    transferGroupId: record.transferGroupId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
 }
 
-async function resolveTransactionOrganization(userId: number, input: z.infer<typeof transactionValuesSchema>) {
+/** Transferência move dinheiro entre contas do próprio usuário: não é receita nem despesa. */
+function isCashFlow(record: Pick<TransactionRecord, "type">) {
+  return record.type !== "transferencia";
+}
+
+async function resolveTransactionOrganization(userId: number, input: TransactionValuesInput) {
   const normalized = { ...input };
   if (input.accountId) {
     const account = await db.getFinancialAccount(userId, input.accountId);
@@ -70,12 +124,67 @@ async function resolveTransactionOrganization(userId: number, input: z.infer<typ
     }
     normalized.category = category.name;
   }
+  if (input.costCenterId) {
+    const costCenter = await db.getCostCenter(userId, input.costCenterId);
+    if (!costCenter?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Centro de custo não encontrado ou inativo" });
+    normalized.costCenter = costCenter.name;
+  } else {
+    normalized.costCenter = "";
+  }
   return normalized;
 }
 
+/**
+ * Monta as duas pernas da transferência a partir de um único formulário: saída na
+ * conta de origem e entrada na de destino, com o mesmo grupo, data, situação,
+ * centro de custo e anexo. A categoria é fixa para não poluir os relatórios.
+ */
+async function buildTransferLegs(userId: number, input: TransactionValuesInput) {
+  const [origin, destination] = await Promise.all([
+    db.getFinancialAccount(userId, input.accountId!),
+    db.getFinancialAccount(userId, input.destinationAccountId!),
+  ]);
+  if (!origin?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de origem não encontrada ou inativa" });
+  if (!destination?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de destino não encontrada ou inativa" });
+
+  const shared = {
+    type: "transferencia" as const,
+    transactionDate: input.transactionDate,
+    contact: input.contact,
+    category: TRANSFER_CATEGORY,
+    categoryId: null,
+    costCenter: input.costCenter,
+    costCenterId: input.costCenterId ?? null,
+    status: input.status,
+    recurring: input.recurring,
+    recurringMonths: input.recurringMonths ?? null,
+    attachmentKey: input.attachmentKey ?? null,
+    attachmentName: input.attachmentName ?? null,
+  };
+  const value = Math.abs(input.amount);
+
+  return {
+    origin: {
+      ...shared,
+      description: `${input.description} · para ${destination.name}`.slice(0, 180),
+      amount: (-value).toFixed(2),
+      account: origin.name,
+      accountId: origin.id,
+    },
+    destination: {
+      ...shared,
+      description: `${input.description} · de ${origin.name}`.slice(0, 180),
+      amount: value.toFixed(2),
+      account: destination.name,
+      accountId: destination.id,
+    },
+  };
+}
+
 function summarize(records: TransactionRecord[]) {
-  const incoming = records.reduce((sum, record) => sum + Math.max(0, Number(record.amount)), 0);
-  const outgoing = records.reduce((sum, record) => sum + Math.abs(Math.min(0, Number(record.amount))), 0);
+  const cashFlow = records.filter(isCashFlow);
+  const incoming = cashFlow.reduce((sum, record) => sum + Math.max(0, Number(record.amount)), 0);
+  const outgoing = cashFlow.reduce((sum, record) => sum + Math.abs(Math.min(0, Number(record.amount))), 0);
   return { incoming, outgoing, balance: incoming - outgoing };
 }
 
@@ -127,8 +236,8 @@ export const transactionsRouter = router({
     const paidBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
       .filter(record => record.status === "Pago")
       .reduce((sum, record) => sum + Number(record.amount), 0);
-    const pendingReceivable = records.filter(record => record.status === "Pendente" && Number(record.amount) > 0);
-    const pendingPayable = records.filter(record => record.status === "Pendente" && Number(record.amount) < 0);
+    const pendingReceivable = records.filter(record => isCashFlow(record) && record.status === "Pendente" && Number(record.amount) > 0);
+    const pendingPayable = records.filter(record => isCashFlow(record) && record.status === "Pendente" && Number(record.amount) < 0);
     const todayString = today.toISOString().slice(0, 10);
     const overdue = pendingPayable.filter(record => record.transactionDate < todayString);
     const dueToday = pendingReceivable.filter(record => record.transactionDate === todayString);
@@ -148,7 +257,7 @@ export const transactionsRouter = router({
 
     const revenueByCategory = Array.from(
       current
-        .filter(record => Number(record.amount) > 0)
+        .filter(record => isCashFlow(record) && Number(record.amount) > 0)
         .reduce((groups, record) => {
           groups.set(record.category, (groups.get(record.category) ?? 0) + Number(record.amount));
           return groups;
@@ -186,22 +295,64 @@ export const transactionsRouter = router({
   }),
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
-    const normalized = await resolveTransactionOrganization(ctx.user.id, input);
+    if (input.type === "transferencia") {
+      const legs = await buildTransferLegs(ctx.user.id, input);
+      const transferGroupId = randomUUID();
+      const records = await db.createTransferPair(
+        ctx.user.id,
+        { ...legs.origin, transferGroupId },
+        { ...legs.destination, transferGroupId }
+      );
+      if (records.length !== 2) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar a transferência" });
+      return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
+    }
+
+    const { destinationAccountId: _unusedDestination, ...normalized } =
+      await resolveTransactionOrganization(ctx.user.id, input);
     const record = await db.createTransaction(ctx.user.id, {
       ...normalized,
+      costCenterId: normalized.costCenterId ?? null,
+      recurringMonths: normalized.recurringMonths ?? null,
+      attachmentKey: normalized.attachmentKey ?? null,
+      attachmentName: normalized.attachmentName ?? null,
       amount: signedAmount(normalized).toFixed(2),
     });
     if (!record) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
     return toTransaction(record);
   }),
 
-  update: protectedProcedure.input(transactionValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  update: protectedProcedure.input(transactionUpdateSchema).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     const existing = await db.getTransactionById(ctx.user.id, id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
-    const normalized = await resolveTransactionOrganization(ctx.user.id, values);
+
+    // Editar uma perna reescreve as duas: uma transferência é uma coisa só.
+    if (existing.transferGroupId || values.type === "transferencia") {
+      if (!existing.transferGroupId || values.type !== "transferencia") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Não é possível converter uma transferência em entrada ou saída. Exclua e lance de novo.",
+        });
+      }
+      const legs = await buildTransferLegs(ctx.user.id, values);
+      const records = await db.updateTransferPair(
+        ctx.user.id,
+        existing.transferGroupId,
+        { ...legs.origin, transferGroupId: existing.transferGroupId },
+        { ...legs.destination, transferGroupId: existing.transferGroupId }
+      );
+      if (!records) throw new TRPCError({ code: "NOT_FOUND", message: "Transferência incompleta no banco" });
+      return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
+    }
+
+    const { destinationAccountId: _unusedDestination, ...normalized } =
+      await resolveTransactionOrganization(ctx.user.id, values);
     const record = await db.updateTransaction(ctx.user.id, id, {
       ...normalized,
+      costCenterId: normalized.costCenterId ?? null,
+      recurringMonths: normalized.recurringMonths ?? null,
+      attachmentKey: normalized.attachmentKey ?? null,
+      attachmentName: normalized.attachmentName ?? null,
       amount: signedAmount(normalized).toFixed(2),
     });
     if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
@@ -211,6 +362,36 @@ export const transactionsRouter = router({
   duplicate: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+
+    if (existing.transferGroupId) {
+      const group = await db.getTransferGroup(ctx.user.id, existing.transferGroupId);
+      if (group.length !== 2) throw new TRPCError({ code: "CONFLICT", message: "Transferência incompleta no banco" });
+      const transferGroupId = randomUUID();
+      const copyLeg = (record: TransactionRecord) => ({
+        type: record.type,
+        transactionDate: record.transactionDate,
+        description: `${record.description} (cópia)`.slice(0, 180),
+        contact: record.contact,
+        category: record.category,
+        amount: record.amount,
+        account: record.account,
+        accountId: record.accountId,
+        categoryId: record.categoryId,
+        costCenter: record.costCenter,
+        costCenterId: record.costCenterId,
+        status: record.status,
+        recurring: record.recurring,
+        recurringMonths: record.recurringMonths,
+        transferGroupId,
+      });
+      const [outgoing, incoming] = Number(group[0].amount) <= Number(group[1].amount)
+        ? [group[0], group[1]]
+        : [group[1], group[0]];
+      const records = await db.createTransferPair(ctx.user.id, copyLeg(outgoing), copyLeg(incoming));
+      if (records.length !== 2) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível duplicar a transferência" });
+      return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
+    }
+
     const record = await db.createTransaction(ctx.user.id, {
       type: existing.type,
       transactionDate: existing.transactionDate,
@@ -221,8 +402,11 @@ export const transactionsRouter = router({
       account: existing.account,
       accountId: existing.accountId,
       categoryId: existing.categoryId,
+      costCenter: existing.costCenter,
+      costCenterId: existing.costCenterId,
       status: existing.status,
       recurring: existing.recurring,
+      recurringMonths: existing.recurringMonths,
     });
     if (!record) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível duplicar o lançamento" });
     return toTransaction(record);
@@ -231,6 +415,17 @@ export const transactionsRouter = router({
   toggleStatus: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+
+    // Uma perna paga e a outra pendente descasaria o saldo das duas contas.
+    if (existing.transferGroupId) {
+      const group = await db.getTransferGroup(ctx.user.id, existing.transferGroupId);
+      const status = existing.status === "Pago" ? "Pendente" : "Pago";
+      await db.updateTransactions(ctx.user.id, group.map(record => record.id), { status });
+      const refreshed = await db.getTransactionById(ctx.user.id, input.id);
+      if (!refreshed) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+      return toTransaction(refreshed);
+    }
+
     const record = await db.updateTransaction(ctx.user.id, input.id, {
       type: existing.type,
       transactionDate: existing.transactionDate,
@@ -255,6 +450,14 @@ export const transactionsRouter = router({
     const ids = Array.from(new Set(input.ids));
     const records = await db.getTransactionsByIds(ctx.user.id, ids);
     if (records.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum lançamento selecionado foi encontrado" });
+
+    const transferCount = records.filter(record => record.transferGroupId).length;
+    if (transferCount > 0 && (input.changes.accountId !== undefined || input.changes.categoryId !== undefined)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `A seleção inclui ${transferCount} ${transferCount === 1 ? "linha" : "linhas"} de transferência, que não aceitam troca de conta ou categoria em lote. Edite a transferência individualmente.`,
+      });
+    }
 
     const values: Parameters<typeof db.updateTransactions>[2] = {};
     if (input.changes.status !== undefined) values.status = input.changes.status;
@@ -285,8 +488,13 @@ export const transactionsRouter = router({
   delete: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+    // Apagar só uma perna deixaria o saldo de uma das contas errado para sempre.
+    if (existing.transferGroupId) {
+      const deletedCount = await db.deleteTransferGroup(ctx.user.id, existing.transferGroupId);
+      return { success: true, deletedCount } as const;
+    }
     await db.deleteTransaction(ctx.user.id, input.id);
-    return { success: true } as const;
+    return { success: true, deletedCount: 1 } as const;
   }),
 
   deleteMany: protectedProcedure.input(z.object({
@@ -298,4 +506,4 @@ export const transactionsRouter = router({
   }),
 });
 
-export { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesSchema };
+export { bulkUpdateChangesSchema, buildTransferLegs, isCashFlow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesBaseSchema, transactionValuesSchema, transactionUpdateSchema };

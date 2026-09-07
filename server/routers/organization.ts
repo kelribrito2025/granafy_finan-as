@@ -16,6 +16,10 @@ const categoryValuesSchema = z.object({
   type: z.enum(["entrada", "saida", "ambos"]),
   color: colorSchema,
 });
+const costCenterValuesSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome").max(120),
+  color: colorSchema,
+});
 
 function conflictError(entity: string) {
   return new TRPCError({ code: "CONFLICT", message: `Já existe ${entity} com esse nome.` });
@@ -58,14 +62,16 @@ function rethrowOrganizationError(error: unknown, entity: string): never {
 
 export const organizationRouter = router({
   overview: protectedProcedure.query(async ({ ctx }) => {
-    const [accounts, categories, transactions, imports] = await Promise.all([
+    const [accounts, categories, costCenters, transactions, imports] = await Promise.all([
       db.listFinancialAccounts(ctx.user.id),
       db.listTransactionCategories(ctx.user.id),
+      db.listCostCenters(ctx.user.id),
       db.listAllTransactions(ctx.user.id),
       db.listImportBatches(ctx.user.id),
     ]);
     const accountStats = new Map<number, { count: number; movement: number }>();
     const categoryStats = new Map<number, { count: number; total: number }>();
+    const costCenterStats = new Map<number, { count: number; total: number }>();
     transactions.forEach(transaction => {
       if (transaction.accountId) {
         const current = accountStats.get(transaction.accountId) ?? { count: 0, movement: 0 };
@@ -74,6 +80,10 @@ export const organizationRouter = router({
       if (transaction.categoryId) {
         const current = categoryStats.get(transaction.categoryId) ?? { count: 0, total: 0 };
         categoryStats.set(transaction.categoryId, { count: current.count + 1, total: current.total + Number(transaction.amount) });
+      }
+      if (transaction.costCenterId) {
+        const current = costCenterStats.get(transaction.costCenterId) ?? { count: 0, total: 0 };
+        costCenterStats.set(transaction.costCenterId, { count: current.count + 1, total: current.total + Number(transaction.amount) });
       }
     });
 
@@ -89,18 +99,25 @@ export const organizationRouter = router({
         transactionCount: categoryStats.get(category.id)?.count ?? 0,
         total: categoryStats.get(category.id)?.total ?? 0,
       })),
+      costCenters: costCenters.map(costCenter => ({
+        ...costCenter,
+        transactionCount: costCenterStats.get(costCenter.id)?.count ?? 0,
+        total: costCenterStats.get(costCenter.id)?.total ?? 0,
+      })),
       imports,
     };
   }),
 
   options: protectedProcedure.query(async ({ ctx }) => {
-    const [accounts, categories] = await Promise.all([
+    const [accounts, categories, costCenters] = await Promise.all([
       db.listFinancialAccounts(ctx.user.id),
       db.listTransactionCategories(ctx.user.id),
+      db.listCostCenters(ctx.user.id),
     ]);
     return {
       accounts: accounts.filter(account => account.isActive).map(account => ({ id: account.id, name: account.name, institution: account.institution, color: account.color })),
       categories: categories.filter(category => category.isActive).map(category => ({ id: category.id, name: category.name, type: category.type, color: category.color })),
+      costCenters: costCenters.filter(costCenter => costCenter.isActive).map(costCenter => ({ id: costCenter.id, name: costCenter.name, color: costCenter.color })),
     };
   }),
 
@@ -177,6 +194,41 @@ export const organizationRouter = router({
     }
     return { success: true } as const;
   }),
+
+  createCostCenter: protectedProcedure.input(costCenterValuesSchema).mutation(async ({ ctx, input }) => {
+    if (await db.getCostCenterByName(ctx.user.id, input.name)) throw conflictError("um centro de custo");
+    try {
+      return await db.createCostCenter(ctx.user.id, { ...input, isActive: true });
+    } catch (error) {
+      return rethrowOrganizationError(error, "um centro de custo");
+    }
+  }),
+
+  updateCostCenter: protectedProcedure.input(costCenterValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    const { id, ...values } = input;
+    if (!await db.getCostCenter(ctx.user.id, id)) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
+    const conflicting = await db.getCostCenterByName(ctx.user.id, values.name);
+    if (conflicting && conflicting.id !== id) throw conflictError("um centro de custo");
+    try {
+      return await db.updateCostCenter(ctx.user.id, id, values);
+    } catch (error) {
+      return rethrowOrganizationError(error, "um centro de custo");
+    }
+  }),
+
+  toggleCostCenter: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    const costCenter = await db.getCostCenter(ctx.user.id, input.id);
+    if (!costCenter) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
+    return db.updateCostCenter(ctx.user.id, input.id, { isActive: !costCenter.isActive });
+  }),
+
+  deleteCostCenter: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    if (!await db.getCostCenter(ctx.user.id, input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
+    if (!await db.deleteCostCenter(ctx.user.id, input.id)) {
+      throw new TRPCError({ code: "CONFLICT", message: "Este centro de custo possui lançamentos. Desative-o para preservar o histórico." });
+    }
+    return { success: true } as const;
+  }),
 });
 
-export { accountValuesSchema, categoryValuesSchema };
+export { accountValuesSchema, categoryValuesSchema, costCenterValuesSchema };
