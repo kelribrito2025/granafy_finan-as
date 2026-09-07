@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyImportClassification, detectCsvDelimiter, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseOfx } from "./importers";
+import { applyImportClassification, detectCsvDelimiter, findCompatibleImportCategory, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseOfx } from "./importers";
 
 describe("financial file importers", () => {
   it("parses Brazilian amounts and dates", () => {
@@ -52,6 +52,17 @@ describe("financial file importers", () => {
     expect(revenue[0]).toMatchObject({ type: "entrada", amount: 10, fingerprint: rows[0].fingerprint });
     expect(expense[0]).toMatchObject({ type: "saida", amount: -10, fingerprint: rows[0].fingerprint });
     expect(applyImportClassification(rows, "auto")).toBe(rows);
+  });
+
+  it("selects only a category compatible with each OFX credit or debit", () => {
+    const categories = [
+      { id: 1, type: "saida" as const, name: "Tarifas" },
+      { id: 2, type: "entrada" as const, name: "Vendas" },
+      { id: 3, type: "ambos" as const, name: "Outros" },
+    ];
+    expect(findCompatibleImportCategory(categories, "entrada", 1)?.id).toBe(2);
+    expect(findCompatibleImportCategory(categories, "saida", 2)?.id).toBe(1);
+    expect(findCompatibleImportCategory(categories, "entrada", 3)?.id).toBe(3);
   });
 
   it("rejects CSV without required financial columns", () => {

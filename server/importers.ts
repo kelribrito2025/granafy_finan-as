@@ -223,6 +223,17 @@ export function applyImportClassification(rows: ParsedImportRow[], classificatio
   }));
 }
 
+export function findCompatibleImportCategory<T extends { id: number; type: "entrada" | "saida" | "ambos" }>(
+  categories: T[],
+  type: "entrada" | "saida",
+  preferredId?: number | null,
+) {
+  const preferred = preferredId ? categories.find(category => category.id === preferredId) : undefined;
+  if (preferred && (preferred.type === type || preferred.type === "ambos")) return preferred;
+  return categories.find(category => category.type === type)
+    ?? categories.find(category => category.type === "ambos");
+}
+
 export function parseImportFile(input: { userId: number; accountId: number; format: "csv" | "ofx"; content: string }) {
   const rows = input.format === "csv" ? parseCsv(input.content) : parseOfx(input.content);
   if (rows.length > 1_000) throw new Error("O arquivo possui mais de 1.000 lançamentos. Divida-o em partes menores.");

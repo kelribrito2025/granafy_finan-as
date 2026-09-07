@@ -7,7 +7,7 @@ import {
   UploadIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type TransactionType = "entrada" | "saida";
@@ -49,7 +49,8 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<"csv" | "ofx">("ofx");
   const [accountId, setAccountId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [incomeCategoryId, setIncomeCategoryId] = useState("");
+  const [expenseCategoryId, setExpenseCategoryId] = useState("");
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [step, setStep] = useState<"setup" | "preview">("setup");
   const [result, setResult] = useState<{ importedCount: number; duplicateCount: number } | null>(null);
@@ -57,7 +58,14 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const selectedRows = rows.filter(row => row.selected && !row.duplicate);
   const selectedTotal = selectedRows.reduce((sum, row) => sum + row.amount, 0);
   const allSelected = selectedRows.length > 0 && rows.filter(row => !row.duplicate).every(row => row.selected);
-  const compatibleCategories = useMemo(() => options.categories, [options.categories]);
+  const incomeCategories = useMemo(() => options.categories.filter(category => category.type === "entrada" || category.type === "ambos"), [options.categories]);
+  const expenseCategories = useMemo(() => options.categories.filter(category => category.type === "saida" || category.type === "ambos"), [options.categories]);
+
+  useEffect(() => {
+    if (!accountId && options.accounts.length === 1) setAccountId(String(options.accounts[0].id));
+    if (!incomeCategoryId && incomeCategories[0]) setIncomeCategoryId(String(incomeCategories[0].id));
+    if (!expenseCategoryId && expenseCategories[0]) setExpenseCategoryId(String(expenseCategories[0].id));
+  }, [accountId, expenseCategories, expenseCategoryId, incomeCategories, incomeCategoryId, options.accounts]);
 
   const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files?.[0];
@@ -79,7 +87,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   };
 
   const preview = async () => {
-    if (!file || !accountId || !categoryId) return toast.error("Selecione arquivo, conta e categoria padrão");
+    if (!file || !accountId || !incomeCategoryId || !expenseCategoryId) return toast.error("Selecione arquivo, conta e as categorias de receita e despesa");
     try {
       const content = decodeFile(await file.arrayBuffer());
       const response = await previewMutation.mutateAsync({
@@ -87,7 +95,8 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
         format,
         content,
         accountId: Number(accountId),
-        defaultCategoryId: Number(categoryId),
+        incomeCategoryId: Number(incomeCategoryId),
+        expenseCategoryId: Number(expenseCategoryId),
         classification: "auto",
       });
       setRows(response.rows.map(row => ({ ...row, selected: !row.duplicate })));
@@ -181,7 +190,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                   <span className="mt-1 text-[11.5px] text-[#8A968D]">{file ? `${(file.size / 1024).toFixed(1)} KB · ${format.toUpperCase()}` : "OFX ou CSV · máximo de 5 MB"}</span>
                   <span className="mt-4 rounded-[10px] bg-[#0B1F14] px-4 py-2 text-[11.5px] font-bold text-white">{file ? "Trocar arquivo" : "Escolher arquivo"}</span>
                 </label>
-                <div className="mt-3 rounded-xl bg-[#FFF8E8] p-3 text-[11px] leading-5 text-[#7A5A14]"><strong>Classificação automática:</strong> o OFX informa créditos e débitos. Na revisão você poderá corrigir Receita/Despesa por linha ou aplicar a todos.</div>
+                <div className="mt-3 rounded-xl bg-[#FFF8E8] p-3 text-[11px] leading-5 text-[#7A5A14]"><strong>Classificação automática:</strong> crédito usa a categoria de receita; débito usa a categoria de despesa. Na revisão você poderá ajustar cada lançamento.</div>
               </div>
 
               <div className="space-y-4">
@@ -194,14 +203,18 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                   <select value={accountId} onChange={event => setAccountId(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[12.5px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]"><option value="">Selecione a conta</option>{options.accounts.map(account => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ""}</option>)}</select>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Categoria padrão</span>
-                  <select value={categoryId} onChange={event => setCategoryId(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[12.5px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]"><option value="">Selecione a categoria</option>{compatibleCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#0A7A42]">Categoria para entradas · Receitas</span>
+                  <select value={incomeCategoryId} onChange={event => setIncomeCategoryId(event.target.value)} className="h-11 w-full rounded-xl bg-[#F1FBF6] px-3.5 text-[12.5px] outline-none ring-1 ring-[#BDE8CF] focus:ring-2 focus:ring-[#12B85C]"><option value="">Selecione a categoria de receita</option>{incomeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#B3261E]">Categoria para saídas · Despesas</span>
+                  <select value={expenseCategoryId} onChange={event => setExpenseCategoryId(event.target.value)} className="h-11 w-full rounded-xl bg-[#FFF8F7] px-3.5 text-[12.5px] outline-none ring-1 ring-[#F1C7C2] focus:ring-2 focus:ring-[#E5533D]"><option value="">Selecione a categoria de despesa</option>{expenseCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
                 </label>
                 {optionsQuery.isLoading && <p className="text-[11px] text-[#8A968D]">Carregando suas contas e categorias...</p>}
-                {!optionsQuery.isLoading && (options.accounts.length === 0 || options.categories.length === 0) && <div className="rounded-xl bg-[#FDECEA] p-3"><strong className="block text-[11.5px] text-[#8E1F16]">Cadastre antes de importar</strong><p className="mt-1 text-[10.5px] leading-4 text-[#9D5A54]">Você precisa de ao menos uma conta e uma categoria ativas.</p><button type="button" onClick={onManageOrganization} className="mt-2 text-[11px] font-bold text-[#8E1F16]">Gerenciar agora</button></div>}
+                {!optionsQuery.isLoading && (options.accounts.length === 0 || incomeCategories.length === 0 || expenseCategories.length === 0) && <div className="rounded-xl bg-[#FDECEA] p-3"><strong className="block text-[11.5px] text-[#8E1F16]">Cadastre antes de importar</strong><p className="mt-1 text-[10.5px] leading-4 text-[#9D5A54]">Você precisa de uma conta e categorias ativas de receita e despesa.</p><button type="button" onClick={onManageOrganization} className="mt-2 text-[11px] font-bold text-[#8E1F16]">Gerenciar agora</button></div>}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2.5"><button type="button" onClick={onClose} className="rounded-xl bg-[#F1F4F2] px-5 py-3 text-[12.5px] font-bold text-[#4C6355]">Cancelar</button><button type="button" disabled={previewMutation.isPending || !file || !accountId || !categoryId} onClick={preview} className="rounded-xl bg-[#12B85C] px-5 py-3 text-[12.5px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{previewMutation.isPending ? "Analisando..." : "Revisar lançamentos"}</button></div>
+            <div className="mt-6 flex justify-end gap-2.5"><button type="button" onClick={onClose} className="rounded-xl bg-[#F1F4F2] px-5 py-3 text-[12.5px] font-bold text-[#4C6355]">Cancelar</button><button type="button" disabled={previewMutation.isPending || !file || !accountId || !incomeCategoryId || !expenseCategoryId} onClick={preview} className="rounded-xl bg-[#12B85C] px-5 py-3 text-[12.5px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{previewMutation.isPending ? "Analisando..." : "Revisar lançamentos"}</button></div>
           </div>
         ) : (
           <>

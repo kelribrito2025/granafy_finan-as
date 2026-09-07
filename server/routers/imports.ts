@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
-import { applyImportClassification, parseImportFile } from "../importers";
+import { applyImportClassification, findCompatibleImportCategory, parseImportFile } from "../importers";
 
 const formatSchema = z.enum(["csv", "ofx"]);
 const classificationSchema = z.enum(["auto", "entrada", "saida"]);
@@ -12,7 +12,8 @@ const previewInputSchema = z.object({
   format: formatSchema,
   content: z.string().min(1, "Arquivo vazio").max(5_000_000, "O arquivo deve ter no máximo 5 MB"),
   accountId: z.number().int().positive(),
-  defaultCategoryId: z.number().int().positive(),
+  incomeCategoryId: z.number().int().positive().optional(),
+  expenseCategoryId: z.number().int().positive().optional(),
   classification: classificationSchema.default("auto"),
 });
 const importRowSchema = z.object({
@@ -27,25 +28,25 @@ const importRowSchema = z.object({
   categoryId: z.number().int().positive(),
 });
 
-async function validateOrganization(userId: number, accountId: number, categoryId: number) {
-  const [account, category] = await Promise.all([
-    db.getFinancialAccount(userId, accountId),
-    db.getTransactionCategory(userId, categoryId),
-  ]);
+async function validateOrganization(userId: number, accountId: number) {
+  const account = await db.getFinancialAccount(userId, accountId);
   if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma conta ativa" });
-  if (!category?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma categoria ativa" });
-  return { account, category };
+  return account;
 }
 
 export const importsRouter = router({
   preview: protectedProcedure.input(previewInputSchema).mutation(async ({ ctx, input }) => {
-    const { account, category } = await validateOrganization(ctx.user.id, input.accountId, input.defaultCategoryId);
+    const account = await validateOrganization(ctx.user.id, input.accountId);
     try {
       const parsed = applyImportClassification(
         parseImportFile({ userId: ctx.user.id, accountId: input.accountId, format: input.format, content: input.content }),
         input.classification,
       );
       const activeCategories = (await db.listTransactionCategories(ctx.user.id)).filter(item => item.isActive);
+      const preferredCategories = {
+        entrada: findCompatibleImportCategory(activeCategories, "entrada", input.incomeCategoryId),
+        saida: findCompatibleImportCategory(activeCategories, "saida", input.expenseCategoryId),
+      };
       const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, parsed.map(row => row.fingerprint))).map(row => row.fingerprint));
       const seen = new Set<string>();
       let duplicateCount = 0;
@@ -53,9 +54,7 @@ export const importsRouter = router({
         const duplicate = existing.has(row.fingerprint) || seen.has(row.fingerprint);
         seen.add(row.fingerprint);
         if (duplicate) duplicateCount += 1;
-        const rowCategory = category.type === "ambos" || category.type === row.type
-          ? category
-          : activeCategories.find(item => item.type === "ambos" || item.type === row.type);
+        const rowCategory = preferredCategories[row.type];
         if (!rowCategory) throw new Error(`Não existe uma categoria compatível com ${row.type === "entrada" ? "entradas" : "saídas"}`);
         return { ...row, categoryId: rowCategory.id, categoryName: rowCategory.name, duplicate };
       });
