@@ -9,6 +9,7 @@ import {
   DashboardIcon,
   DeleteIcon,
   DocumentIcon,
+  DownloadIcon,
   EditIcon,
   MenuIcon,
   PlusIcon,
@@ -23,6 +24,18 @@ import {
   formatCurrencyInput,
   formatCurrencyValue,
 } from "@/lib/currency";
+import {
+  assetsChangePercent,
+  findBaseline,
+  netWorthChange,
+} from "@/lib/balanceComparison";
+import {
+  periodBaseline,
+  periodLabels,
+  periodNouns,
+  todayIso,
+  type Period,
+} from "@/lib/period";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -74,6 +87,9 @@ type PatrimonialValues = {
   notes: string;
 };
 type Tab = "overview" | "assets" | "liabilities" | "evolution";
+type StatementRow = { label: string; value: number; hint?: string };
+type StatementSection = { title: string; total: number; rows: StatementRow[] };
+
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
@@ -146,6 +162,21 @@ function formatDecimal(value: number) {
 function formatDate(value: string) {
   const [year, month, day] = value.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function formatPercent(value: number) {
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value)}%`;
+}
+
+function formatSignedPercent(value: number) {
+  return `${value >= 0 ? "+" : "−"} ${formatPercent(Math.abs(value))}`;
+}
+
+function formatSignedMoney(value: number) {
+  return `${value >= 0 ? "+" : "−"} ${formatMoney(Math.abs(value))}`;
 }
 
 function safeError(error: unknown, fallback: string) {
@@ -455,12 +486,91 @@ function ItemList({ items, emptyTitle, emptyText, onCreate, onEdit, onToggle, on
   );
 }
 
+function StatementLine({ row, share }: { row: StatementRow; share: number | null }) {
+  const negative = row.value < 0;
+  return (
+    <div className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 transition hover:bg-[#F8FAF9]">
+      <span className="min-w-0 flex-1 truncate text-[13.5px]">
+        {row.label}
+        {row.hint && (
+          <span className="ml-1.5 text-[9.5px] font-semibold uppercase tracking-[.08em] text-[#B3BFB7]">
+            {row.hint}
+          </span>
+        )}
+      </span>
+      {share != null && (
+        <span className="w-[46px] shrink-0 text-right text-[12px] text-[#8A968D] sm:w-[58px]">{formatPercent(share)}</span>
+      )}
+      <span className={`w-[92px] shrink-0 text-right text-[13.5px] font-semibold sm:w-[112px] ${negative ? "text-[#B3261E]" : ""}`}>
+        {formatDecimal(row.value)}
+      </span>
+    </div>
+  );
+}
+
+function StatementBlock({ sections, tone, shareBase }: {
+  sections: StatementSection[];
+  tone: "asset" | "liability";
+  shareBase: number | null;
+}) {
+  const headerClass = tone === "asset"
+    ? "bg-[#F1FBF6] text-[#0A7A42]"
+    : "bg-[#FDECEA] text-[#8E1F16]";
+  return (
+    <div className="flex flex-col gap-1.5">
+      {sections.map((section, index) => (
+        <div key={section.title} className={`flex flex-col gap-1.5 ${index > 0 ? "mt-2" : ""}`}>
+          <div className={`flex items-center gap-2 rounded-[12px] px-3 py-2.5 ${headerClass}`}>
+            <span className="min-w-0 flex-1 text-[12px] font-semibold uppercase tracking-[.06em]">{section.title}</span>
+            <span className="shrink-0 text-[13px] font-bold">{formatMoney(section.total)}</span>
+          </div>
+          {section.rows.length === 0 ? (
+            <p className="px-3 py-2 text-[12px] text-[#8A968D]">Nenhum item cadastrado neste grupo.</p>
+          ) : (
+            section.rows.map(row => (
+              <StatementLine
+                key={`${section.title}-${row.label}`}
+                row={row}
+                share={shareBase && shareBase > 0 ? (row.value / shareBase) * 100 : null}
+              />
+            ))
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, captionClass }: {
+  icon: IconlyIcon;
+  chipClass: string;
+  label: string;
+  value: string;
+  valueClass?: string;
+  caption: string;
+  captionClass?: string;
+}) {
+  return (
+    <article className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+      <div className="flex items-center gap-2.5">
+        <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] ${chipClass}`}>
+          <Icon size={17} />
+        </span>
+        <span className="truncate text-[12.5px] font-semibold text-[#4C6355]">{label}</span>
+      </div>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? ""}`}>{value}</strong>
+      <span className={`text-[12px] font-semibold ${captionClass ?? "text-[#8A968D]"}`}>{caption}</span>
+    </article>
+  );
+}
+
 export default function BalanceSheetPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
+  const [period, setPeriod] = useState<Period>("mensal");
   const [itemModal, setItemModal] = useState(false);
   const [snapshotModal, setSnapshotModal] = useState(false);
   const [editingItem, setEditingItem] = useState<PatrimonialItem | null>(null);
@@ -505,12 +615,114 @@ export default function BalanceSheetPage() {
     catch (error) { toast.error(safeError(error, "Não foi possível registrar a posição.")); }
   };
 
-  const groupTotals: Record<BalanceGroup, number> = {
-    ativo_circulante: summary?.currentAssets ?? 0,
-    ativo_nao_circulante: summary?.nonCurrentAssets ?? 0,
-    passivo_circulante: summary?.currentLiabilities ?? 0,
-    passivo_nao_circulante: summary?.nonCurrentLiabilities ?? 0,
-    patrimonio_liquido: summary?.declaredEquity ?? 0,
+  const totals = {
+    cashAndEquivalents: summary?.cashAndEquivalents ?? 0,
+    financialCurrentLiabilities: summary?.financialCurrentLiabilities ?? 0,
+    currentAssets: summary?.currentAssets ?? 0,
+    nonCurrentAssets: summary?.nonCurrentAssets ?? 0,
+    currentLiabilities: summary?.currentLiabilities ?? 0,
+    nonCurrentLiabilities: summary?.nonCurrentLiabilities ?? 0,
+    declaredEquity: summary?.declaredEquity ?? 0,
+    totalAssets: summary?.totalAssets ?? 0,
+    totalLiabilities: summary?.totalLiabilities ?? 0,
+    netWorth: summary?.netWorth ?? 0,
+    balanceDifference: summary?.balanceDifference ?? 0,
+  };
+  const activeItems = items.filter(item => item.isActive);
+  const rowsOf = (group: BalanceGroup): StatementRow[] =>
+    activeItems
+      .filter(item => item.balanceGroup === group)
+      .map(item => ({ label: item.name, value: item.bookValue }));
+
+  const assetSections: StatementSection[] = [
+    {
+      title: "Ativo circulante",
+      total: totals.currentAssets,
+      rows: [
+        ...(totals.cashAndEquivalents !== 0
+          ? [{ label: "Caixa e equivalentes", value: totals.cashAndEquivalents, hint: "automático" }]
+          : []),
+        ...rowsOf("ativo_circulante"),
+      ],
+    },
+    {
+      title: "Ativo não circulante",
+      total: totals.nonCurrentAssets,
+      rows: rowsOf("ativo_nao_circulante"),
+    },
+  ];
+  const liabilitySections: StatementSection[] = [
+    {
+      title: "Passivo circulante",
+      total: totals.currentLiabilities,
+      rows: [
+        ...(totals.financialCurrentLiabilities !== 0
+          ? [{ label: "Contas a pagar em aberto", value: totals.financialCurrentLiabilities, hint: "automático" }]
+          : []),
+        ...rowsOf("passivo_circulante"),
+      ],
+    },
+    {
+      title: "Passivo não circulante",
+      total: totals.nonCurrentLiabilities,
+      rows: rowsOf("passivo_nao_circulante"),
+    },
+  ];
+  const equityRows: StatementRow[] = [
+    ...rowsOf("patrimonio_liquido"),
+    ...(Math.abs(totals.balanceDifference) >= 0.01
+      ? [{ label: "Resultado acumulado", value: totals.balanceDifference, hint: "calculado" }]
+      : []),
+  ];
+  const accumulatedDepreciation = activeItems
+    .filter(item => item.balanceGroup.startsWith("ativo_"))
+    .reduce((sum, item) => sum + item.accumulatedDepreciation, 0);
+
+  // Compara com o último fechamento salvo até o fim do período anterior. Sem esse
+  // fechamento a variação não é exibida, em vez de inventar uma base.
+  const referenceDate = data?.referenceDate ?? todayIso();
+  const baselineDate = periodBaseline(period, referenceDate);
+  const baseline = findBaseline(data?.history ?? [], baselineDate);
+  const assetsChange = assetsChangePercent(totals.totalAssets, baseline);
+  const netWorthDelta = netWorthChange(totals.netWorth, baseline);
+  const assetsCaption = assetsChange == null || !baseline
+    ? "Circulante e não circulante"
+    : `${formatSignedPercent(assetsChange)} vs. ${formatDate(baseline.referenceDate)}`;
+  const netWorthCaption = netWorthDelta == null
+    ? "Ativos menos passivos"
+    : `${formatSignedMoney(netWorthDelta)} ${periodNouns[period]}`;
+  const liabilitiesCaption = summary?.debtRatio == null
+    ? "Obrigações de curto e longo prazo"
+    : `${formatPercent(summary.debtRatio)} do ativo`;
+
+  const exportBalanceSheet = () => {
+    const reference = referenceDate;
+    const lines: string[][] = [["Grupo", "Linha", "Valor"]];
+    const pushSections = (sections: StatementSection[]) => {
+      for (const section of sections) {
+        lines.push([section.title, "Total do grupo", section.total.toFixed(2)]);
+        for (const row of section.rows) lines.push([section.title, row.label, row.value.toFixed(2)]);
+      }
+    };
+    pushSections(assetSections);
+    pushSections(liabilitySections);
+    lines.push(["Patrimônio líquido", "Total do grupo", totals.netWorth.toFixed(2)]);
+    for (const row of equityRows) lines.push(["Patrimônio líquido", row.label, row.value.toFixed(2)]);
+    if (accumulatedDepreciation > 0) {
+      lines.push(["Informativo", "Depreciação acumulada já deduzida", accumulatedDepreciation.toFixed(2)]);
+    }
+    lines.push(["Totais", "Ativo total", totals.totalAssets.toFixed(2)]);
+    lines.push(["Totais", "Passivo total", totals.totalLiabilities.toFixed(2)]);
+    lines.push(["Totais", "Patrimônio líquido", totals.netWorth.toFixed(2)]);
+    const csv = lines
+      .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";"))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `balanco-patrimonial-${reference}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -520,9 +732,36 @@ export default function BalanceSheetPage() {
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
-            <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-.035em] sm:text-[28px]">Balanço Patrimonial</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">Bens, obrigações e evolução do patrimônio da empresa</p></div>
-            <button type="button" onClick={() => setSnapshotModal(true)} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-bold text-[#0A7A42] ring-1 ring-[#CFE2D7] hover:bg-[#F1FBF6]"><ChartIcon size={15} />Registrar posição</button>
-            <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Novo item</button>
+            <div className="mr-auto">
+              <h1 className="text-[24px] font-bold tracking-[-.02em]">Balanço patrimonial</h1>
+              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
+                Posição em {formatDate(referenceDate)} · valores em reais
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#B3BFB7]">
+                {baseline
+                  ? `Comparando com o fechamento de ${formatDate(baseline.referenceDate)}`
+                  : `Sem fechamento salvo até ${formatDate(baselineDate)} para comparar`}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-[12px] bg-white p-1.5 ring-1 ring-[#E1E8E3]">
+              {(["mensal", "trimestral", "anual"] as Period[]).map(value => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPeriod(value)}
+                  aria-pressed={period === value}
+                  className={`rounded-[9px] px-3.5 py-[7px] text-[12.5px] transition ${
+                    period === value
+                      ? "bg-[#12B85C] font-bold text-white"
+                      : "text-[#4C6355] hover:bg-[#F1FBF6]"
+                  }`}
+                >
+                  {periodLabels[value]}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
+            <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
             <div className="relative"><button type="button" aria-label="Abrir conta" onClick={() => setAccountOpen(value => !value)} className="flex h-10 min-w-10 items-center justify-center rounded-[12px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white">{initials || "NV"}</button>{accountOpen && <div className="absolute right-0 top-12 z-40 w-[250px] rounded-[17px] bg-white p-3 shadow-[0_20px_50px_rgba(11,31,20,.18)]"><div className="rounded-xl bg-[#F8FAF9] p-3"><strong className="block truncate text-[12px]">{user?.name || "Sua conta"}</strong><span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email}</span></div><ThemeToggle className="mt-2 rounded-xl bg-[#F8FAF9] p-2" /><button type="button" onClick={async () => { await logout(); setLocation("/login", { replace: true }); }} className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[12px] font-semibold text-[#8E1F16] hover:bg-[#FDECEA]">Sair <ChevronRightIcon size={14} /></button></div>}</div>
           </header>
 
@@ -531,11 +770,51 @@ export default function BalanceSheetPage() {
 
           {!overviewQuery.isLoading && !overviewQuery.isError && (
             <>
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <article className="rounded-[17px] bg-[#0B1F14] p-4 text-white"><span className="text-[11px] text-[#8FB39E]">Ativos totais</span><strong className="mt-1 block text-[22px]">{formatMoney(summary?.totalAssets ?? 0)}</strong><span className="mt-2 block text-[10px] text-[#8FB39E]">Caixa e bens sem duplicidade</span></article>
-                <article className="rounded-[17px] bg-white p-4 ring-1 ring-[#E1E8E3]"><span className="text-[11px] text-[#718077]">Passivos totais</span><strong className="mt-1 block text-[22px] text-[#B3261E]">{formatMoney(summary?.totalLiabilities ?? 0)}</strong><span className="mt-2 block text-[10px] text-[#8A968D]">Obrigações e saldos devedores</span></article>
-                <article className="rounded-[17px] bg-[#DFF6EA] p-4 ring-1 ring-[#C8EBD8]"><span className="text-[11px] text-[#4C6355]">Patrimônio líquido calculado</span><strong className={`mt-1 block text-[22px] ${(summary?.netWorth ?? 0) >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(summary?.netWorth ?? 0)}</strong><span className="mt-2 block text-[10px] text-[#4C6355]">Ativos menos passivos</span></article>
-                <article className="rounded-[17px] bg-white p-4 ring-1 ring-[#E1E8E3]"><span className="text-[11px] text-[#718077]">Liquidez corrente</span><strong className="mt-1 block text-[22px]">{summary?.liquidityRatio == null ? "—" : `${formatDecimal(summary.liquidityRatio)}x`}</strong><span className="mt-2 block text-[10px] text-[#8A968D]">Endividamento: {summary?.debtRatio == null ? "—" : `${formatDecimal(summary.debtRatio)}%`}</span></article>
+              <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                  icon={ChartIcon}
+                  chipClass="bg-[#DFF6EA] text-[#0A7A42]"
+                  label="Ativo total"
+                  value={formatMoney(totals.totalAssets)}
+                  caption={assetsCaption}
+                  captionClass={
+                    assetsChange == null
+                      ? "text-[#8A968D]"
+                      : assetsChange >= 0
+                        ? "text-[#0A7A42]"
+                        : "text-[#B3261E]"
+                  }
+                />
+                <KpiCard
+                  icon={ArrowDownIcon}
+                  chipClass="bg-[#FDECEA] text-[#B3261E]"
+                  label="Passivo total"
+                  value={formatMoney(totals.totalLiabilities)}
+                  valueClass="text-[#B3261E]"
+                  caption={liabilitiesCaption}
+                />
+                <KpiCard
+                  icon={TrendUpIcon}
+                  chipClass="bg-[#DFF6EA] text-[#0A7A42]"
+                  label="Patrimônio líquido"
+                  value={formatMoney(totals.netWorth)}
+                  valueClass={totals.netWorth >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}
+                  caption={netWorthCaption}
+                  captionClass={
+                    netWorthDelta == null
+                      ? "text-[#8A968D]"
+                      : netWorthDelta >= 0
+                        ? "text-[#0A7A42]"
+                        : "text-[#B3261E]"
+                  }
+                />
+                <KpiCard
+                  icon={DashboardIcon}
+                  chipClass="bg-[#F1F4F2] text-[#28382E]"
+                  label="Liquidez corrente"
+                  value={summary?.liquidityRatio == null ? "—" : formatDecimal(summary.liquidityRatio)}
+                  caption="ativo circ. ÷ passivo circ."
+                />
               </section>
 
               <section className="flex overflow-x-auto rounded-[14px] bg-white p-1 ring-1 ring-[#E1E8E3] sm:w-fit">
@@ -544,7 +823,92 @@ export default function BalanceSheetPage() {
                 ], ["assets", "Bens e direitos"], ["liabilities", "Obrigações e PL"], ["evolution", "Evolução"]] as Array<[Tab, string]>).map(([value, label]) => <button key={value} type="button" onClick={() => setTab(value)} className={`whitespace-nowrap rounded-[10px] px-4 py-2.5 text-[12px] font-bold ${tab === value ? "bg-[#DFF6EA] text-[#0A7A42]" : "text-[#718077]"}`}>{label}</button>)}
               </section>
 
-              {tab === "overview" && <section className="grid flex-1 gap-4 xl:grid-cols-[1.25fr_.75fr]"><article className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="flex items-start gap-3"><div><h2 className="text-[15px] font-bold">Estrutura patrimonial</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">Posição calculada em {formatDate(data?.referenceDate ?? today())}</p></div><span className="ml-auto rounded-lg bg-[#F1F4F2] px-2.5 py-1 text-[10px] font-bold text-[#607067]">{data?.activeItemCount ?? 0} {(data?.activeItemCount ?? 0) === 1 ? "item ativo" : "itens ativos"}</span></div><div className="mt-5 space-y-2.5">{(Object.keys(groupLabels) as BalanceGroup[]).map(group => { const isLiability = group.startsWith("passivo_"); const value = groupTotals[group]; const denominator = isLiability ? Math.max(summary?.totalLiabilities ?? 0, 1) : Math.max(summary?.totalAssets ?? 0, 1); const width = Math.min(100, Math.max(value > 0 ? 2 : 0, (value / denominator) * 100)); return <div key={group} className="rounded-[14px] bg-[#F8FAF9] p-3.5"><div className="flex items-center gap-3"><span className={`h-2.5 w-2.5 rounded-full ${isLiability ? "bg-[#E5533D]" : group === "patrimonio_liquido" ? "bg-[#5874A9]" : "bg-[#12B85C]"}`} /><strong className="min-w-0 flex-1 text-[12px]">{groupLabels[group]}</strong><span className="text-[12px] font-bold">{formatMoney(value)}</span></div><div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#E7ECE8]"><div className={`h-full rounded-full ${isLiability ? "bg-[#E5533D]" : group === "patrimonio_liquido" ? "bg-[#5874A9]" : "bg-[#12B85C]"}`} style={{ width: `${width}%` }} /></div></div>; })}</div><div className="mt-4 rounded-[14px] border border-[#DDE9E1] bg-[#F1FBF6] p-3.5"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#0A7A42]"><CheckIcon size={16} /></span><div><strong className="block text-[11.5px]">Caixa integrado automaticamente</strong><span className="mt-0.5 block text-[10.5px] text-[#607067]">{data?.accountCount ?? 0} {(data?.accountCount ?? 0) === 1 ? "conta financeira contribui" : "contas financeiras contribuem"} com {formatMoney(summary?.cashAndEquivalents ?? 0)}. Não cadastre esse caixa novamente.</span></div></div></div></article><aside className="space-y-4"><article className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><h2 className="text-[15px] font-bold">Conferência contábil</h2><p className="mt-1 text-[11px] leading-relaxed text-[#8A968D]">Compare o patrimônio líquido informado com o valor calculado por ativos menos passivos.</p><div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-[#F8FAF9] p-3"><span className="block text-[10px] text-[#8A968D]">PL informado</span><strong className="mt-1 block text-[14px]">{formatMoney(summary?.declaredEquity ?? 0)}</strong></div><div className="rounded-xl bg-[#F8FAF9] p-3"><span className="block text-[10px] text-[#8A968D]">Diferença</span><strong className={`mt-1 block text-[14px] ${(summary?.balanceDifference ?? 0) === 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(summary?.balanceDifference ?? 0)}</strong></div></div>{(summary?.balanceDifference ?? 0) !== 0 && <p className="mt-3 rounded-xl bg-[#FFF8E8] p-3 text-[10.5px] leading-relaxed text-[#725517]">A diferença pode representar resultados acumulados ainda não cadastrados, ajustes ou valores a revisar.</p>}</article><article className="rounded-[20px] bg-[#0B1F14] p-5 text-white"><span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#8FB39E]">Histórico confiável</span><strong className="mt-2 block text-[16px]">Registre uma posição após cada fechamento.</strong><p className="mt-1 text-[11px] leading-relaxed text-[#AFC4B7]">A evolução utiliza somente posições salvas por você, nunca valores simulados.</p><button type="button" onClick={() => setSnapshotModal(true)} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[11.5px] font-bold text-white">Registrar posição atual</button></article></aside></section>}
+              {tab === "overview" && (
+                <section className="grid flex-1 items-start gap-5 xl:grid-cols-2">
+                  <article className="min-w-0 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-[15px] font-bold">Ativo</h2>
+                      <span className="ml-auto text-[15px] font-bold">{formatMoney(totals.totalAssets)}</span>
+                    </div>
+                    <div className="mt-3.5">
+                      <StatementBlock sections={assetSections} tone="asset" shareBase={totals.totalAssets} />
+                    </div>
+                    {accumulatedDepreciation > 0 && (
+                      <div className="mt-3 flex items-center gap-2 rounded-[12px] bg-[#F8FAF9] px-3 py-2.5">
+                        <span className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-[#718077]">
+                          Depreciação acumulada já deduzida dos valores acima
+                        </span>
+                        <span className="shrink-0 text-[12.5px] font-semibold text-[#B3261E]">
+                          − {formatDecimal(accumulatedDepreciation)}
+                        </span>
+                      </div>
+                    )}
+                    <p className="mt-3 text-[11px] leading-relaxed text-[#8A968D]">
+                      {data?.accountCount ?? 0}{" "}
+                      {(data?.accountCount ?? 0) === 1
+                        ? "conta financeira entra no caixa automaticamente"
+                        : "contas financeiras entram no caixa automaticamente"}
+                      . Não cadastre esse saldo outra vez como bem.
+                    </p>
+                  </article>
+
+                  <div className="flex min-w-0 flex-col gap-5">
+                    <article className="min-w-0 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-[15px] font-bold">Passivo</h2>
+                        <span className="ml-auto text-[15px] font-bold text-[#B3261E]">
+                          {formatMoney(totals.totalLiabilities)}
+                        </span>
+                      </div>
+                      <div className="mt-3.5">
+                        <StatementBlock sections={liabilitySections} tone="liability" shareBase={null} />
+                      </div>
+                    </article>
+
+                    <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-[15px] font-bold">Patrimônio líquido</h2>
+                        <span className={`ml-auto text-[15px] font-bold ${totals.netWorth >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
+                          {formatMoney(totals.netWorth)}
+                        </span>
+                      </div>
+                      <div className="mt-3.5 flex flex-col gap-1.5">
+                        {equityRows.length === 0 ? (
+                          <p className="px-3 py-2 text-[12px] text-[#8A968D]">
+                            Nenhuma linha de patrimônio líquido cadastrada.
+                          </p>
+                        ) : (
+                          equityRows.map(row => <StatementLine key={row.label} row={row} share={null} />)
+                        )}
+                      </div>
+                      <div className="mt-3.5 flex items-center gap-2.5 rounded-[14px] bg-[#F1FBF6] p-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[#0A7A42]">
+                          <CheckIcon size={15} />
+                        </span>
+                        <span className="min-w-0 flex-1 text-[12.5px] font-semibold text-[#0A7A42]">
+                          Balanço fechado: ativo = passivo + PL
+                        </span>
+                        <span className="shrink-0 text-[12.5px] font-bold text-[#0A7A42]">
+                          {formatDecimal(totals.totalAssets)}
+                        </span>
+                      </div>
+                      {Math.abs(totals.balanceDifference) >= 0.01 && (
+                        <p className="mt-2 rounded-[12px] bg-[#FFF8E8] px-3 py-2.5 text-[11px] leading-relaxed text-[#725517]">
+                          O PL informado nos cadastros é {formatMoney(totals.declaredEquity)}. A diferença de{" "}
+                          {formatMoney(totals.balanceDifference)} entra acima como resultado acumulado.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSnapshotModal(true)}
+                        className="mt-2 w-full rounded-[12px] bg-[#F1F4F2] px-3 py-2.5 text-[12px] font-bold text-[#4C6355] hover:bg-[#E8EEEA]"
+                      >
+                        Registrar esta posição no histórico
+                      </button>
+                    </article>
+                  </div>
+                </section>
+              )}
 
               {(tab === "assets" || tab === "liabilities") && <section className="min-h-[430px] flex-1 rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="mb-4 flex items-center"><div><h2 className="text-[15px] font-bold">{tab === "assets" ? "Bens e direitos da empresa" : "Obrigações e patrimônio líquido"}</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">{tab === "assets" ? "Ativos circulantes, imobilizados, estoques e investimentos" : "Dívidas de curto e longo prazo, capital e ajustes"}</p></div><span className="ml-auto rounded-lg bg-[#F1F4F2] px-2.5 py-1 text-[10.5px] font-bold text-[#607067]">{tab === "assets" ? assetItems.length : liabilityItems.length} {(tab === "assets" ? assetItems.length : liabilityItems.length) === 1 ? "cadastrado" : "cadastrados"}</span></div><ItemList items={tab === "assets" ? assetItems : liabilityItems} emptyTitle={tab === "assets" ? "Nenhum bem ou direito cadastrado" : "Nenhuma obrigação ou linha de PL"} emptyText={tab === "assets" ? "Cadastre imóveis, veículos, equipamentos, estoque, investimentos e outros bens da empresa." : "Cadastre fornecedores, empréstimos, financiamentos, capital social e ajustes patrimoniais."} onCreate={() => openNew(tab === "assets" ? "ativo_nao_circulante" : "passivo_circulante")} onEdit={item => { setEditingItem(item); setItemModal(true); }} onToggle={item => toggleItem.mutate({ id: item.id })} onDelete={handleDelete} /></section>}
 
