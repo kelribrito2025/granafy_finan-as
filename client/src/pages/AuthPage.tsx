@@ -8,6 +8,7 @@ import {
   TrendUpIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
+import { PasswordResetPanel } from "@/pages/PasswordResetPage";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -101,6 +102,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const isSignup = mode === "signup";
 
@@ -110,6 +112,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
   useEffect(() => {
     setFormError(null);
+    setShowPasswordReset(false);
   }, [mode]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -152,6 +155,16 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         </div>
 
         <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
+          {showPasswordReset ? (
+            <PasswordResetPanel
+              initialEmail={email}
+              onBack={() => {
+                setShowPasswordReset(false);
+                setFormError(null);
+              }}
+            />
+          ) : (
+            <>
           <div>
             <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.045em] sm:text-[38px]">
               {isSignup ? "Crie sua conta" : "Acesse sua conta"}
@@ -223,7 +236,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   {!isSignup && (
                     <button
                       type="button"
-                      onClick={() => setLocation("/esqueci-senha")}
+                      onClick={() => {
+                        setShowPasswordReset(true);
+                        setFormError(null);
+                      }}
                       className="text-[12.5px] font-semibold text-[#0A9650] transition-colors hover:text-[#0B1F14]"
                     >
                       Esqueceu a senha?
@@ -317,6 +333,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                 {isSignup ? "Entre agora" : "Cadastre-se grátis"}
               </Link>
             </div>
+          )}
+            </>
           )}
         </div>
 
