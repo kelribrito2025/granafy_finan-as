@@ -2,7 +2,9 @@ import { COOKIE_NAME } from "@shared/const";
 import type { Request, Response } from "express";
 import { jwtVerify, SignJWT } from "jose";
 import {
+  createHmac,
   randomBytes,
+  randomInt,
   scrypt as scryptCallback,
   timingSafeEqual,
 } from "node:crypto";
@@ -15,6 +17,7 @@ const scrypt = promisify(scryptCallback);
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const PASSWORD_KEY_LENGTH = 64;
 const PASSWORD_PREFIX = "scrypt-v1";
+const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 10;
 
 function getSigningKey() {
   if (!ENV.cookieSecret) {
@@ -25,6 +28,35 @@ function getSigningKey() {
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+export function generatePasswordResetCode() {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+export function hashPasswordResetCode(requestId: string, code: string) {
+  return createHmac("sha256", getSigningKey())
+    .update(`${requestId}:${code}`)
+    .digest("hex");
+}
+
+export function createOpaquePasswordResetRequestId(email: string) {
+  const timeWindow = Math.floor(Date.now() / 30_000);
+  const hex = createHmac("sha256", getSigningKey())
+    .update(`${normalizeEmail(email)}:${timeWindow}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+export function verifyPasswordResetCode(
+  requestId: string,
+  code: string,
+  expectedHash: string
+) {
+  const actual = Buffer.from(hashPasswordResetCode(requestId, code), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 export async function hashPassword(password: string) {
@@ -58,6 +90,29 @@ export async function createSessionToken(userId: number) {
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
     .sign(getSigningKey());
+}
+
+export async function createPasswordResetToken(requestId: string, userId: number) {
+  return new SignJWT({ requestId, userId, kind: "password-reset" })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setSubject(String(userId))
+    .setIssuedAt()
+    .setExpirationTime(`${PASSWORD_RESET_TOKEN_TTL_SECONDS}s`)
+    .sign(getSigningKey());
+}
+
+export async function verifyPasswordResetToken(token: string) {
+  const { payload } = await jwtVerify(token, getSigningKey(), {
+    algorithms: ["HS256"],
+  });
+  if (
+    payload.kind !== "password-reset" ||
+    typeof payload.requestId !== "string" ||
+    typeof payload.userId !== "number"
+  ) {
+    throw new Error("Invalid password reset token");
+  }
+  return { requestId: payload.requestId, userId: payload.userId };
 }
 
 function sessionCookieOptions(req: Request) {

@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
   type InsertUser,
+  passwordResetRequests,
   type User,
   type UserRecord,
   users,
@@ -100,6 +101,88 @@ export async function updateLastSignedIn(id: number) {
   if (!db) throw new Error("Database is not available");
 
   await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, id));
+}
+
+export async function getRecentPasswordResetRequest(userId: number, since: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const result = await db
+    .select()
+    .from(passwordResetRequests)
+    .where(
+      and(
+        eq(passwordResetRequests.userId, userId),
+        isNull(passwordResetRequests.consumedAt),
+        gt(passwordResetRequests.createdAt, since)
+      )
+    )
+    .orderBy(desc(passwordResetRequests.createdAt))
+    .limit(1);
+  return result[0];
+}
+
+export async function createPasswordResetRequest(input: {
+  id: string;
+  userId: number;
+  codeHash: string;
+  expiresAt: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(passwordResetRequests)
+    .set({ consumedAt: new Date() })
+    .where(
+      and(
+        eq(passwordResetRequests.userId, input.userId),
+        isNull(passwordResetRequests.consumedAt)
+      )
+    );
+  await db.insert(passwordResetRequests).values(input);
+}
+
+export async function getPasswordResetRequest(id: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const result = await db
+    .select()
+    .from(passwordResetRequests)
+    .where(eq(passwordResetRequests.id, id))
+    .limit(1);
+  return result[0];
+}
+
+export async function incrementPasswordResetAttempts(id: string, attempts: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(passwordResetRequests)
+    .set({ attempts })
+    .where(eq(passwordResetRequests.id, id));
+}
+
+export async function completePasswordReset(input: {
+  requestId: string;
+  userId: number;
+  passwordHash: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx
+      .update(users)
+      .set({ passwordHash: input.passwordHash })
+      .where(eq(users.id, input.userId));
+    await tx
+      .update(passwordResetRequests)
+      .set({ consumedAt: new Date() })
+      .where(eq(passwordResetRequests.id, input.requestId));
+  });
 }
 
 /** Legacy OAuth helper retained for migration compatibility. */

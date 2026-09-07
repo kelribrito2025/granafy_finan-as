@@ -9,7 +9,6 @@ import {
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
 
 type AuthMode = "login" | "signup";
@@ -224,7 +223,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   {!isSignup && (
                     <button
                       type="button"
-                      onClick={() => toast.info("A recuperação de senha será adicionada em breve.")}
+                      onClick={() => setLocation("/esqueci-senha")}
                       className="text-[12.5px] font-semibold text-[#0A9650] transition-colors hover:text-[#0B1F14]"
                     >
                       Esqueceu a senha?

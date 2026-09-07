@@ -3,6 +3,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AuthPage from "@/pages/AuthPage";
 import NotFound from "@/pages/NotFound";
+import {
+  ForgotPasswordPage,
+  ResetPasswordPage,
+} from "@/pages/PasswordResetPage";
 import { useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -45,6 +49,8 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/esqueci-senha" component={ForgotPasswordPage} />
+      <Route path="/redefinir-senha" component={ResetPasswordPage} />
       <Route path="/" component={ProtectedDashboard} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

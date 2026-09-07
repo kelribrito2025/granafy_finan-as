@@ -22,6 +22,13 @@
       "when": 1788741329335,
       "tag": "0002_white_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1788751423850,
+      "tag": "0003_lonely_gravity",
+      "breakpoints": true
     }
   ]
 }

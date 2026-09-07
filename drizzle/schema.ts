@@ -24,8 +24,19 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+export const passwordResetRequests = mysqlTable("passwordResetRequests", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: int("userId").notNull(),
+  codeHash: varchar("codeHash", { length: 64 }).notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  consumedAt: timestamp("consumedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type UserRecord = typeof users.$inferSelect;
 export type User = Omit<UserRecord, "passwordHash">;
 export type InsertUser = typeof users.$inferInsert;
+export type PasswordResetRequest = typeof passwordResetRequests.$inferSelect;
 
 // TODO: Add your tables here
