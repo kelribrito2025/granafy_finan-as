@@ -3,15 +3,17 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
-import { parseImportFile } from "../importers";
+import { applyImportClassification, parseImportFile } from "../importers";
 
 const formatSchema = z.enum(["csv", "ofx"]);
+const classificationSchema = z.enum(["auto", "entrada", "saida"]);
 const previewInputSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   format: formatSchema,
   content: z.string().min(1, "Arquivo vazio").max(5_000_000, "O arquivo deve ter no máximo 5 MB"),
   accountId: z.number().int().positive(),
   defaultCategoryId: z.number().int().positive(),
+  classification: classificationSchema.default("auto"),
 });
 const importRowSchema = z.object({
   sourceIndex: z.number().int().positive(),
@@ -39,7 +41,10 @@ export const importsRouter = router({
   preview: protectedProcedure.input(previewInputSchema).mutation(async ({ ctx, input }) => {
     const { account, category } = await validateOrganization(ctx.user.id, input.accountId, input.defaultCategoryId);
     try {
-      const parsed = parseImportFile({ userId: ctx.user.id, accountId: input.accountId, format: input.format, content: input.content });
+      const parsed = applyImportClassification(
+        parseImportFile({ userId: ctx.user.id, accountId: input.accountId, format: input.format, content: input.content }),
+        input.classification,
+      );
       const activeCategories = (await db.listTransactionCategories(ctx.user.id)).filter(item => item.isActive);
       const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, parsed.map(row => row.fingerprint))).map(row => row.fingerprint));
       const seen = new Set<string>();

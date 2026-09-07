@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectCsvDelimiter, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseOfx } from "./importers";
+import { applyImportClassification, detectCsvDelimiter, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseOfx } from "./importers";
 
 describe("financial file importers", () => {
   it("parses Brazilian amounts and dates", () => {
@@ -43,6 +43,15 @@ describe("financial file importers", () => {
     const fingerprinted = fingerprintRows(3, 4, rows);
     expect(fingerprinted).toHaveLength(2);
     expect(fingerprinted[0].fingerprint).toBe(fingerprinted[1].fingerprint);
+  });
+
+  it("can classify every imported row as revenue or expense while preserving identity", () => {
+    const rows = fingerprintRows(3, 4, parseOfx("<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>20260907<TRNAMT>-10<FITID>same-id<NAME>Ajuste</BANKTRANLIST></OFX>"));
+    const revenue = applyImportClassification(rows, "entrada");
+    const expense = applyImportClassification(rows, "saida");
+    expect(revenue[0]).toMatchObject({ type: "entrada", amount: 10, fingerprint: rows[0].fingerprint });
+    expect(expense[0]).toMatchObject({ type: "saida", amount: -10, fingerprint: rows[0].fingerprint });
+    expect(applyImportClassification(rows, "auto")).toBe(rows);
   });
 
   it("rejects CSV without required financial columns", () => {

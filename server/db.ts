@@ -18,6 +18,7 @@ import {
 } from "../drizzle/schema";
 import {
   DEFAULT_CATEGORY_CATALOG_VERSION,
+  defaultCategoryUpgradeValues,
   defaultCategoryValues,
 } from "./defaultCategories";
 
@@ -138,10 +139,13 @@ export async function ensureDefaultTransactionCategories(userId: number) {
   }
 
   await db.transaction(async tx => {
-    await tx
-      .insert(transactionCategories)
-      .values(defaultCategoryValues(userId))
-      .onDuplicateKeyUpdate({ set: { userId } });
+    const upgradeValues = defaultCategoryUpgradeValues(userId, record.version);
+    if (upgradeValues.length > 0) {
+      await tx
+        .insert(transactionCategories)
+        .values(upgradeValues)
+        .onDuplicateKeyUpdate({ set: { userId } });
+    }
     await tx
       .update(users)
       .set({ categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION })

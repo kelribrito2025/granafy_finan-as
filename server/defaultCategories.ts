@@ -1,8 +1,8 @@
-export const DEFAULT_CATEGORY_CATALOG_VERSION = 1;
+export const DEFAULT_CATEGORY_CATALOG_VERSION = 2;
 
 export type DefaultTransactionCategory = {
   name: string;
-  type: "saida";
+  type: "entrada" | "saida";
   color: string;
 };
 
@@ -10,7 +10,20 @@ function expenseGroup(color: string, names: string[]): DefaultTransactionCategor
   return names.map(name => ({ name, type: "saida", color }));
 }
 
+function incomeGroup(color: string, names: string[]): DefaultTransactionCategory[] {
+  return names.map(name => ({ name, type: "entrada", color }));
+}
+
+export const DEFAULT_INCOME_CATEGORIES: readonly DefaultTransactionCategory[] = incomeGroup("#12B85C", [
+  "Receitas Operacionais",
+  "Receitas Operacionais/Prestação de Serviços",
+  "Receitas Operacionais/Venda de Produtos",
+  "Receitas Financeiras",
+  "Outras Receitas",
+]);
+
 export const DEFAULT_TRANSACTION_CATEGORIES: readonly DefaultTransactionCategory[] = [
+  ...DEFAULT_INCOME_CATEGORIES,
   ...expenseGroup("#E06C47", [
     "Custos Operacionais",
     "Custos Operacionais/Custo do Serviço Prestado (CSP)",
@@ -88,4 +101,13 @@ export function defaultCategoryValues(userId: number) {
     ...category,
     isActive: true,
   }));
+}
+
+export function defaultCategoryUpgradeValues(userId: number, currentVersion: number) {
+  const categories = currentVersion < 1
+    ? DEFAULT_TRANSACTION_CATEGORIES
+    : currentVersion < 2
+      ? DEFAULT_INCOME_CATEGORIES
+      : [];
+  return categories.map(category => ({ userId, ...category, isActive: true }));
 }

@@ -12,6 +12,8 @@ export type ParsedImportRow = {
   fingerprint: string;
 };
 
+export type ImportClassification = "auto" | "entrada" | "saida";
+
 type DraftRow = Omit<ParsedImportRow, "occurrence" | "fingerprint">;
 
 const DATE_ALIASES = ["data", "date", "transactiondate", "dtposted", "dtuser", "datadolancamento"];
@@ -210,6 +212,15 @@ export function fingerprintRows(userId: number, accountId: number, rows: DraftRo
     const fingerprint = createHash("sha256").update(`${userId}|${accountId}|${identity}|${occurrence}`).digest("hex");
     return { ...row, occurrence, fingerprint };
   });
+}
+
+export function applyImportClassification(rows: ParsedImportRow[], classification: ImportClassification) {
+  if (classification === "auto") return rows;
+  return rows.map(row => ({
+    ...row,
+    type: classification,
+    amount: classification === "entrada" ? Math.abs(row.amount) : -Math.abs(row.amount),
+  }));
 }
 
 export function parseImportFile(input: { userId: number; accountId: number; format: "csv" | "ofx"; content: string }) {
