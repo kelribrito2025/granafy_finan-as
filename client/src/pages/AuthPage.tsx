@@ -6,17 +6,14 @@ import {
   ChevronRightIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
-import { startLogin } from "@/const";
-import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 type AuthMode = "login" | "signup";
 
-const benefits = [
-  "Visão financeira em um só lugar",
-  "Dados protegidos e acesso individual",
-  "Acompanhamento claro de entradas e saídas",
-];
+const inputClass =
+  "h-12 w-full rounded-[13px] border border-[#DCE5DF] bg-white px-4 text-[13px] text-[#0B1F14] outline-none transition placeholder:text-[#A7B1AA] focus:border-[#12B85C] focus:ring-4 focus:ring-[#12B85C]/10";
 
 function BrandPanel() {
   const bars = [35, 49, 43, 68, 59, 82, 74, 100];
@@ -96,19 +93,43 @@ function BrandPanel() {
 }
 
 export default function AuthPage({ mode }: { mode: AuthMode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   const [, setLocation] = useLocation();
-  const [leaving, setLeaving] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const isSignup = mode === "signup";
 
-  const continueAuth = () => {
-    if (user) {
-      setLocation("/");
+  const loginMutation = trpc.auth.login.useMutation();
+  const signupMutation = trpc.auth.signup.useMutation();
+  const submitting = loginMutation.isPending || signupMutation.isPending;
+
+  useEffect(() => {
+    setFormError(null);
+  }, [mode]);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormError(null);
+
+    if (isSignup && password !== passwordConfirmation) {
+      setFormError("As senhas não coincidem");
       return;
     }
 
-    setLeaving(true);
-    startLogin();
+    try {
+      if (isSignup) {
+        await signupMutation.mutateAsync({ name, email, password });
+      } else {
+        await loginMutation.mutateAsync({ email, password });
+      }
+      await refresh();
+      setLocation("/", { replace: true });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Não foi possível continuar");
+    }
   };
 
   return (
@@ -131,7 +152,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           </span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col justify-center py-10 sm:py-14">
+        <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col justify-center py-8 sm:py-10">
           <div className="grid grid-cols-2 rounded-[14px] bg-[#E5ECE8] p-1">
             <Link
               href="/login"
@@ -155,7 +176,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             </Link>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-7">
             <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#12B85C]">
               {isSignup ? "Primeiros passos" : "Bem-vindo de volta"}
             </p>
@@ -164,70 +185,136 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             </h1>
             <p className="mt-3 text-[13.5px] leading-6 text-[#718077]">
               {isSignup
-                ? "Organize sua operação e acompanhe os números que realmente importam para o seu negócio."
+                ? "Cadastre seus dados para começar a organizar a operação do seu negócio."
                 : "Entre para consultar seu caixa, lançamentos e pendências com segurança."}
             </p>
           </div>
 
           {user ? (
-            <div className="mt-6 flex items-center gap-3 rounded-[16px] bg-[#DFF6EA] p-3.5 text-[#0A7A42]">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white/70">
-                <CheckIcon size={18} />
-              </span>
-              <div className="min-w-0">
-                <strong className="block truncate text-[12.5px]">Você já está conectado</strong>
-                <span className="mt-0.5 block truncate text-[11px] text-[#478261]">{user.email || user.name}</span>
+            <div className="mt-6">
+              <div className="flex items-center gap-3 rounded-[16px] bg-[#DFF6EA] p-3.5 text-[#0A7A42]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white/70">
+                  <CheckIcon size={18} />
+                </span>
+                <div className="min-w-0">
+                  <strong className="block truncate text-[12.5px]">Você já está conectado</strong>
+                  <span className="mt-0.5 block truncate text-[11px] text-[#478261]">{user.email || user.name}</span>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setLocation("/")}
+                className="mt-5 flex h-12 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.24)] transition hover:bg-[#0F9E4E] active:scale-[0.985]"
+              >
+                Ir para o painel <ChevronRightIcon size={16} />
+              </button>
             </div>
           ) : (
-            <div className="mt-7 space-y-3">
-              {benefits.map((benefit) => (
-                <div key={benefit} className="flex items-center gap-3 text-[12.5px] text-[#4C6355]">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[#DFF6EA] text-[#0A7A42]">
-                    <CheckIcon size={14} />
-                  </span>
-                  {benefit}
-                </div>
-              ))}
-            </div>
-          )}
+            <form className="mt-6 space-y-4" onSubmit={submit}>
+              {isSignup && (
+                <label className="block">
+                  <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Nome</span>
+                  <input
+                    className={inputClass}
+                    type="text"
+                    name="name"
+                    autoComplete="name"
+                    value={name}
+                    onChange={event => setName(event.target.value)}
+                    placeholder="Seu nome"
+                    minLength={2}
+                    maxLength={80}
+                    required
+                  />
+                </label>
+              )}
 
-          <button
-            type="button"
-            onClick={continueAuth}
-            disabled={loading || leaving}
-            className="mt-8 flex h-12 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.24)] transition duration-150 hover:bg-[#0F9E4E] hover:shadow-[0_14px_32px_rgba(18,184,92,.28)] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
-          >
-            {loading || leaving ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
-                Aguarde...
-              </>
-            ) : (
-              <>
-                {user ? "Ir para o painel" : isSignup ? "Criar minha conta" : "Continuar para entrar"}
-                <ChevronRightIcon size={16} />
-              </>
-            )}
-          </button>
+              <label className="block">
+                <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">E-mail</span>
+                <input
+                  className={inputClass}
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={event => setEmail(event.target.value)}
+                  placeholder="voce@empresa.com"
+                  maxLength={320}
+                  required
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Senha</span>
+                <input
+                  className={inputClass}
+                  type="password"
+                  name="password"
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={event => setPassword(event.target.value)}
+                  placeholder="Mínimo de 8 caracteres"
+                  minLength={8}
+                  maxLength={128}
+                  required
+                />
+              </label>
+
+              {isSignup && (
+                <label className="block">
+                  <span className="mb-1.5 block text-[11.5px] font-semibold text-[#4C6355]">Confirmar senha</span>
+                  <input
+                    className={inputClass}
+                    type="password"
+                    name="passwordConfirmation"
+                    autoComplete="new-password"
+                    value={passwordConfirmation}
+                    onChange={event => setPasswordConfirmation(event.target.value)}
+                    placeholder="Digite a senha novamente"
+                    minLength={8}
+                    maxLength={128}
+                    required
+                  />
+                </label>
+              )}
+
+              {formError && (
+                <div role="alert" className="rounded-[12px] bg-[#FDECEA] px-3.5 py-3 text-[11.5px] font-medium text-[#8E1F16]">
+                  {formError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || submitting}
+                className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[14px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white shadow-[0_12px_28px_rgba(18,184,92,.24)] transition duration-150 hover:bg-[#0F9E4E] hover:shadow-[0_14px_32px_rgba(18,184,92,.28)] active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
+              >
+                {loading || submitting ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                    Aguarde...
+                  </>
+                ) : (
+                  <>
+                    {isSignup ? "Criar minha conta" : "Entrar no painel"}
+                    <ChevronRightIcon size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           {!user && (
-            <p className="mt-4 text-center text-[11px] leading-5 text-[#8A968D]">
-              {isSignup
-                ? "Seus dados de acesso serão solicitados e protegidos no próximo passo."
-                : "Você continuará em um ambiente protegido para confirmar seu acesso."}
-            </p>
+            <div className="mt-6 border-t border-[#DCE5DF] pt-5 text-center text-[11.5px] text-[#718077]">
+              {isSignup ? "Já possui uma conta?" : "Ainda não possui uma conta?"}{" "}
+              <Link
+                href={isSignup ? "/login" : "/cadastro"}
+                className="font-bold text-[#0A7A42] hover:text-[#0B1F14]"
+              >
+                {isSignup ? "Entrar" : "Criar conta"}
+              </Link>
+            </div>
           )}
-
-          <div className="mt-8 border-t border-[#DCE5DF] pt-5 text-center text-[11.5px] text-[#718077]">
-            {isSignup ? "Já possui uma conta?" : "Ainda não possui uma conta?"}{" "}
-            <Link
-              href={isSignup ? "/login" : "/cadastro"}
-              className="font-bold text-[#0A7A42] hover:text-[#0B1F14]"
-            >
-              {isSignup ? "Entrar" : "Criar conta"}
-            </Link>
-          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] text-[#9AA69E]">

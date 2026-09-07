@@ -8,6 +8,20 @@
       "when": 1788730507070,
       "tag": "0000_magical_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1788741193900,
+      "tag": "0001_silent_gamora",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788741329335,
+      "tag": "0002_white_zeigeist",
+      "breakpoints": true
     }
   ]
 }

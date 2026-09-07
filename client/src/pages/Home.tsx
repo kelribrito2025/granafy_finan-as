@@ -348,6 +348,7 @@ export default function Home() {
     .slice(0, 2)
     .map(part => part[0]?.toUpperCase())
     .join("");
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Cliente";
 
   const handleLogout = async () => {
     await logout();
@@ -384,7 +385,7 @@ export default function Home() {
               <MenuIcon size={18} />
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
-              <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Bom dia, Giovani</h1>
+              <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Bom dia, {firstName}</h1>
               <p className="text-xs text-[#8A968D] sm:text-[13px]">Setembro 2026 · atualizado às 09:15</p>
             </div>
 
