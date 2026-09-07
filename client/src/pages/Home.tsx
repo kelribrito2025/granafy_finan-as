@@ -533,16 +533,31 @@ export default function Home() {
                     <span className="flex items-center gap-1.5"><i className="h-[9px] w-[9px] rounded-[3px] bg-[#E5533D]" />Saídas</span>
                   </div>
                 </div>
-                <div className="mt-4 flex h-[150px] items-end gap-2 sm:gap-4">
-                  {monthlyBars.map(([incoming, outgoing], index) => (
-                    <div key={months[index]} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${months[index]}: entradas ${incoming}, saídas ${outgoing}`}>
-                      <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${incoming}%` }} />
-                      <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === 8 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${outgoing}%` }} />
+                <div className="mt-4 grid grid-cols-[46px_minmax(0,1fr)] gap-3">
+                  <div className="flex h-[150px] flex-col justify-between text-right text-[9.5px] font-medium leading-none text-[#8A968D] sm:text-[10.5px]">
+                    <span>50 mil</span>
+                    <span>37,5 mil</span>
+                    <span>25 mil</span>
+                    <span>12,5 mil</span>
+                    <span>0</span>
+                  </div>
+                  <div className="relative h-[150px]">
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
+                      {Array.from({ length: 5 }).map((_, index) => <span key={index} className="block border-t border-dashed border-[#DFE6E1]" />)}
                     </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex text-center text-[10px] text-[#8A968D] sm:text-[11.5px]">
-                  {months.map((month) => <span key={month} className={`flex-1 ${month === "Set" ? "font-semibold text-[#0B1F14]" : ""}`}>{month}</span>)}
+                    <div className="relative z-10 flex h-full items-end gap-2 sm:gap-4">
+                      {monthlyBars.map(([incoming, outgoing], index) => (
+                        <div key={months[index]} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${months[index]}: entradas ${incoming}, saídas ${outgoing}`}>
+                          <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${incoming}%` }} />
+                          <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === 8 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${outgoing}%` }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <span aria-hidden="true" />
+                  <div className="flex text-center text-[10px] text-[#8A968D] sm:text-[11.5px]">
+                    {months.map((month) => <span key={month} className={`flex-1 ${month === "Set" ? "font-semibold text-[#0B1F14]" : ""}`}>{month}</span>)}
+                  </div>
                 </div>
               </section>
             </div>
