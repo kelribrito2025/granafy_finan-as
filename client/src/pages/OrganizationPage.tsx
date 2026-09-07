@@ -81,19 +81,78 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[18px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white">NV</span><div className="min-w-0"><strong className="block truncate text-sm">NV Financeiro</strong><span className="block truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span></div><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5"><span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Banco conectado</span><div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" />TiDB Cloud</div></div></aside></>;
 }
 
+const BANK_PRESETS = [
+  { id: "efi", name: "Efi Bank", initials: "EF", color: "#F28C28" },
+  { id: "conta-simples", name: "Conta Simples", initials: "CS", color: "#00A86B" },
+  { id: "cloudwalk", name: "CloudWalk", initials: "CW", color: "#635BFF" },
+] as const;
+
+type BankPresetId = (typeof BANK_PRESETS)[number]["id"] | "outro";
+
 function AccountModal({ account, pending, onClose, onSave }: { account?: Account | null; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number }) => Promise<void> }) {
+  const matchedPreset = BANK_PRESETS.find(item => item.name.toLowerCase() === account?.institution.toLowerCase());
+  const [institutionChoice, setInstitutionChoice] = useState<BankPresetId>(matchedPreset?.id ?? "outro");
   const [name, setName] = useState(account?.name ?? "");
   const [institution, setInstitution] = useState(account?.institution ?? "");
   const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? "corrente");
   const [color, setColor] = useState(account?.color ?? "#12B85C");
   const [initialBalance, setInitialBalance] = useState(account ? String(account.initialBalance).replace(".", ",") : "0,00");
+
+  const selectPreset = (preset: (typeof BANK_PRESETS)[number]) => {
+    const shouldReplaceName = !name.trim() || name === institution;
+    setInstitutionChoice(preset.id);
+    setInstitution(preset.name);
+    if (shouldReplaceName) setName(preset.name);
+    if (!account) setColor(preset.color);
+  };
+
+  const selectOther = () => {
+    const shouldClearName = !account && name === institution;
+    setInstitutionChoice("outro");
+    if (BANK_PRESETS.some(item => item.name === institution)) setInstitution("");
+    if (shouldClearName) setName("");
+    if (!account) setColor("#12B85C");
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const parsed = Number(initialBalance.replace(/\./g, "").replace(",", "."));
     if (!Number.isFinite(parsed)) return toast.error("Informe um saldo inicial válido");
-    await onSave({ name, institution, accountType, color, initialBalance: parsed });
+    if (!institution.trim()) return toast.error("Selecione ou informe a instituição");
+    await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed });
   };
-  return <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}><form onSubmit={submit} className="modal-enter w-full max-w-[470px] rounded-[22px] bg-white p-5 sm:p-6"><div className="flex items-start"><div><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Conta financeira</p><h2 className="mt-1 text-xl font-bold">{account ? "Editar conta" : "Nova conta"}</h2><p className="mt-1 text-xs text-[#8A968D]">Organize bancos, carteiras, cartões e gateways.</p></div><button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355]"><CloseIcon size={17} /></button></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome</span><input autoFocus required value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Inter PJ" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Instituição</span><input value={institution} onChange={event => setInstitution(event.target.value)} placeholder="Ex.: Banco Inter" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={accountType} onChange={event => setAccountType(event.target.value as Account["accountType"])} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]"><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="carteira">Carteira</option><option value="cartao">Cartão</option><option value="gateway">Gateway</option><option value="outro">Outro</option></select></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onChange={event => setInitialBalance(event.target.value)} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Cor</span><div className="flex h-11 items-center gap-3 rounded-xl bg-[#F8FAF9] px-3 ring-1 ring-[#E1E8E3]"><input aria-label="Cor da conta" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 cursor-pointer border-0 bg-transparent" /><span className="text-[12px] font-semibold uppercase text-[#718077]">{color}</span></div></label></div><div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355]">Cancelar</button><button disabled={pending} type="submit" className="flex-1 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white disabled:opacity-50">{pending ? "Salvando..." : "Salvar conta"}</button></div></form></div>;
+
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="account-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="modal-enter max-h-[calc(100vh-32px)] w-full max-w-[520px] overflow-y-auto rounded-[22px] bg-white p-5 sm:p-6">
+        <div className="flex items-start">
+          <div><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Conta financeira</p><h2 id="account-modal-title" className="mt-1 text-xl font-bold">{account ? "Editar conta" : "Nova conta"}</h2><p className="mt-1 text-xs text-[#8A968D]">Escolha a instituição ou cadastre outro banco.</p></div>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355]"><CloseIcon size={17} /></button>
+        </div>
+
+        <div className="mt-5">
+          <span className="mb-2 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Instituição</span>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {BANK_PRESETS.map(preset => {
+              const selected = institutionChoice === preset.id;
+              return <button key={preset.id} type="button" aria-pressed={selected} onClick={() => selectPreset(preset)} className={`flex min-h-[70px] flex-col items-center justify-center rounded-xl px-2 py-2.5 text-center ring-1 transition active:scale-[.98] ${selected ? "bg-[#F1FBF6] text-[#0A7A42] ring-2 ring-[#12B85C]" : "bg-[#F8FAF9] text-[#4C6355] ring-[#E1E8E3] hover:bg-[#F1F4F2]"}`}><span className="flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[9px] font-extrabold text-white" style={{ backgroundColor: preset.color }}>{preset.initials}</span><strong className="mt-1.5 text-[10.5px] leading-tight">{preset.name}</strong></button>;
+            })}
+            <button type="button" aria-pressed={institutionChoice === "outro"} onClick={selectOther} className={`flex min-h-[70px] flex-col items-center justify-center rounded-xl px-2 py-2.5 text-center ring-1 transition active:scale-[.98] ${institutionChoice === "outro" ? "bg-[#F1FBF6] text-[#0A7A42] ring-2 ring-[#12B85C]" : "bg-[#F8FAF9] text-[#4C6355] ring-[#E1E8E3] hover:bg-[#F1F4F2]"}`}><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#DDE5E0] text-[15px] font-bold text-[#4C6355]">+</span><strong className="mt-1.5 text-[10.5px] leading-tight">Outro</strong></button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {institutionChoice === "outro" && <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da instituição</span><input autoFocus required value={institution} onChange={event => setInstitution(event.target.value)} placeholder="Digite o banco ou instituição" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>}
+          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da conta</span><input autoFocus={institutionChoice !== "outro"} required value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Efi principal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={accountType} onChange={event => setAccountType(event.target.value as Account["accountType"])} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]"><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="carteira">Carteira</option><option value="cartao">Cartão</option><option value="gateway">Gateway</option><option value="outro">Outro</option></select></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onChange={event => setInitialBalance(event.target.value)} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
+          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Cor de identificação</span><div className="flex h-11 items-center gap-3 rounded-xl bg-[#F8FAF9] px-3 ring-1 ring-[#E1E8E3]"><input aria-label="Cor da conta" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 cursor-pointer border-0 bg-transparent" /><span className="text-[12px] font-semibold uppercase text-[#718077]">{color}</span></div></label>
+        </div>
+
+        <div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355]">Cancelar</button><button disabled={pending} type="submit" className="flex-1 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white disabled:opacity-50">{pending ? "Salvando..." : "Salvar conta"}</button></div>
+      </form>
+    </div>
+  );
 }
 
 function CategoryModal({ category, pending, onClose, onSave }: { category?: Category | null; pending: boolean; onClose: () => void; onSave: (values: { name: string; type: Category["type"]; color: string }) => Promise<void> }) {
