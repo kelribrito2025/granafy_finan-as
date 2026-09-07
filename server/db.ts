@@ -366,6 +366,13 @@ export async function getFinancialAccount(userId: number, id: number) {
   return rows[0];
 }
 
+export async function getFinancialAccountByName(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, userId), eq(financialAccounts.name, name))).limit(1);
+  return rows[0];
+}
+
 export async function createFinancialAccount(userId: number, values: Omit<InsertFinancialAccount, "userId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -402,6 +409,13 @@ export async function getTransactionCategory(userId: number, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.id, id))).limit(1);
+  return rows[0];
+}
+
+export async function getTransactionCategoryByName(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.name, name))).limit(1);
   return rows[0];
 }
 

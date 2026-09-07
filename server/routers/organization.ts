@@ -21,10 +21,39 @@ function conflictError(entity: string) {
   return new TRPCError({ code: "CONFLICT", message: `Já existe ${entity} com esse nome.` });
 }
 
+export function isDuplicateDatabaseError(error: unknown) {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current; depth += 1) {
+    if (typeof current !== "object") break;
+    const candidate = current as {
+      code?: string;
+      errno?: number;
+      sqlState?: string;
+      sqlMessage?: string;
+      message?: string;
+      cause?: unknown;
+    };
+    if (
+      candidate.code === "ER_DUP_ENTRY" ||
+      candidate.errno === 1062 ||
+      candidate.sqlState === "23000" ||
+      /duplicate|unique/i.test(candidate.sqlMessage ?? "")
+    ) return true;
+    current = candidate.cause;
+  }
+  return false;
+}
+
 function rethrowOrganizationError(error: unknown, entity: string): never {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/duplicate|unique/i.test(message)) throw conflictError(entity);
-  throw error;
+  if (isDuplicateDatabaseError(error)) throw conflictError(entity);
+  console.error("[Organization] Persistence failed", {
+    entity,
+    code: typeof error === "object" && error && "code" in error ? String(error.code) : "unknown",
+  });
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: `Não foi possível salvar ${entity}. Tente novamente.`,
+  });
 }
 
 export const organizationRouter = router({
@@ -76,6 +105,9 @@ export const organizationRouter = router({
   }),
 
   createAccount: protectedProcedure.input(accountValuesSchema).mutation(async ({ ctx, input }) => {
+    if (await db.getFinancialAccountByName(ctx.user.id, input.name)) {
+      throw conflictError("uma conta");
+    }
     try {
       return await db.createFinancialAccount(ctx.user.id, { ...input, initialBalance: input.initialBalance.toFixed(2), isActive: true });
     } catch (error) {
@@ -86,6 +118,8 @@ export const organizationRouter = router({
   updateAccount: protectedProcedure.input(accountValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     if (!await db.getFinancialAccount(ctx.user.id, id)) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
+    const conflictingAccount = await db.getFinancialAccountByName(ctx.user.id, values.name);
+    if (conflictingAccount && conflictingAccount.id !== id) throw conflictError("uma conta");
     try {
       return await db.updateFinancialAccount(ctx.user.id, id, { ...values, initialBalance: values.initialBalance.toFixed(2) });
     } catch (error) {
@@ -108,6 +142,9 @@ export const organizationRouter = router({
   }),
 
   createCategory: protectedProcedure.input(categoryValuesSchema).mutation(async ({ ctx, input }) => {
+    if (await db.getTransactionCategoryByName(ctx.user.id, input.name)) {
+      throw conflictError("uma categoria");
+    }
     try {
       return await db.createTransactionCategory(ctx.user.id, { ...input, isActive: true });
     } catch (error) {
@@ -118,6 +155,8 @@ export const organizationRouter = router({
   updateCategory: protectedProcedure.input(categoryValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     if (!await db.getTransactionCategory(ctx.user.id, id)) throw new TRPCError({ code: "NOT_FOUND", message: "Categoria não encontrada" });
+    const conflictingCategory = await db.getTransactionCategoryByName(ctx.user.id, values.name);
+    if (conflictingCategory && conflictingCategory.id !== id) throw conflictError("uma categoria");
     try {
       return await db.updateTransactionCategory(ctx.user.id, id, values);
     } catch (error) {

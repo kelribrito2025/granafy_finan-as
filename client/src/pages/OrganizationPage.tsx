@@ -110,11 +110,13 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
   const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? "corrente");
   const [color, setColor] = useState(account?.color ?? "#12B85C");
   const [initialBalance, setInitialBalance] = useState(account ? formatCurrencyValue(account.initialBalance) : "0,00");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const selectPreset = (preset: (typeof BANK_PRESETS)[number]) => {
     const shouldReplaceName = !name.trim() || name === institution;
     setInstitutionChoice(preset.id);
     setInstitution(preset.name);
+    setErrorMessage("");
     if (shouldReplaceName) setName(preset.name);
     if (!account) setColor(preset.color);
   };
@@ -122,6 +124,7 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
   const selectOther = () => {
     const shouldClearName = !account && name === institution;
     setInstitutionChoice("outro");
+    setErrorMessage("");
     if (BANK_PRESETS.some(item => item.name === institution)) setInstitution("");
     if (shouldClearName) setName("");
     if (!account) setColor("#12B85C");
@@ -132,7 +135,12 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
     const parsed = currencyInputToNumber(initialBalance);
     if (!Number.isFinite(parsed)) return toast.error("Informe um saldo inicial válido");
     if (!institution.trim()) return toast.error("Selecione ou informe a instituição");
-    await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed });
+    setErrorMessage("");
+    try {
+      await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível salvar a conta");
+    }
   };
 
   return (
@@ -156,12 +164,13 @@ function AccountModal({ account, pending, onClose, onSave }: { account?: Account
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {institutionChoice === "outro" && <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da instituição</span><input autoFocus required value={institution} onChange={event => setInstitution(event.target.value)} placeholder="Digite o banco ou instituição" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>}
-          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da conta</span><input autoFocus={institutionChoice !== "outro"} required value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Efi principal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]" /></label>
+          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da conta</span><input autoFocus={institutionChoice !== "outro"} required value={name} onChange={event => { setName(event.target.value); setErrorMessage(""); }} placeholder="Ex.: Efi principal" className={`h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 focus:ring-2 ${errorMessage ? "ring-[#E8A39D] focus:ring-[#B3261E]" : "ring-[#E1E8E3] focus:ring-[#12B85C]"}`} /></label>
           <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={accountType} onChange={event => setAccountType(event.target.value as Account["accountType"])} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]"><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="carteira">Carteira</option><option value="cartao">Cartão</option><option value="gateway">Gateway</option><option value="outro">Outro</option></select></label>
           <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onFocus={event => event.currentTarget.select()} onChange={event => setInitialBalance(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Cor de identificação</span><div className="flex h-11 items-center gap-3 rounded-xl bg-[#F8FAF9] px-3 ring-1 ring-[#E1E8E3]"><input aria-label="Cor da conta" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 cursor-pointer border-0 bg-transparent" /><span className="text-[12px] font-semibold uppercase text-[#718077]">{color}</span></div></label>
         </div>
 
+        {errorMessage && <p role="alert" className="mt-4 rounded-xl bg-[#FDECEA] px-3.5 py-3 text-[11.5px] font-semibold text-[#8E1F16]">{errorMessage}</p>}
         <div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355]">Cancelar</button><button disabled={pending} type="submit" className="flex-1 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white disabled:opacity-50">{pending ? "Salvando..." : "Salvar conta"}</button></div>
       </form>
     </div>
@@ -204,7 +213,7 @@ export default function OrganizationPage() {
   const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] active:scale-95";
 
   const saveAccount = async (values: Parameters<typeof createAccount.mutateAsync>[0]) => {
-    try { if (editingAccount) await updateAccount.mutateAsync({ id: editingAccount.id, ...values }); else await createAccount.mutateAsync(values); setAccountModal(false); setEditingAccount(null); toast.success(editingAccount ? "Conta atualizada" : "Conta criada"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível salvar a conta"); }
+    if (editingAccount) await updateAccount.mutateAsync({ id: editingAccount.id, ...values }); else await createAccount.mutateAsync(values); setAccountModal(false); setEditingAccount(null); toast.success(editingAccount ? "Conta atualizada" : "Conta criada");
   };
   const saveCategory = async (values: Parameters<typeof createCategory.mutateAsync>[0]) => {
     try { if (editingCategory) await updateCategory.mutateAsync({ id: editingCategory.id, ...values }); else await createCategory.mutateAsync(values); setCategoryModal(false); setEditingCategory(null); toast.success(editingCategory ? "Categoria atualizada" : "Categoria criada"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível salvar a categoria"); }
