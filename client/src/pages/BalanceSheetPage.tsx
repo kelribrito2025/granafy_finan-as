@@ -27,7 +27,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
-type NavItem = { label: string; icon: IconlyIcon };
+type NavItem = { label: string; icon: IconlyIcon; disabled?: boolean };
 type BalanceGroup =
   | "ativo_circulante"
   | "ativo_nao_circulante"
@@ -76,17 +76,17 @@ type Tab = "overview" | "assets" | "liabilities" | "evolution";
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "Contas a pagar", icon: ArrowDownIcon },
-  { label: "Contas a receber", icon: ArrowUpIcon },
+  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
+  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
+  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
   { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon },
+  { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon },
+  { label: "DRE", icon: DocumentIcon, disabled: true },
   { label: "Balanço Patrimonial", icon: ChartIcon },
-  { label: "Relatórios", icon: ChartIcon },
-  { label: "Clientes", icon: UsersIcon },
+  { label: "Relatórios", icon: ChartIcon, disabled: true },
+  { label: "Clientes", icon: UsersIcon, disabled: true },
 ];
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
@@ -162,16 +162,21 @@ function NavGroup({ title, items, onSelect }: {
       <span className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#B3BFB7]">
         {title}
       </span>
-      {items.map(({ label, icon: Icon }) => {
+      {items.map(({ label, icon: Icon, disabled = false }) => {
         const selected = label === "Balanço Patrimonial";
         return (
           <button
             key={label}
             type="button"
+            disabled={disabled}
+            aria-disabled={disabled}
+            title={disabled ? "Página em desenvolvimento" : undefined}
             onClick={() => onSelect(label)}
             className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[10px] text-left text-[13px] transition active:scale-[.98] ${
               selected
                 ? "bg-[#12B85C] font-bold text-white"
+                : disabled
+                  ? "cursor-not-allowed text-[#A8B1AB] opacity-55"
                 : "text-[#28382E] hover:bg-[#F1FBF6]"
             }`}
           >

@@ -32,6 +32,7 @@ import { useLocation } from "wouter";
 type NavItem = {
   label: string;
   icon: IconlyIcon;
+  disabled?: boolean;
   badge?: string;
   badgeTone?: "positive" | "negative" | "neutral";
 };
@@ -67,18 +68,18 @@ const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "Contas a pagar", icon: ArrowDownIcon },
-  { label: "Contas a receber", icon: ArrowUpIcon },
+  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
+  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
+  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
   { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon },
+  { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
 
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon },
+  { label: "DRE", icon: DocumentIcon, disabled: true },
   { label: "Balanço Patrimonial", icon: ChartIcon },
-  { label: "Relatórios", icon: ChartIcon },
-  { label: "Clientes", icon: UsersIcon },
+  { label: "Relatórios", icon: ChartIcon, disabled: true },
+  { label: "Clientes", icon: UsersIcon, disabled: true },
 ];
 
 const organizationItems: NavItem[] = [
@@ -132,10 +133,10 @@ function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[];
   return (
     <div className="flex flex-col gap-[3px]">
       <span className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#B3BFB7]">{title}</span>
-      {items.map(({ label, icon: Icon, badge, badgeTone = "neutral" }) => {
+      {items.map(({ label, icon: Icon, disabled = false, badge, badgeTone = "neutral" }) => {
         const selected = label === "Lançamentos";
         return (
-          <button key={label} type="button" onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
+          <button key={label} type="button" disabled={disabled} aria-disabled={disabled} title={disabled ? "Página em desenvolvimento" : undefined} onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : disabled ? "cursor-not-allowed text-[#A8B1AB] opacity-55" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
             <Icon size={16} />
             <span className="truncate">{label}</span>
             {badge && <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${selected ? "bg-white/18 text-white" : badgeClass[badgeTone]}`}>{badge}</span>}
