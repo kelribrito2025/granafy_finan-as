@@ -17,6 +17,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -91,7 +92,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label !== "Contas e categorias") toast.info(`${label} ainda não está disponível.`);
   };
-  return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" /><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5"><span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Banco conectado</span><div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" />TiDB Cloud</div></div></aside></>;
+  return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" /><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><ConnectedAccounts className="mt-auto" /></aside></>;
 }
 
 type BankPreset = { id: string; name: string; initials: string; color: string; logo?: string };

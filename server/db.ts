@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
@@ -426,6 +426,30 @@ export async function listFinancialAccounts(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(financialAccounts).where(eq(financialAccounts.userId, userId)).orderBy(desc(financialAccounts.isActive), financialAccounts.name);
+}
+
+/**
+ * Saldo de cada conta, agregado no banco. A sidebar aparece em toda página, e
+ * carregar os 8 mil lançamentos só para somá-los em memória seria caro por
+ * navegação — um GROUP BY devolve uma linha por conta.
+ */
+export async function getAccountBalances(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({
+      accountId: financialTransactions.accountId,
+      total: sql<string>`SUM(${financialTransactions.amount})`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.status, "Pago"),
+      isNotNull(financialTransactions.accountId)
+    ))
+    .groupBy(financialTransactions.accountId);
+
+  return new Map(rows.map(row => [Number(row.accountId), Number(row.total ?? 0)]));
 }
 
 export async function getFinancialAccount(userId: number, id: number) {

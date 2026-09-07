@@ -16,6 +16,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -164,15 +165,7 @@ function Sidebar({
         <NavGroup title="Análise" items={analysisItems} active={active} onSelect={select} />
         <NavGroup title="Organização" items={organizationItems} active={active} onSelect={select} />
 
-        <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">
-            Banco conectado
-          </span>
-          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]">
-            <span className="h-2 w-2 rounded-full bg-[#12B85C]" />
-            <span>TiDB Cloud</span>
-          </div>
-        </div>
+        <ConnectedAccounts className="mt-auto" />
       </aside>
     </>
   );
@@ -186,6 +179,8 @@ export default function Home() {
   const dashboardRange = period === "Ano" ? "year" : period === "Trimestre" ? "quarter" : "month";
   const dashboardQuery = trpc.transactions.dashboard.useQuery({ range: dashboardRange });
   const dashboard = dashboardQuery.data;
+  // Mesma consulta da sidebar; o react-query aproveita o cache.
+  const accountCount = trpc.organization.accountBalances.useQuery().data?.length ?? 0;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -354,12 +349,27 @@ export default function Home() {
           </header>
 
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
-            <section className="relative isolate flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#0B1F14] p-5 text-white sm:p-6">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-[260px] w-[260px] rounded-full bg-[#12B85C]/12 blur-3xl" />
-              <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-24 h-[250px] w-[250px] rounded-full bg-[#7EE2A8]/10 blur-3xl" />
+            <section className="relative isolate flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#06120B] p-5 text-white sm:p-6">
+              {/* Aurora: camadas de verde e água sobre base escura. Os brilhos
+                  ficam no alto e à direita para o texto continuar sobre a parte
+                  mais escura do cartão. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: [
+                    "radial-gradient(135% 115% at 88% -12%, rgba(18,184,92,.58) 0%, rgba(18,184,92,.18) 44%, rgba(18,184,92,0) 70%)",
+                    "radial-gradient(120% 100% at 4% 106%, rgba(13,148,136,.34) 0%, rgba(13,148,136,0) 62%)",
+                    "radial-gradient(85% 60% at 66% 34%, rgba(126,226,168,.16) 0%, rgba(126,226,168,0) 62%)",
+                    "linear-gradient(158deg, #0D2A1B 0%, #08190F 58%, #06120B 100%)",
+                  ].join(", "),
+                }}
+              />
               <div className="relative z-10 flex items-center gap-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8FB39E]">Caixa disponível</span>
-                <span className="ml-auto rounded-lg bg-[#12B85C]/20 px-2.5 py-1 text-[11px] font-semibold text-[#7EE2A8]">TiDB sincronizado</span>
+                <span className="ml-auto rounded-lg bg-[#06120B]/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                  {accountCount} {accountCount === 1 ? "conta" : "contas"}
+                </span>
               </div>
               <div className="relative z-10 flex flex-col gap-1.5">
                 <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">{formatMoney(dashboard?.cashAvailable ?? 0)}</strong>

@@ -108,6 +108,22 @@ export const organizationRouter = router({
     };
   }),
 
+  /** Só o necessário para a sidebar: contas ativas com o saldo já somado. */
+  accountBalances: protectedProcedure.query(async ({ ctx }) => {
+    const [accounts, balances] = await Promise.all([
+      db.listFinancialAccounts(ctx.user.id),
+      db.getAccountBalances(ctx.user.id),
+    ]);
+    return accounts
+      .filter(account => account.isActive)
+      .map(account => ({
+        id: account.id,
+        name: account.name,
+        color: account.color,
+        balance: Number(account.initialBalance) + (balances.get(account.id) ?? 0),
+      }));
+  }),
+
   options: protectedProcedure.query(async ({ ctx }) => {
     const [accounts, categories, costCenters] = await Promise.all([
       db.listFinancialAccounts(ctx.user.id),

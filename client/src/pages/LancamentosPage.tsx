@@ -21,6 +21,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -220,10 +221,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavGroup title="Painel" items={panelItems} onSelect={select} />
         <NavGroup title="Análise" items={analysisItems} onSelect={select} />
         <NavGroup title="Organização" items={organizationItems} onSelect={select} />
-        <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">Banco conectado</span>
-          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" /><span>TiDB Cloud</span></div>
-        </div>
+        <ConnectedAccounts className="mt-auto" />
       </aside>
     </>
   );
