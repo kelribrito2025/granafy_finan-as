@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { storageGetSignedUrl, storagePut } from "../storage";
 
 /** Categoria fixa das duas pernas da transferência: não é receita nem despesa. */
 export const TRANSFER_CATEGORY = "Transferência";
@@ -186,6 +187,24 @@ function summarize(records: TransactionRecord[]) {
   const incoming = cashFlow.reduce((sum, record) => sum + Math.max(0, Number(record.amount)), 0);
   const outgoing = cashFlow.reduce((sum, record) => sum + Math.abs(Math.min(0, Number(record.amount))), 0);
   return { incoming, outgoing, balance: incoming - outgoing };
+}
+
+/** 8 MB de arquivo. Em base64 o corpo da requisição fica em ~10,7 MB. */
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const ATTACHMENT_CONTENT_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
+
+/**
+ * Todo anexo mora sob o prefixo do dono. Ler exige que a chave comece com o
+ * prefixo do usuário da requisição, então uma chave vazada não serve para
+ * alcançar o anexo de outra conta.
+ */
+function attachmentPrefix(userId: number) {
+  return `lancamentos/${userId}/`;
 }
 
 const MAX_BULK_DELETE_IDS = 20_000;
@@ -484,6 +503,56 @@ export const transactionsRouter = router({
     const updatedCount = await db.updateTransactions(ctx.user.id, ids, values);
     return { success: true, requestedCount: ids.length, matchedCount: records.length, updatedCount } as const;
   }),
+
+  uploadAttachment: protectedProcedure
+    .input(z.object({
+      fileName: z.string().trim().min(1).max(180),
+      contentType: z.enum(ATTACHMENT_CONTENT_TYPES),
+      dataBase64: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const data = Buffer.from(input.dataBase64, "base64");
+      if (data.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Arquivo vazio" });
+      if (data.length > MAX_ATTACHMENT_BYTES) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "O anexo deve ter no máximo 8 MB" });
+      }
+      const safeName = input.fileName.replace(/[^\w.\-]+/g, "_").slice(-120);
+      try {
+        const stored = await storagePut(
+          `${attachmentPrefix(ctx.user.id)}${Date.now()}_${safeName}`,
+          data,
+          input.contentType
+        );
+        return { key: stored.key, name: input.fileName.slice(0, 180) };
+      } catch (error) {
+        console.error("[Attachment] Upload failed", {
+          message: error instanceof Error ? error.message : "unknown",
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Não foi possível enviar o anexo. Verifique a configuração de storage.",
+        });
+      }
+    }),
+
+  attachmentUrl: protectedProcedure
+    .input(z.object({ key: z.string().trim().min(1).max(255) }))
+    .query(async ({ ctx, input }) => {
+      if (!input.key.startsWith(attachmentPrefix(ctx.user.id))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Anexo não pertence a esta conta" });
+      }
+      try {
+        return { url: await storageGetSignedUrl(input.key) };
+      } catch (error) {
+        console.error("[Attachment] Signed URL failed", {
+          message: error instanceof Error ? error.message : "unknown",
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Não foi possível abrir o anexo. Verifique a configuração de storage.",
+        });
+      }
+    }),
 
   delete: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
