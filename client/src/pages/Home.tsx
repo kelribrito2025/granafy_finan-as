@@ -351,16 +351,18 @@ export default function Home() {
           </header>
 
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
-            <section className="flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#0B1F14] p-5 text-white sm:p-6">
-              <div className="flex items-center gap-2.5">
+            <section className="relative isolate flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#0B1F14] p-5 text-white sm:p-6">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-[260px] w-[260px] rounded-full bg-[#12B85C]/12 blur-3xl" />
+              <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-24 h-[250px] w-[250px] rounded-full bg-[#7EE2A8]/10 blur-3xl" />
+              <div className="relative z-10 flex items-center gap-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8FB39E]">Caixa disponível</span>
                 <span className="ml-auto rounded-lg bg-[#12B85C]/20 px-2.5 py-1 text-[11px] font-semibold text-[#7EE2A8]">TiDB sincronizado</span>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="relative z-10 flex flex-col gap-1.5">
                 <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">{formatMoney(dashboard?.cashAvailable ?? 0)}</strong>
                 <span className={`text-[13px] font-semibold ${(dashboard?.current.balance ?? 0) >= 0 ? "text-[#7EE2A8]" : "text-[#F4A497]"}`}>{formatMoney(dashboard?.current.balance ?? 0)} no período</span>
               </div>
-              <div className="flex h-16 items-end gap-[5px]" aria-label="Evolução mensal do saldo">
+              <div className="relative z-10 flex h-16 items-end gap-[5px]" aria-label="Evolução mensal do saldo">
                 {compactBars.map((height, index) => (
                   <span
                     key={`${height}-${index}`}
@@ -370,7 +372,7 @@ export default function Home() {
                 ))}
                 {compactBars.length === 0 && <span className="m-auto text-[11px] font-medium text-[#8FB39E]">Sem histórico de movimentações</span>}
               </div>
-              <div className="mt-auto grid grid-cols-2 gap-5 border-t border-[#1F3D2B] pt-4">
+              <div className="relative z-10 mt-auto grid grid-cols-2 gap-5 border-t border-[#1F3D2B] pt-4">
                 <div><span className="block text-[11px] text-[#8FB39E]">Entradas no período</span><strong className="mt-0.5 block text-[17px]">{formatMoney(dashboard?.current.incoming ?? 0)}</strong></div>
                 <div><span className="block text-[11px] text-[#8FB39E]">Saídas no período</span><strong className="mt-0.5 block text-[17px] text-[#F4A497]">{formatMoney(dashboard?.current.outgoing ?? 0)}</strong></div>
               </div>
