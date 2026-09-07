@@ -188,13 +188,15 @@ function AccountBadge({ account }: { account: Transaction["account"] }) {
   return <span className={`inline-flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-[10px] font-bold ${styles[account]}`}>{account}</span>;
 }
 
-function SummaryCard({ label, value, tone, active }: { label: string; value: string; tone: "default" | "negative" | "positive"; active?: boolean }) {
-  return (
-    <article className={`rounded-[17px] bg-white p-4 ring-1 ${active ? "ring-2 ring-[#12B85C]" : "ring-[#E1E8E3]"}`}>
-      <span className="text-[11.5px] font-medium text-[#718077]">{label}</span>
-      <strong className={`mt-1 block text-[20px] tracking-[-0.025em] ${tone === "positive" ? "text-[#0A9650]" : tone === "negative" ? "text-[#C13B32]" : "text-[#0B1F14]"}`}>{value}</strong>
-    </article>
-  );
+function SummaryCard({ label, value, tone, active, onClick }: { label: string; value: string; tone: "default" | "negative" | "positive"; active?: boolean; onClick?: () => void }) {
+  const className = `w-full rounded-[17px] bg-white p-4 text-left ring-1 transition ${active ? `ring-2 ${tone === "negative" ? "ring-[#E5533D]" : "ring-[#12B85C]"}` : "ring-[#E1E8E3]"} ${onClick ? "hover:bg-[#FAFCFB] active:scale-[.99]" : ""}`;
+  const content = <><span className="text-[11.5px] font-medium text-[#718077]">{label}</span><strong className={`mt-1 block text-[20px] tracking-[-0.025em] ${tone === "positive" ? "text-[#0A9650]" : tone === "negative" ? "text-[#C13B32]" : "text-[#0B1F14]"}`}>{value}</strong></>;
+
+  if (onClick) {
+    return <button type="button" aria-pressed={active} onClick={onClick} className={className}>{content}</button>;
+  }
+
+  return <article className={className}>{content}</article>;
 }
 
 function TransactionModal({ transaction, onClose, onSave }: { transaction?: Transaction | null; onClose: () => void; onSave: (transaction: Transaction) => void }) {
@@ -353,9 +355,9 @@ export default function LancamentosPage() {
           {filtersOpen && <section className="grid gap-3 rounded-[16px] bg-white p-3.5 ring-1 ring-[#DFE6E1] sm:grid-cols-3"><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label><div className="flex items-end"><button type="button" onClick={() => { setTypeFilter("todos"); setStatusFilter("todos"); setSearch(""); }} className="h-9 w-full rounded-[10px] bg-[#F1F4F2] text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Limpar filtros</button></div></section>}
 
           <section className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard label="Saldo do período" value="R$ 11.574,21" tone="default" active />
-            <SummaryCard label="Saídas" value="-R$ 37.210,96" tone="negative" />
-            <SummaryCard label="Entradas" value="R$ 48.785,17" tone="positive" />
+            <SummaryCard label="Saldo do período" value="R$ 11.574,21" tone="default" active={typeFilter === "todos"} onClick={() => { setTypeFilter("todos"); setSelected([]); }} />
+            <SummaryCard label="Saídas" value="-R$ 37.210,96" tone="negative" active={typeFilter === "saida"} onClick={() => { setTypeFilter(current => current === "saida" ? "todos" : "saida"); setSelected([]); }} />
+            <SummaryCard label="Entradas" value="R$ 48.785,17" tone="positive" active={typeFilter === "entrada"} onClick={() => { setTypeFilter(current => current === "entrada" ? "todos" : "entrada"); setSelected([]); }} />
           </section>
 
           <section className="min-h-0 flex-1 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#E1E8E3]">
