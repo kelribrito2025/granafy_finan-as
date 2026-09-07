@@ -493,9 +493,9 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[#07150d]/45 p-4 backdrop-blur-[3px] sm:p-10" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <form onSubmit={submit} className="modal-enter flex w-full max-w-[452px] flex-col gap-4 rounded-[20px] bg-white p-6 text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.16)]">
-        <div className="flex items-center gap-3">
+    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col bg-white text-[#0B1F14] shadow-[-20px_0_50px_rgba(11,31,20,.16)] sm:rounded-l-[20px]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
           <div className="min-w-0">
             <h2 id="launch-title" className="text-[18px] font-bold tracking-[-.01em]">
               {transaction ? "Editar lançamento" : "Novo lançamento"}
@@ -507,6 +507,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
           </button>
         </div>
 
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
         <div className="flex gap-2">
           {TYPE_OPTIONS.map(option => {
             const active = type === option.value;
@@ -701,7 +702,9 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
           </p>
         )}
 
-        <div className="flex gap-3">
+        </div>
+
+        <div className="flex shrink-0 gap-3 border-t border-[#EDF1EE] px-6 py-4">
           <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Cancelar</button>
           <button type="submit" disabled={pending || uploadAttachment.isPending} className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60">
             {pending ? "Salvando..." : "Salvar lançamento"}

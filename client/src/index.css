@@ -209,6 +209,16 @@
     animation: popover-in 180ms var(--ease-out) both;
   }
 
+  /* Painel lateral: desliza da direita. O fundo escurece junto, senão o
+     escurecimento aparece de uma vez e briga com o movimento do painel. */
+  .drawer-enter {
+    animation: drawer-in 260ms var(--ease-out) both;
+  }
+
+  .drawer-backdrop-enter {
+    animation: drawer-backdrop-in 260ms var(--ease-out) both;
+  }
+
   @media (min-width: 640px) {
     .container {
       padding-inline: 1.5rem;
@@ -231,6 +241,24 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
