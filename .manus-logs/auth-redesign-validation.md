@@ -7,3 +7,7 @@ Em mobile, a página de cadastro exibe nome, e-mail, senha, confirmação, CTA e
 ## Ajuste de densidade
 
 Os campos foram reduzidos de 56 px para 48 px, com raio de 12 px e tipografia de 13 px. O CTA foi reduzido para 44 px de altura, também com raio de 12 px. Todas as sombras do CTA, inclusive no hover, foram removidas. A captura desktop confirma um formulário mais compacto, sem alteração da largura, alinhamento ou acessibilidade.
+
+## Proporção dos painéis
+
+Após o esclarecimento, o painel verde esquerdo foi ampliado em aproximadamente 15% em relação à largura anterior. A divisão agora fica próxima de 62% para a área institucional e 38% para o formulário em desktop. O formulário permanece centralizado, legível e sem compressão dos campos.
