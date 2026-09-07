@@ -1,10 +1,12 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
   type InsertUser,
   passwordResetRequests,
+  transactions as financialTransactions,
+  type InsertTransaction,
   type User,
   type UserRecord,
   users,
@@ -210,4 +212,96 @@ export async function getUserByOpenId(openId: string) {
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0] ? toPublicUser(result[0]) : undefined;
+}
+
+export type TransactionValues = Pick<
+  InsertTransaction,
+  "type" | "transactionDate" | "description" | "contact" | "category" | "amount" | "account" | "status" | "recurring"
+>;
+
+export async function listTransactionsByPeriod(userId: number, startDate: string, endDate: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      gte(financialTransactions.transactionDate, startDate),
+      lt(financialTransactions.transactionDate, endDate)
+    ))
+    .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
+}
+
+export async function listTransactionsBefore(userId: number, endDate: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), lt(financialTransactions.transactionDate, endDate)))
+    .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
+}
+
+export async function listAllTransactions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(eq(financialTransactions.userId, userId))
+    .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
+}
+
+export async function getTransactionById(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const rows = await db
+    .select()
+    .from(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)))
+    .limit(1);
+  return rows[0];
+}
+
+export async function createTransaction(userId: number, values: TransactionValues) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const result = await db.insert(financialTransactions).values({ userId, ...values });
+  return getTransactionById(userId, Number(result[0].insertId));
+}
+
+export async function updateTransaction(userId: number, id: number, values: TransactionValues) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(financialTransactions)
+    .set(values)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)));
+  return getTransactionById(userId, id);
+}
+
+export async function deleteTransaction(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db
+    .delete(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)));
+}
+
+export async function deleteTransactions(userId: number, ids: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (ids.length === 0) return;
+
+  return db
+    .delete(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, ids)));
 }

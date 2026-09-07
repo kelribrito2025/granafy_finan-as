@@ -15,7 +15,8 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
-import { FormEvent, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -29,10 +30,10 @@ type NavItem = {
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
   { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "Contas a pagar", icon: ArrowDownIcon, badge: "7", badgeTone: "negative" },
-  { label: "Contas a receber", icon: ArrowUpIcon, badge: "12", badgeTone: "positive" },
+  { label: "Contas a pagar", icon: ArrowDownIcon },
+  { label: "Contas a receber", icon: ArrowUpIcon },
   { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon, badge: "31", badgeTone: "neutral" },
+  { label: "Conciliação", icon: CheckIcon },
 ];
 
 const analysisItems: NavItem[] = [
@@ -41,69 +42,14 @@ const analysisItems: NavItem[] = [
   { label: "Clientes", icon: UsersIcon },
 ];
 
-const compactBars = [36, 44, 38, 56, 50, 66, 74, 62, 88, 100];
-const monthlyBars = [
-  [52, 36],
-  [58, 40],
-  [49, 44],
-  [64, 41],
-  [71, 46],
-  [66, 52],
-  [79, 48],
-  [88, 55],
-  [100, 58],
-];
-const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set"];
-
-const transactions = [
-  {
-    initials: "PX",
-    title: "Recargas Pix · 142 transações",
-    subtitle: "Gateway Pix · 05/09",
-    status: "Conciliado",
-    amount: "+ R$ 9.480",
-    tone: "positive",
-  },
-  {
-    initials: "TW",
-    title: "Twilio · fatura agosto",
-    subtitle: "Custos de plataforma · Inter PJ",
-    status: "Atrasado",
-    amount: "- R$ 3.180",
-    tone: "negative",
-  },
-  {
-    initials: "OC",
-    title: "Plano API · Loja Oneclick",
-    subtitle: "Receita recorrente · 04/09",
-    status: "Conciliado",
-    amount: "+ R$ 2.400",
-    tone: "positive",
-  },
-  {
-    initials: "GW",
-    title: "Taxa do gateway · setembro",
-    subtitle: "Taxas financeiras · 03/09",
-    status: "A conferir",
-    amount: "- R$ 1.147",
-    tone: "neutral",
-  },
-  {
-    initials: "FL",
-    title: "Folha · equipe suporte",
-    subtitle: "Pessoal · 02/09",
-    status: "Pago",
-    amount: "- R$ 18.300",
-    tone: "neutral-positive",
-  },
-];
-
-const channelRevenue = [
-  { label: "Números avulsos", amount: "R$ 48.210", value: 47 },
-  { label: "API developers", amount: "R$ 31.400", value: 30 },
-  { label: "Planos mensais", amount: "R$ 17.930", value: 17 },
-  { label: "Afiliados", amount: "R$ 6.020", value: 6 },
-];
+function formatMoney(value: number, compact = false) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: compact ? "compact" : "standard",
+    maximumFractionDigits: compact ? 1 : 2,
+  }).format(value);
+}
 
 const badgeClass = {
   positive: "bg-[#DFF6EA] text-[#0A7A42]",
@@ -211,124 +157,15 @@ function Sidebar({
 
         <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">
-            Contas conectadas
+            Banco conectado
           </span>
-          <div className="mt-2 space-y-2 text-[12.5px]">
-            <div className="flex justify-between gap-4"><span>Inter PJ</span><strong>96.210</strong></div>
-            <div className="flex justify-between gap-4"><span>Nubank PJ</span><strong>24.870</strong></div>
-            <div className="flex justify-between gap-4"><span>Gateway Pix</span><strong>7.350</strong></div>
+          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]">
+            <span className="h-2 w-2 rounded-full bg-[#12B85C]" />
+            <span>TiDB Cloud</span>
           </div>
         </div>
       </aside>
     </>
-  );
-}
-
-function TransactionModal({ onClose }: { onClose: () => void }) {
-  const [entryType, setEntryType] = useState<"entrada" | "saida">("entrada");
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    toast.success("Lançamento criado", {
-      description: "O novo lançamento foi incluído na visão financeira.",
-    });
-    onClose();
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="transaction-title"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-    >
-      <form
-        onSubmit={submit}
-        className="modal-enter w-full max-w-[480px] rounded-[22px] bg-white p-5 text-[#0B1F14] shadow-[0_28px_80px_rgba(11,31,20,.24)] sm:p-6"
-      >
-        <div className="flex items-start gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#12B85C]">Financeiro</p>
-            <h2 id="transaction-title" className="mt-1 text-xl font-bold tracking-[-0.02em]">Novo lançamento</h2>
-            <p className="mt-1 text-xs text-[#8A968D]">Registre uma entrada ou saída em poucos passos.</p>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar modal"
-            onClick={onClose}
-            className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355] transition hover:bg-[#E7ECE9] active:scale-95"
-          >
-            <CloseIcon size={17} />
-          </button>
-        </div>
-
-        <div className="mt-5 grid grid-cols-2 rounded-xl bg-[#F1F4F2] p-1">
-          {(["entrada", "saida"] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setEntryType(type)}
-              className={`rounded-[9px] px-3 py-2 text-xs font-bold capitalize transition active:scale-[0.98] ${
-                entryType === type
-                  ? type === "entrada"
-                    ? "bg-white text-[#0A7A42]"
-                    : "bg-white text-[#B3261E]"
-                  : "text-[#8A968D]"
-              }`}
-            >
-              {type === "entrada" ? "Entrada" : "Saída"}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Descrição</span>
-            <input
-              required
-              autoFocus
-              placeholder="Ex.: Plano API · Cliente"
-              className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none transition placeholder:text-[#B3BFB7] focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10"
-            />
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Valor</span>
-            <div className="flex h-11 items-center rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#12B85C]/10">
-              <span className="mr-2 text-xs font-bold text-[#4C6355]">R$</span>
-              <input required inputMode="decimal" placeholder="0,00" className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none placeholder:text-[#B3BFB7]" />
-            </div>
-          </label>
-          <label>
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Vencimento</span>
-            <input
-              required
-              type="date"
-              defaultValue="2026-09-06"
-              className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none transition focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10"
-            />
-          </label>
-          <label className="sm:col-span-2">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span>
-            <select className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none transition focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10">
-              <option value="receita-recorrente">Receita recorrente</option>
-              <option value="custos-plataforma">Custos de plataforma</option>
-              <option value="pessoal">Pessoal</option>
-              <option value="taxas-financeiras">Taxas financeiras</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-6 flex gap-2.5">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] transition hover:bg-[#E7ECE9] active:scale-[0.98]">
-            Cancelar
-          </button>
-          <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98]">
-            <CheckIcon size={15} /> Salvar lançamento
-          </button>
-        </div>
-      </form>
-    </div>
   );
 }
 
@@ -337,8 +174,10 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [activeNav, setActiveNav] = useState("Visão geral");
   const [period, setPeriod] = useState("Mês");
+  const dashboardRange = period === "Ano" ? "year" : period === "Trimestre" ? "quarter" : "month";
+  const dashboardQuery = trpc.transactions.dashboard.useQuery({ range: dashboardRange });
+  const dashboard = dashboardQuery.data;
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -349,6 +188,21 @@ export default function Home() {
     .map(part => part[0]?.toUpperCase())
     .join("");
   const firstName = user?.name?.trim().split(/\s+/)[0] || "Cliente";
+  const months = dashboard?.months ?? [];
+  const chartMaximum = useMemo(() => Math.max(0, ...months.flatMap(item => [item.incoming, item.outgoing])), [months]);
+  const chartScale = Math.max(1, chartMaximum);
+  const chartTicks = useMemo(() => [1, 0.75, 0.5, 0.25, 0].map(portion => chartMaximum * portion), [chartMaximum]);
+  const compactBars = useMemo(() => {
+    let running = 0;
+    const balances = months.map(item => {
+      running += item.balance;
+      return running;
+    });
+    if (balances.every(value => value === 0)) return [];
+    const maximum = Math.max(1, ...balances.map(value => Math.abs(value)));
+    return balances.map(value => Math.max(8, Math.round((Math.abs(value) / maximum) * 100)));
+  }, [months]);
+  const currentMonthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date()).replace(/^./, letter => letter.toUpperCase());
 
   const handleLogout = async () => {
     await logout();
@@ -364,7 +218,7 @@ export default function Home() {
       return;
     }
     if (item !== "Visão geral") {
-      toast.info(`${item} selecionado`, { description: "Esta demonstração mantém os dados da visão geral." });
+      toast.info(`${item} ainda não está disponível`, { description: "A visão geral continua mostrando os dados reais da sua conta." });
     }
   };
 
@@ -390,7 +244,7 @@ export default function Home() {
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
               <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Bom dia, {firstName}</h1>
-              <p className="text-xs text-[#8A968D] sm:text-[13px]">Setembro 2026 · atualizado às 09:15</p>
+              <p className="text-xs text-[#8A968D] sm:text-[13px]">{currentMonthLabel} · dados sincronizados</p>
             </div>
 
             <div className="order-3 flex w-full items-center gap-1.5 rounded-xl bg-white p-1.5 sm:order-none sm:w-auto">
@@ -417,21 +271,21 @@ export default function Home() {
                 className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95"
               >
                 <NotificationIcon size={17} />
-                <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-[#E5533D] ring-2 ring-white" />
+                {(dashboard?.overdue.count ?? 0) > 0 && <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-[#E5533D] ring-2 ring-white" />}
               </button>
               {notificationsOpen && (
                 <div className="popover-enter absolute right-0 top-12 z-30 w-[300px] rounded-2xl bg-white p-3.5 shadow-[0_20px_50px_rgba(11,31,20,.18)]">
                   <div className="flex items-center gap-2 px-1 pb-2.5">
                     <strong className="text-[13px]">Notificações</strong>
-                    <span className="ml-auto rounded-md bg-[#FDECEA] px-2 py-0.5 text-[10px] font-bold text-[#8E1F16]">2 novas</span>
+                    <span className="ml-auto rounded-md bg-[#FDECEA] px-2 py-0.5 text-[10px] font-bold text-[#8E1F16]">{dashboard?.overdue.count ?? 0} pendente{dashboard?.overdue.count === 1 ? "" : "s"}</span>
                   </div>
-                  <button onClick={() => toast.info("Contas em atraso abertas")} className="flex w-full gap-3 rounded-xl bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98]">
+                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full gap-3 rounded-xl bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98]">
                     <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#E5533D]" />
-                    <span><strong className="block text-xs text-[#8E1F16]">2 contas em atraso</strong><span className="mt-0.5 block text-[11px] text-[#8A4A45]">Total pendente de R$ 4.180</span></span>
+                    <span><strong className="block text-xs text-[#8E1F16]">{dashboard?.overdue.count ?? 0} conta{dashboard?.overdue.count === 1 ? "" : "s"} em atraso</strong><span className="mt-0.5 block text-[11px] text-[#8A4A45]">Total pendente de {formatMoney(dashboard?.overdue.amount ?? 0)}</span></span>
                   </button>
-                  <button onClick={() => toast.info("Conciliação aberta")} className="mt-1.5 flex w-full gap-3 rounded-xl p-3 text-left transition hover:bg-[#F1F4F2]">
+                  <button onClick={() => setLocation("/lancamentos")} className="mt-1.5 flex w-full gap-3 rounded-xl p-3 text-left transition hover:bg-[#F1F4F2]">
                     <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#12B85C]" />
-                    <span><strong className="block text-xs">Conciliação pendente</strong><span className="mt-0.5 block text-[11px] text-[#8A968D]">31 itens aguardam revisão</span></span>
+                    <span><strong className="block text-xs">Lançamentos pendentes</strong><span className="mt-0.5 block text-[11px] text-[#8A968D]">{(dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0)} itens aguardam revisão</span></span>
                   </button>
                 </div>
               )}
@@ -439,7 +293,7 @@ export default function Home() {
 
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={() => setLocation("/lancamentos")}
               className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
             >
               <PlusIcon size={15} />
@@ -485,13 +339,13 @@ export default function Home() {
             <section className="flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#0B1F14] p-5 text-white sm:p-6">
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8FB39E]">Caixa disponível</span>
-                <span className="ml-auto rounded-lg bg-[#12B85C]/20 px-2.5 py-1 text-[11px] font-semibold text-[#7EE2A8]">3 contas</span>
+                <span className="ml-auto rounded-lg bg-[#12B85C]/20 px-2.5 py-1 text-[11px] font-semibold text-[#7EE2A8]">TiDB sincronizado</span>
               </div>
               <div className="flex flex-col gap-1.5">
-                <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">R$ 128.430</strong>
-                <span className="text-[13px] font-semibold text-[#7EE2A8]">+ R$ 11.240 no mês · +9,6%</span>
+                <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">{formatMoney(dashboard?.cashAvailable ?? 0)}</strong>
+                <span className={`text-[13px] font-semibold ${(dashboard?.current.balance ?? 0) >= 0 ? "text-[#7EE2A8]" : "text-[#F4A497]"}`}>{formatMoney(dashboard?.current.balance ?? 0)} no período</span>
               </div>
-              <div className="flex h-16 items-end gap-[5px]" aria-label="Evolução positiva do caixa">
+              <div className="flex h-16 items-end gap-[5px]" aria-label="Evolução mensal do saldo">
                 {compactBars.map((height, index) => (
                   <span
                     key={`${height}-${index}`}
@@ -499,10 +353,11 @@ export default function Home() {
                     style={{ height: `${height}%` }}
                   />
                 ))}
+                {compactBars.length === 0 && <span className="m-auto text-[11px] font-medium text-[#8FB39E]">Sem histórico de movimentações</span>}
               </div>
               <div className="mt-auto grid grid-cols-2 gap-5 border-t border-[#1F3D2B] pt-4">
-                <div><span className="block text-[11px] text-[#8FB39E]">Projeção 30 dias</span><strong className="mt-0.5 block text-[17px]">R$ 164.900</strong></div>
-                <div><span className="block text-[11px] text-[#8FB39E]">Menor saldo previsto</span><strong className="mt-0.5 block text-[17px] text-[#7EE2A8]">R$ 112.700</strong></div>
+                <div><span className="block text-[11px] text-[#8FB39E]">Entradas no período</span><strong className="mt-0.5 block text-[17px]">{formatMoney(dashboard?.current.incoming ?? 0)}</strong></div>
+                <div><span className="block text-[11px] text-[#8FB39E]">Saídas no período</span><strong className="mt-0.5 block text-[17px] text-[#F4A497]">{formatMoney(dashboard?.current.outgoing ?? 0)}</strong></div>
               </div>
             </section>
 
@@ -510,18 +365,18 @@ export default function Home() {
               <div className="grid gap-5 sm:grid-cols-3">
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
                   <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA]"><ArrowUpIcon size={20} className="text-[#0A7A42]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A receber</span></div>
-                  <strong className="text-[26px] tracking-[-0.02em] text-[#0A7A42]">R$ 42.180</strong>
-                  <span className="text-xs text-[#8A968D]">12 títulos · 3 vencem hoje</span>
+                  <strong className="text-[26px] tracking-[-0.02em] text-[#0A7A42]">{formatMoney(dashboard?.pendingReceivable.amount ?? 0)}</strong>
+                  <span className="text-xs text-[#8A968D]">{dashboard?.pendingReceivable.count ?? 0} título{dashboard?.pendingReceivable.count === 1 ? "" : "s"} · {dashboard?.dueToday.count ?? 0} vence{dashboard?.dueToday.count === 1 ? "" : "m"} hoje</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
                   <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#FDECEA]"><ArrowDownIcon size={20} className="text-[#B3261E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A pagar</span></div>
-                  <strong className="text-[26px] tracking-[-0.02em] text-[#B3261E]">R$ 27.640</strong>
-                  <span className="text-xs font-semibold text-[#B3261E]">2 em atraso · R$ 4.180</span>
+                  <strong className="text-[26px] tracking-[-0.02em] text-[#B3261E]">{formatMoney(dashboard?.pendingPayable.amount ?? 0)}</strong>
+                  <span className="text-xs font-semibold text-[#B3261E]">{dashboard?.overdue.count ?? 0} em atraso · {formatMoney(dashboard?.overdue.amount ?? 0)}</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
                   <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#F1F4F2]"><ChartIcon size={20} className="text-[#28382E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">Margem líquida</span></div>
-                  <strong className="text-[26px] tracking-[-0.02em]">40,2%</strong>
-                  <span className="text-xs font-semibold text-[#0A7A42]">+2,6 p.p. vs. agosto</span>
+                  <strong className="text-[26px] tracking-[-0.02em]">{(dashboard?.margin ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</strong>
+                  <span className="text-xs font-semibold text-[#0A7A42]">Calculada sobre o período selecionado</span>
                 </article>
               </div>
 
@@ -535,28 +390,24 @@ export default function Home() {
                 </div>
                 <div className="mt-4 grid grid-cols-[46px_minmax(0,1fr)] gap-3">
                   <div className="flex h-[150px] flex-col justify-between text-right text-[9.5px] font-medium leading-none text-[#8A968D] sm:text-[10.5px]">
-                    <span>50 mil</span>
-                    <span>37,5 mil</span>
-                    <span>25 mil</span>
-                    <span>12,5 mil</span>
-                    <span>0</span>
+                    {chartTicks.map((value, index) => <span key={index}>{formatMoney(value, true)}</span>)}
                   </div>
                   <div className="relative h-[150px]">
                     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
                       {Array.from({ length: 5 }).map((_, index) => <span key={index} className="block border-t border-dashed border-[#DFE6E1]" />)}
                     </div>
                     <div className="relative z-10 flex h-full items-end gap-2 sm:gap-4">
-                      {monthlyBars.map(([incoming, outgoing], index) => (
-                        <div key={months[index]} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${months[index]}: entradas ${incoming}, saídas ${outgoing}`}>
-                          <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${incoming}%` }} />
-                          <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === 8 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${outgoing}%` }} />
+                      {months.map((month, index) => (
+                        <div key={`${month.label}-${index}`} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${month.label}: entradas ${formatMoney(month.incoming)}, saídas ${formatMoney(month.outgoing)}`}>
+                          <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%` }} />
+                          <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === months.length - 1 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%` }} />
                         </div>
                       ))}
                     </div>
                   </div>
                   <span aria-hidden="true" />
                   <div className="flex text-center text-[10px] text-[#8A968D] sm:text-[11.5px]">
-                    {months.map((month) => <span key={month} className={`flex-1 ${month === "Set" ? "font-semibold text-[#0B1F14]" : ""}`}>{month}</span>)}
+                    {months.map((month, index) => <span key={`${month.label}-${index}`} className={`flex-1 ${index === months.length - 1 ? "font-semibold text-[#0B1F14]" : ""}`}>{month.label}</span>)}
                   </div>
                 </div>
               </section>
@@ -572,30 +423,31 @@ export default function Home() {
                 </button>
               </div>
               <div className="mt-3.5 flex flex-col gap-1.5">
-                {transactions.map((transaction) => {
-                  const isPositive = transaction.tone === "positive";
-                  const isNegative = transaction.tone === "negative";
+                {(dashboard?.recent ?? []).map((transaction) => {
+                  const isPositive = transaction.amount > 0;
+                  const initials = transaction.description.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]?.toUpperCase()).join("");
                   return (
                     <button
-                      key={transaction.title}
+                      key={transaction.id}
                       type="button"
-                      onClick={() => toast.info(transaction.title, { description: transaction.subtitle })}
+                      onClick={() => setLocation("/lancamentos")}
                       className="group flex w-full items-center gap-3 rounded-[14px] bg-[#F8FAF9] px-3 py-2.5 text-left transition hover:bg-[#F1F4F2] active:scale-[0.995]"
                     >
-                      <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${isPositive ? "bg-[#DFF6EA] text-[#0A7A42]" : isNegative ? "bg-[#FDECEA] text-[#B3261E]" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
-                        {transaction.initials}
+                      <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${isPositive ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}>
+                        {initials || "NV"}
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <strong className="truncate text-[13px] font-semibold sm:text-[13.5px]">{transaction.title}</strong>
-                        <span className="truncate text-[11px] text-[#8A968D] sm:text-[11.5px]">{transaction.subtitle}</span>
+                        <strong className="truncate text-[13px] font-semibold sm:text-[13.5px]">{transaction.description}</strong>
+                        <span className="truncate text-[11px] text-[#8A968D] sm:text-[11.5px]">{transaction.category} · {new Date(`${transaction.transactionDate}T12:00:00`).toLocaleDateString("pt-BR")}</span>
                       </span>
-                      <span className={`hidden rounded-md px-[9px] py-[3px] text-[11px] font-semibold sm:block ${isPositive || transaction.tone === "neutral-positive" ? "bg-[#DFF6EA] text-[#0A7A42]" : isNegative ? "bg-[#FDECEA] text-[#8E1F16]" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
+                      <span className={`hidden rounded-md px-[9px] py-[3px] text-[11px] font-semibold sm:block ${transaction.status === "Pago" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FFF5DD] text-[#B87500]"}`}>
                         {transaction.status}
                       </span>
-                      <strong className={`w-[88px] shrink-0 text-right text-xs sm:w-[104px] sm:text-sm ${isPositive ? "text-[#0A7A42]" : isNegative ? "text-[#B3261E]" : ""}`}>{transaction.amount}</strong>
+                      <strong className={`w-[88px] shrink-0 text-right text-xs sm:w-[104px] sm:text-sm ${isPositive ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(transaction.amount)}</strong>
                     </button>
                   );
                 })}
+                {!dashboardQuery.isLoading && (dashboard?.recent.length ?? 0) === 0 && <div className="flex flex-col items-center justify-center rounded-[14px] bg-[#F8FAF9] px-5 py-10 text-center"><DocumentIcon size={26} className="text-[#AAB4AD]" /><strong className="mt-2 text-[13px]">Nenhum lançamento salvo</strong><button type="button" onClick={() => setLocation("/lancamentos")} className="mt-3 text-[12px] font-semibold text-[#0A7A42]">Criar primeiro lançamento</button></div>}
               </div>
             </section>
 
@@ -603,21 +455,22 @@ export default function Home() {
               <section className="rounded-[20px] bg-white p-5">
                 <h2 className="text-[15px] font-bold">Receita por canal</h2>
                 <div className="mt-3.5 space-y-3">
-                  {channelRevenue.map((channel) => (
+                  {(dashboard?.revenueByCategory ?? []).map((channel) => (
                     <div key={channel.label}>
-                      <div className="flex text-[12.5px]"><span>{channel.label}</span><strong className="ml-auto">{channel.amount}</strong></div>
-                      <div className="mt-1.5 h-2 overflow-hidden rounded bg-[#EDF2EE]"><div className="h-full rounded bg-[#12B85C] transition-all duration-300" style={{ width: `${channel.value}%` }} /></div>
+                      <div className="flex text-[12.5px]"><span>{channel.label}</span><strong className="ml-auto">{formatMoney(channel.amount)}</strong></div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded bg-[#EDF2EE]"><div className="h-full rounded bg-[#12B85C] transition-all duration-300" style={{ width: `${dashboard?.current.incoming ? (channel.amount / dashboard.current.incoming) * 100 : 0}%` }} /></div>
                     </div>
                   ))}
+                  {!dashboardQuery.isLoading && (dashboard?.revenueByCategory.length ?? 0) === 0 && <p className="rounded-xl bg-[#F8FAF9] p-4 text-center text-[12px] text-[#8A968D]">As categorias aparecerão após registrar entradas neste mês.</p>}
                 </div>
               </section>
 
               <section className="rounded-[20px] bg-white p-5">
                 <h2 className="text-[15px] font-bold">Precisa de você</h2>
                 <div className="mt-3 space-y-2">
-                  <button onClick={() => toast.warning("2 contas em atraso", { description: "R$ 4.180 aguardando regularização." })} className="flex w-full items-center gap-3 rounded-[14px] bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#8E1F16]">2 contas em atraso</span><strong className="text-[13px] text-[#8E1F16]">R$ 4.180</strong></button>
-                  <button onClick={() => toast.info("31 itens sem conciliar")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1F4F2] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold">31 itens sem conciliar</span><strong className="text-[12.5px] text-[#0A7A42]">Revisar</strong></button>
-                  <button onClick={() => toast.success("3 recebimentos hoje", { description: "Total previsto de R$ 11.140." })} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1FBF6] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#0A7A42]">3 recebimentos hoje</span><strong className="text-[13px] text-[#0A7A42]">R$ 11.140</strong></button>
+                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#8E1F16]">{dashboard?.overdue.count ?? 0} conta{dashboard?.overdue.count === 1 ? "" : "s"} em atraso</span><strong className="text-[13px] text-[#8E1F16]">{formatMoney(dashboard?.overdue.amount ?? 0)}</strong></button>
+                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1F4F2] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold">{(dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0)} lançamentos pendentes</span><strong className="text-[12.5px] text-[#0A7A42]">Revisar</strong></button>
+                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1FBF6] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#0A7A42]">{dashboard?.dueToday.count ?? 0} recebimento{dashboard?.dueToday.count === 1 ? "" : "s"} hoje</span><strong className="text-[13px] text-[#0A7A42]">{formatMoney(dashboard?.dueToday.amount ?? 0)}</strong></button>
                 </div>
               </section>
             </aside>
@@ -625,7 +478,6 @@ export default function Home() {
         </section>
       </div>
 
-      {modalOpen && <TransactionModal onClose={() => setModalOpen(false)} />}
     </main>
   );
 }

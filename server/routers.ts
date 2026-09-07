@@ -21,6 +21,7 @@ import {
 } from "./email";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { transactionsRouter } from "./routers/transactions";
 
 const credentialsSchema = z.object({
   email: z.string().trim().email("Informe um e-mail válido").max(320),
@@ -32,6 +33,7 @@ const credentialsSchema = z.object({
 
 export const appRouter = router({
   system: systemRouter,
+  transactions: transactionsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
 

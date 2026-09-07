@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, index, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -34,9 +34,28 @@ export const passwordResetRequests = mysqlTable("passwordResetRequests", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const transactions = mysqlTable("transactions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  type: mysqlEnum("type", ["entrada", "saida"]).notNull(),
+  transactionDate: date("transactionDate", { mode: "string" }).notNull(),
+  description: varchar("description", { length: 180 }).notNull(),
+  contact: varchar("contact", { length: 120 }).default("").notNull(),
+  category: varchar("category", { length: 120 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  account: varchar("account", { length: 80 }).notNull(),
+  status: mysqlEnum("status", ["Pago", "Pendente"]).default("Pendente").notNull(),
+  recurring: boolean("recurring").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  index("transactions_user_date_idx").on(table.userId, table.transactionDate),
+  index("transactions_user_status_idx").on(table.userId, table.status),
+]);
+
 export type UserRecord = typeof users.$inferSelect;
 export type User = Omit<UserRecord, "passwordHash">;
 export type InsertUser = typeof users.$inferInsert;
 export type PasswordResetRequest = typeof passwordResetRequests.$inferSelect;
-
-// TODO: Add your tables here
+export type TransactionRecord = typeof transactions.$inferSelect;
+export type InsertTransaction = typeof transactions.$inferInsert;

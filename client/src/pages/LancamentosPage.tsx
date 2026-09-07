@@ -17,11 +17,11 @@ import {
   SearchIcon,
   SettingsIcon,
   TrendUpIcon,
-  UploadIcon,
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -35,34 +35,31 @@ type NavItem = {
 type Transaction = {
   id: number;
   type: "entrada" | "saida";
-  date: string;
+  transactionDate: string;
   description: string;
   contact: string;
   category: string;
   amount: number;
-  account: "Efi" | "Inter" | "Nubank";
+  account: string;
   status: "Pago" | "Pendente";
-  recurring?: boolean;
+  recurring: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-type ColumnKey =
-  | "type"
-  | "date"
-  | "description"
-  | "recurring"
-  | "contact"
-  | "category"
-  | "amount"
-  | "account"
-  | "status";
+type TransactionInput = Omit<Transaction, "id" | "createdAt" | "updatedAt"> & { amount: number };
+
+type ColumnKey = "type" | "date" | "description" | "recurring" | "contact" | "category" | "amount" | "account" | "status";
+
+const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
   { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "Contas a pagar", icon: ArrowDownIcon, badge: "7", badgeTone: "negative" },
-  { label: "Contas a receber", icon: ArrowUpIcon, badge: "12", badgeTone: "positive" },
+  { label: "Contas a pagar", icon: ArrowDownIcon },
+  { label: "Contas a receber", icon: ArrowUpIcon },
   { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon, badge: "31", badgeTone: "neutral" },
+  { label: "Conciliação", icon: CheckIcon },
 ];
 
 const analysisItems: NavItem[] = [
@@ -76,22 +73,6 @@ const badgeClass = {
   negative: "bg-[#FDECEA] text-[#8E1F16]",
   neutral: "bg-[#F1F4F2] text-[#4C6355]",
 };
-
-const initialTransactions: Transaction[] = [
-  { id: 1, type: "saida", date: "01/09", description: "VultrBy", contact: "Vultr", category: "Cartão de crédito", amount: -28.96, account: "Inter", status: "Pago" },
-  { id: 2, type: "saida", date: "01/09", description: "Tarifa Pix Gerencianet", contact: "Efí Bank", category: "Tarifa Efi", amount: -130, account: "Efi", status: "Pago" },
-  { id: 3, type: "entrada", date: "01/09", description: "Rentabilidade CDI", contact: "Efí Bank", category: "Rendimentos de aplicações", amount: 40.8, account: "Inter", status: "Pago" },
-  { id: 4, type: "saida", date: "01/09", description: "Intercom", contact: "Intercom", category: "Cartão de crédito", amount: -530.87, account: "Inter", status: "Pago" },
-  { id: 5, type: "saida", date: "01/09", description: "Iknow 360 Comunicação", contact: "Iknow 360", category: "Pix Efi", amount: -4000, account: "Efi", status: "Pago" },
-  { id: 6, type: "saida", date: "01/09", description: "HostGator", contact: "HostGator", category: "Pix Conta Simples", amount: -406.33, account: "Inter", status: "Pago" },
-  { id: 7, type: "saida", date: "01/09", description: "Google Cloud", contact: "Google", category: "Compras no cartão Efi", amount: -66.25, account: "Efi", status: "Pago" },
-  { id: 8, type: "saida", date: "01/09", description: "Google Ads", contact: "Google", category: "Compras no cartão Efi", amount: -2456, account: "Efi", status: "Pago" },
-  { id: 9, type: "entrada", date: "04/09", description: "Faturamento", contact: "Clientes NV", category: "Receitas de serviços", amount: 10587.56, account: "Efi", status: "Pago" },
-  { id: 10, type: "saida", date: "05/09", description: "Salário Atendente Keli", contact: "Keli", category: "Salários", amount: -2600, account: "Efi", status: "Pago", recurring: true },
-  { id: 11, type: "saida", date: "05/09", description: "Salário Atendente Graziele", contact: "Graziele", category: "Salários", amount: -3400, account: "Efi", status: "Pago", recurring: true },
-  { id: 12, type: "entrada", date: "05/09", description: "Rentabilidade CDI", contact: "Efí Bank", category: "Rendimentos de aplicações", amount: 0.01, account: "Inter", status: "Pago" },
-  { id: 13, type: "saida", date: "05/09", description: "ProLabore | Kelri", contact: "Kelri", category: "Pró-Labore", amount: -1621, account: "Efi", status: "Pendente", recurring: true },
-];
 
 const columns: Array<{ key: ColumnKey; label: string }> = [
   { key: "type", label: "Tipo" },
@@ -109,13 +90,19 @@ const defaultColumnVisibility = () => Object.fromEntries(
   columns.map(column => [column.key, column.key !== "date"])
 ) as Record<ColumnKey, boolean>;
 
-const monthLabels = ["Julho 2026", "Agosto 2026", "Setembro 2026", "Outubro 2026", "Novembro 2026"];
-
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+function formatDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function defaultDateForMonth(year: number, month: number) {
+  const now = new Date();
+  if (now.getFullYear() === year && now.getMonth() + 1 === month) return now.toISOString().slice(0, 10);
+  return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
 function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[]; onSelect: (label: string) => void }) {
@@ -125,21 +112,10 @@ function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[];
       {items.map(({ label, icon: Icon, badge, badgeTone = "neutral" }) => {
         const selected = label === "Lançamentos";
         return (
-          <button
-            key={label}
-            type="button"
-            onClick={() => onSelect(label)}
-            className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition-all duration-150 active:scale-[0.98] ${
-              selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"
-            }`}
-          >
+          <button key={label} type="button" onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
             <Icon size={16} />
             <span className="truncate">{label}</span>
-            {badge && (
-              <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${selected ? "bg-white/18 text-white" : badgeClass[badgeTone]}`}>
-                {badge}
-              </span>
-            )}
+            {badge && <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${selected ? "bg-white/18 text-white" : badgeClass[badgeTone]}`}>{badge}</span>}
           </button>
         );
       })}
@@ -167,67 +143,59 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <NavGroup title="Painel" items={panelItems} onSelect={select} />
         <NavGroup title="Análise" items={analysisItems} onSelect={select} />
         <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">Contas conectadas</span>
-          <div className="mt-2 space-y-2 text-[12.5px]">
-            <div className="flex justify-between gap-4"><span>Inter PJ</span><strong>96.210</strong></div>
-            <div className="flex justify-between gap-4"><span>Nubank PJ</span><strong>24.870</strong></div>
-            <div className="flex justify-between gap-4"><span>Gateway Pix</span><strong>7.350</strong></div>
-          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">Banco conectado</span>
+          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" /><span>TiDB Cloud</span></div>
         </div>
       </aside>
     </>
   );
 }
 
-function AccountBadge({ account }: { account: Transaction["account"] }) {
-  const styles = {
+function AccountBadge({ account }: { account: string }) {
+  const styles: Record<string, string> = {
     Efi: "bg-[#FFF4E8] text-[#D36F12]",
     Inter: "bg-[#EAF7EE] text-[#08773C]",
     Nubank: "bg-[#F2EAF8] text-[#6D2385]",
   };
-  return <span className={`inline-flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-[10px] font-bold ${styles[account]}`}>{account}</span>;
+  return <span className={`inline-flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-[10px] font-bold ${styles[account] ?? "bg-[#F1F4F2] text-[#4C6355]"}`}>{account}</span>;
 }
 
-function SummaryCard({ label, value, tone, active, onClick }: { label: string; value: string; tone: "default" | "negative" | "positive"; active?: boolean; onClick?: () => void }) {
-  const className = `w-full rounded-[17px] bg-white p-4 text-left ring-1 transition ${active ? `ring-2 ${tone === "negative" ? "ring-[#E5533D]" : "ring-[#12B85C]"}` : "ring-[#E1E8E3]"} ${onClick ? "hover:bg-[#FAFCFB] active:scale-[.99]" : ""}`;
-  const content = <><span className="text-[11.5px] font-medium text-[#718077]">{label}</span><strong className={`mt-1 block text-[20px] tracking-[-0.025em] ${tone === "positive" ? "text-[#0A9650]" : tone === "negative" ? "text-[#C13B32]" : "text-[#0B1F14]"}`}>{value}</strong></>;
-
-  if (onClick) {
-    return <button type="button" aria-pressed={active} onClick={onClick} className={className}>{content}</button>;
-  }
-
-  return <article className={className}>{content}</article>;
+function SummaryCard({ label, value, tone, active, onClick }: { label: string; value: string; tone: "default" | "negative" | "positive"; active?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onClick} className={`w-full rounded-[17px] bg-white p-4 text-left ring-1 transition hover:bg-[#FAFCFB] active:scale-[.99] ${active ? `ring-2 ${tone === "negative" ? "ring-[#E5533D]" : "ring-[#12B85C]"}` : "ring-[#E1E8E3]"}`}>
+      <span className="text-[11.5px] font-medium text-[#718077]">{label}</span>
+      <strong className={`mt-1 block text-[20px] tracking-[-0.025em] ${tone === "positive" ? "text-[#0A9650]" : tone === "negative" ? "text-[#C13B32]" : "text-[#0B1F14]"}`}>{value}</strong>
+    </button>
+  );
 }
 
-function TransactionModal({ transaction, onClose, onSave }: { transaction?: Transaction | null; onClose: () => void; onSave: (transaction: Transaction) => void }) {
+function TransactionModal({ transaction, defaultDate, pending, onClose, onSave }: { transaction?: Transaction | null; defaultDate: string; pending: boolean; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
   const [type, setType] = useState<Transaction["type"]>(transaction?.type ?? "entrada");
+  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? defaultDate);
   const [description, setDescription] = useState(transaction?.description ?? "");
+  const [contact, setContact] = useState(transaction?.contact ?? "");
+  const [category, setCategory] = useState(transaction?.category ?? "");
   const [amount, setAmount] = useState(transaction ? String(Math.abs(transaction.amount)).replace(".", ",") : "");
-  const [category, setCategory] = useState(transaction?.category ?? "Receitas de serviços");
+  const [account, setAccount] = useState(transaction?.account ?? "Efi");
   const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
+  const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = Number(amount.replace(/\./g, "").replace(",", "."));
-    onSave({
-      id: transaction?.id ?? Date.now(),
-      type,
-      date: transaction?.date ?? "06/09",
-      description,
-      contact: transaction?.contact ?? "Número Virtual",
-      category,
-      amount: type === "saida" ? -Math.abs(parsed) : Math.abs(parsed),
-      account: transaction?.account ?? "Efi",
-      status,
-      recurring: transaction?.recurring ?? false,
-    });
+    const normalized = amount.includes(",") ? amount.replace(/\./g, "").replace(",", ".") : amount;
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast.error("Informe um valor válido");
+      return;
+    }
+    await onSave({ type, transactionDate, description, contact, category, amount: parsed, account, status, recurring });
   };
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <form onSubmit={submit} className="modal-enter w-full max-w-[480px] rounded-[22px] bg-white p-5 text-[#0B1F14] shadow-[0_28px_80px_rgba(11,31,20,.24)] sm:p-6">
+      <form onSubmit={submit} className="modal-enter max-h-[calc(100vh-32px)] w-full max-w-[520px] overflow-y-auto rounded-[22px] bg-white p-5 text-[#0B1F14] shadow-[0_28px_80px_rgba(11,31,20,.24)] sm:p-6">
         <div className="flex items-start gap-4">
-          <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#12B85C]">Financeiro</p><h2 id="launch-title" className="mt-1 text-xl font-bold tracking-[-0.02em]">{transaction ? "Editar lançamento" : "Novo lançamento"}</h2><p className="mt-1 text-xs text-[#8A968D]">Registre os dados essenciais do movimento.</p></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#12B85C]">Financeiro</p><h2 id="launch-title" className="mt-1 text-xl font-bold tracking-[-0.02em]">{transaction ? "Editar lançamento" : "Novo lançamento"}</h2><p className="mt-1 text-xs text-[#8A968D]">Os dados serão salvos no seu banco.</p></div>
           <button type="button" aria-label="Fechar modal" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355] hover:bg-[#E7ECE9]"><CloseIcon size={17} /></button>
         </div>
         <div className="mt-5 grid grid-cols-2 rounded-xl bg-[#F1F4F2] p-1">
@@ -235,11 +203,15 @@ function TransactionModal({ transaction, onClose, onSave }: { transaction?: Tran
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Descrição</span><input autoFocus required value={description} onChange={event => setDescription(event.target.value)} placeholder="Ex.: Plano API · Cliente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C] focus:bg-white focus:ring-4 focus:ring-[#12B85C]/10" /></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Data</span><input required type="date" value={transactionDate} onChange={event => setTransactionDate(event.target.value)} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Valor</span><div className="flex h-11 items-center rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C] focus-within:ring-4 focus-within:ring-[#12B85C]/10"><span className="mr-2 text-xs font-bold text-[#4C6355]">R$</span><input required inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00" className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none" /></div></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Contato</span><input value={contact} onChange={event => setContact(event.target.value)} placeholder="Fornecedor ou cliente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span><input required value={category} onChange={event => setCategory(event.target.value)} placeholder="Ex.: Receita recorrente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Conta</span><input required value={account} onChange={event => setAccount(event.target.value)} placeholder="Ex.: Inter" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Status</span><select value={status} onChange={event => setStatus(event.target.value as Transaction["status"])} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option>Pago</option><option>Pendente</option></select></label>
-          <label className="sm:col-span-2"><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span><input value={category} onChange={event => setCategory(event.target.value)} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
+          <label className="flex items-center gap-2.5 sm:col-span-2"><input type="checkbox" checked={recurring} onChange={event => setRecurring(event.target.checked)} className="h-4 w-4 accent-[#12B85C]" /><span className="text-[12.5px] font-semibold text-[#4C6355]">Lançamento recorrente</span></label>
         </div>
-        <div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">Cancelar</button><button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><CheckIcon size={15} /> Salvar</button></div>
+        <div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">Cancelar</button><button type="submit" disabled={pending} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60"><CheckIcon size={15} />{pending ? "Salvando..." : "Salvar"}</button></div>
       </form>
     </div>
   );
@@ -248,10 +220,8 @@ function TransactionModal({ transaction, onClose, onSave }: { transaction?: Tran
 export default function LancamentosPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
-  const importRef = useRef<HTMLInputElement>(null);
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const [monthCursor, setMonthCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [monthIndex, setMonthIndex] = useState(2);
   const [search, setSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"todos" | Transaction["type"]>("todos");
@@ -264,6 +234,26 @@ export default function LancamentosPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set());
+  const period = useMemo(() => ({ year: monthCursor.getFullYear(), month: monthCursor.getMonth() + 1 }), [monthCursor]);
+  const utils = trpc.useUtils();
+  const transactionsQuery = trpc.transactions.list.useQuery(period);
+  const transactions = (transactionsQuery.data?.items ?? EMPTY_TRANSACTIONS) as Transaction[];
+  const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
+
+  const refresh = async () => {
+    await Promise.all([utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate()]);
+  };
+  const createMutation = trpc.transactions.create.useMutation({ onSuccess: refresh });
+  const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });
+  const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
+  const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
+  const deleteManyMutation = trpc.transactions.deleteMany.useMutation({ onSuccess: refresh });
+  const toggleStatusMutation = trpc.transactions.toggleStatus.useMutation({ onSuccess: refresh });
+
+  useEffect(() => {
+    setSelected([]);
+    setCollapsedDates(new Set());
+  }, [period.month, period.year]);
 
   const filtered = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -277,65 +267,94 @@ export default function LancamentosPage() {
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
   const groupedTransactions = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
-
-    filtered.forEach(transaction => {
-      const group = groups.get(transaction.date) ?? [];
-      group.push(transaction);
-      groups.set(transaction.date, group);
-    });
-
-    return Array.from(groups, ([date, items]) => ({
-      date,
-      items,
-      total: items.reduce((sum, transaction) => sum + transaction.amount, 0),
-    }));
+    filtered.forEach(transaction => groups.set(transaction.transactionDate, [...(groups.get(transaction.transactionDate) ?? []), transaction]));
+    return Array.from(groups, ([date, items]) => ({ date, items, total: items.reduce((sum, transaction) => sum + transaction.amount, 0) }));
   }, [filtered]);
   const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthCursor).replace(/^./, letter => letter.toUpperCase());
+  const mutationPending = createMutation.isPending || updateMutation.isPending;
 
-  const saveTransaction = (transaction: Transaction) => {
-    setTransactions(current => current.some(item => item.id === transaction.id) ? current.map(item => item.id === transaction.id ? transaction : item) : [transaction, ...current]);
-    setModalOpen(false);
-    setEditing(null);
-    toast.success(editing ? "Lançamento atualizado" : "Lançamento criado");
+  const saveTransaction = async (input: TransactionInput) => {
+    try {
+      if (editing) await updateMutation.mutateAsync({ id: editing.id, ...input });
+      else await createMutation.mutateAsync(input);
+      setModalOpen(false);
+      setEditing(null);
+      toast.success(editing ? "Lançamento atualizado no banco" : "Lançamento salvo no banco");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+    }
   };
 
-  const duplicate = (transaction: Transaction) => {
-    setTransactions(current => [{ ...transaction, id: Date.now(), description: `${transaction.description} (cópia)` }, ...current]);
-    setActionOpen(null);
-    toast.success("Lançamento duplicado");
+  const duplicate = async (transaction: Transaction) => {
+    try {
+      await duplicateMutation.mutateAsync({ id: transaction.id });
+      setActionOpen(null);
+      toast.success("Lançamento duplicado no banco");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível duplicar");
+    }
   };
 
-  const remove = (id: number) => {
-    setTransactions(current => current.filter(item => item.id !== id));
-    setSelected(current => current.filter(item => item !== id));
-    setActionOpen(null);
-    toast.success("Lançamento removido", { description: "Os dados demonstrativos voltam ao recarregar." });
+  const remove = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      setSelected(current => current.filter(item => item !== id));
+      setActionOpen(null);
+      toast.success("Lançamento removido do banco");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir");
+    }
   };
 
-  const markPaid = (transaction: Transaction) => {
-    setTransactions(current => current.map(item => item.id === transaction.id ? { ...item, status: item.status === "Pago" ? "Pendente" : "Pago" } : item));
-    toast.success(transaction.status === "Pago" ? "Marcado como pendente" : "Marcado como pago");
+  const removeSelected = async () => {
+    try {
+      await deleteManyMutation.mutateAsync({ ids: selected });
+      setSelected([]);
+      toast.success("Lançamentos removidos do banco");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir os lançamentos");
+    }
   };
 
-  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
+  const markPaid = async (transaction: Transaction) => {
+    try {
+      await toggleStatusMutation.mutateAsync({ id: transaction.id });
+      toast.success(transaction.status === "Pago" ? "Marcado como pendente" : "Marcado como pago");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o status");
+    }
+  };
+
+  const exportTransactions = () => {
+    if (transactions.length === 0) return toast.info("Não há lançamentos para exportar neste mês.");
+    const header = ["Data", "Tipo", "Descrição", "Contato", "Categoria", "Valor", "Conta", "Status", "Recorrente"];
+    const rows = transactions.map(item => [item.transactionDate, item.type, item.description, item.contact, item.category, item.amount.toFixed(2), item.account, item.status, item.recurring ? "Sim" : "Não"]);
+    const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `lancamentos-${period.year}-${String(period.month).padStart(2, "0")}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
         <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
-
         <section className="flex min-w-0 flex-1 flex-col gap-4 pb-1">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
-            <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">Organize entradas e saídas em um só lugar</p></div>
+            <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">Dados reais salvos na sua conta</p></div>
             <div className="order-3 mx-auto flex w-full items-center justify-center gap-2 lg:order-none lg:w-auto">
-              <button type="button" aria-label="Mês anterior" onClick={() => setMonthIndex(value => Math.max(0, value - 1))} disabled={monthIndex === 0} className={toolButton}><ChevronRightIcon size={15} className="rotate-180" /></button>
-              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabels[monthIndex]}</div>
-              <button type="button" aria-label="Próximo mês" onClick={() => setMonthIndex(value => Math.min(monthLabels.length - 1, value + 1))} disabled={monthIndex === monthLabels.length - 1} className={toolButton}><ChevronRightIcon size={15} /></button>
+              <button type="button" aria-label="Mês anterior" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}><ChevronRightIcon size={15} className="rotate-180" /></button>
+              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <button type="button" aria-label="Próximo mês" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}><ChevronRightIcon size={15} /></button>
             </div>
-            <input ref={importRef} type="file" accept=".csv,.ofx,.xlsx" className="hidden" onChange={() => toast.success("Arquivo selecionado", { description: "A importação será conectada ao banco na próxima etapa." })} />
-            <button type="button" title="Importar" aria-label="Importar lançamentos" onClick={() => importRef.current?.click()} className={toolButton}><UploadIcon size={17} /></button>
-            <button type="button" title="Exportar" aria-label="Exportar lançamentos" onClick={() => toast.success("Exportação preparada", { description: "O arquivo será gerado quando os dados estiverem persistidos." })} className={toolButton}><DownloadIcon size={17} /></button>
+            <button type="button" title="Exportar CSV" aria-label="Exportar lançamentos" onClick={exportTransactions} className={toolButton}><DownloadIcon size={17} /></button>
             <button type="button" title="Imprimir" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={`${toolButton} hidden sm:flex`}><DocumentIcon size={17} /></button>
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
             <div className="relative">
@@ -355,54 +374,32 @@ export default function LancamentosPage() {
           {filtersOpen && <section className="grid gap-3 rounded-[16px] bg-white p-3.5 ring-1 ring-[#DFE6E1] sm:grid-cols-3"><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label><div className="flex items-end"><button type="button" onClick={() => { setTypeFilter("todos"); setStatusFilter("todos"); setSearch(""); }} className="h-9 w-full rounded-[10px] bg-[#F1F4F2] text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Limpar filtros</button></div></section>}
 
           <section className="grid gap-3 sm:grid-cols-3">
-            <SummaryCard label="Saldo do período" value="R$ 11.574,21" tone="default" active={typeFilter === "todos"} onClick={() => { setTypeFilter("todos"); setSelected([]); }} />
-            <SummaryCard label="Saídas" value="-R$ 37.210,96" tone="negative" active={typeFilter === "saida"} onClick={() => { setTypeFilter(current => current === "saida" ? "todos" : "saida"); setSelected([]); }} />
-            <SummaryCard label="Entradas" value="R$ 48.785,17" tone="positive" active={typeFilter === "entrada"} onClick={() => { setTypeFilter(current => current === "entrada" ? "todos" : "entrada"); setSelected([]); }} />
+            <SummaryCard label="Saldo do período" value={formatMoney(summary.balance)} tone="default" active={typeFilter === "todos"} onClick={() => { setTypeFilter("todos"); setSelected([]); }} />
+            <SummaryCard label="Saídas" value={formatMoney(-summary.outgoing)} tone="negative" active={typeFilter === "saida"} onClick={() => { setTypeFilter(current => current === "saida" ? "todos" : "saida"); setSelected([]); }} />
+            <SummaryCard label="Entradas" value={formatMoney(summary.incoming)} tone="positive" active={typeFilter === "entrada"} onClick={() => { setTypeFilter(current => current === "entrada" ? "todos" : "entrada"); setSelected([]); }} />
           </section>
 
           <section className="min-h-0 flex-1 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#E1E8E3]">
-            {selected.length > 0 && <div className="flex items-center gap-3 border-b border-[#E8EEEA] bg-[#F1FBF6] px-4 py-2.5"><strong className="text-[12px] text-[#0A7A42]">{selected.length} selecionado{selected.length > 1 ? "s" : ""}</strong><button type="button" onClick={() => { setTransactions(current => current.filter(item => !selected.includes(item.id))); setSelected([]); }} className="ml-auto text-[12px] font-semibold text-[#B3261E]">Excluir selecionados</button></div>}
+            {selected.length > 0 && <div className="flex items-center gap-3 border-b border-[#E8EEEA] bg-[#F1FBF6] px-4 py-2.5"><strong className="text-[12px] text-[#0A7A42]">{selected.length} selecionado{selected.length > 1 ? "s" : ""}</strong><button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="ml-auto text-[12px] font-semibold text-[#B3261E] disabled:opacity-50">Excluir selecionados</button></div>}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1060px] border-collapse text-left">
-                <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} className="h-4 w-4 accent-[#12B85C]" /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{visibleColumns.date && <th className="w-20 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <th className="min-w-[180px] py-3">Categoria</th>}{visibleColumns.amount && <th className="w-32 py-3 text-right">Valor</th>}{visibleColumns.account && <th className="w-20 py-3 text-center">Conta</th>}{visibleColumns.status && <th className="w-20 py-3 text-center">Status</th>}<th className="w-14 py-3 pr-3" /></tr></thead>
+                <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} className="h-4 w-4 accent-[#12B85C]" /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{visibleColumns.date && <th className="w-24 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <th className="min-w-[180px] py-3">Categoria</th>}{visibleColumns.amount && <th className="w-32 py-3 text-right">Valor</th>}{visibleColumns.account && <th className="w-20 py-3 text-center">Conta</th>}{visibleColumns.status && <th className="w-20 py-3 text-center">Status</th>}<th className="w-14 py-3 pr-3" /></tr></thead>
                 <tbody>{groupedTransactions.flatMap(group => [
-                  <tr key={`group-${group.date}`}>
-                    <td colSpan={visibleCount + 2} className="border-b border-[#DDE5E0] bg-[#EDF2EF] p-0">
-                      <button
-                        type="button"
-                        aria-label={`${collapsedDates.has(group.date) ? "Expandir" : "Recolher"} lançamentos de ${group.date}`}
-                        aria-expanded={!collapsedDates.has(group.date)}
-                        onClick={() => setCollapsedDates(current => {
-                          const next = new Set(current);
-                          if (next.has(group.date)) next.delete(group.date);
-                          else next.add(group.date);
-                          return next;
-                        })}
-                        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12.5px] text-[#28382E] transition hover:bg-[#E5ECE7]"
-                      >
-                        <ChevronRightIcon size={16} className={`transition-transform ${collapsedDates.has(group.date) ? "" : "rotate-90"}`} />
-                        <strong className="text-[13px]">{group.date}</strong>
-                        <span className="rounded-md bg-white/75 px-2 py-0.5 text-[10.5px] font-semibold text-[#718077]">
-                          {group.items.length} lançamento{group.items.length === 1 ? "" : "s"}
-                        </span>
-                        <span className="ml-auto text-[10.5px] font-medium text-[#718077]">
-                          Total do dia <strong className={group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}>{formatMoney(group.total)}</strong>
-                        </span>
-                      </button>
-                    </td>
-                  </tr>,
-                  ...(!collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><input aria-label={`Selecionar ${transaction.description}`} type="checkbox" checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} className="h-4 w-4 accent-[#12B85C]" /></td>{visibleColumns.type && <td className="py-2.5"><span title={transaction.type === "entrada" ? "Entrada" : "Saída"} className={`flex h-7 w-7 items-center justify-center rounded-[9px] ${transaction.type === "entrada" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}>{transaction.type === "entrada" ? <ArrowUpIcon size={14} /> : <ArrowDownIcon size={14} />}</span></td>}{visibleColumns.date && <td className="py-2.5 text-[#607067]">{transaction.date}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title="Recorrente" className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F1F4F2] text-[18px] text-[#718077]">↻</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction.id)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
+                  <tr key={`group-${group.date}`}><td colSpan={visibleCount + 2} className="border-b border-[#DDE5E0] bg-[#EDF2EF] p-0"><button type="button" aria-label={`${collapsedDates.has(group.date) ? "Expandir" : "Recolher"} lançamentos de ${formatDate(group.date)}`} aria-expanded={!collapsedDates.has(group.date)} onClick={() => setCollapsedDates(current => { const next = new Set(current); if (next.has(group.date)) next.delete(group.date); else next.add(group.date); return next; })} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12.5px] text-[#28382E] transition hover:bg-[#E5ECE7]"><ChevronRightIcon size={16} className={`transition-transform ${collapsedDates.has(group.date) ? "" : "rotate-90"}`} /><strong className="text-[13px]">{formatDate(group.date)}</strong><span className="rounded-md bg-white/75 px-2 py-0.5 text-[10.5px] font-semibold text-[#718077]">{group.items.length} lançamento{group.items.length === 1 ? "" : "s"}</span><span className="ml-auto text-[10.5px] font-medium text-[#718077]">Total do dia <strong className={group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}>{formatMoney(group.total)}</strong></span></button></td></tr>,
+                  ...(!collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><input aria-label={`Selecionar ${transaction.description}`} type="checkbox" checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} className="h-4 w-4 accent-[#12B85C]" /></td>{visibleColumns.type && <td className="py-2.5"><span title={transaction.type === "entrada" ? "Entrada" : "Saída"} className={`flex h-7 w-7 items-center justify-center rounded-[9px] ${transaction.type === "entrada" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}>{transaction.type === "entrada" ? <ArrowUpIcon size={14} /> : <ArrowDownIcon size={14} />}</span></td>}{visibleColumns.date && <td className="py-2.5 text-[#607067]">{formatDate(transaction.transactionDate)}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title="Recorrente" className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F1F4F2] text-[18px] text-[#718077]">↻</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact || "—"}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} disabled={toggleStatusMutation.isPending} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] disabled:opacity-50 ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction.id)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
                 ])}</tbody>
               </table>
-              {filtered.length === 0 && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><SearchIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">Nenhum lançamento encontrado</strong><span className="mt-1 text-[12px] text-[#8A968D]">Ajuste a busca ou limpe os filtros.</span></div>}
+              {transactionsQuery.isLoading && <div className="flex items-center justify-center gap-3 px-5 py-16 text-[12.5px] text-[#718077]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando seus lançamentos...</div>}
+              {transactionsQuery.isError && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><strong className="text-[14px] text-[#B3261E]">Não foi possível carregar os lançamentos</strong><button type="button" onClick={() => transactionsQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-semibold text-[#8E1F16]">Tentar novamente</button></div>}
+              {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><DocumentIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">{transactions.length === 0 ? "Nenhum lançamento salvo neste mês" : "Nenhum lançamento encontrado"}</strong><span className="mt-1 text-[12px] text-[#8A968D]">{transactions.length === 0 ? "Crie o primeiro lançamento para começar." : "Ajuste a busca ou limpe os filtros."}</span>{transactions.length === 0 && <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white"><PlusIcon size={14} className="mr-1 inline" />Novo lançamento</button>}</div>}
             </div>
           </section>
 
-          <footer className="sticky bottom-1 z-20 grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">-R$ 660.635,35</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">R$ 47.485,17</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">R$ 32.543,43</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">-R$ 645.693,61</strong></div></footer>
+          <footer className="sticky bottom-1 z-20 grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
         </section>
       </div>
 
-      {modalOpen && <TransactionModal transaction={editing} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
     </main>
   );
 }

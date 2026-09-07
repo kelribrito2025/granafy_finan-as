@@ -23,16 +23,16 @@ function getConnectionConfig() {
 }
 
 describe("TiDB Cloud connection", () => {
-  it("connects securely and exposes the migrated users table", async () => {
+  it("connects securely and exposes every migrated application table", async () => {
     const connection = await createConnection(getConnectionConfig());
 
     try {
       const [rows] = await connection.query<Array<{ ok: number }>>("SELECT 1 AS ok");
       expect(rows[0]?.ok).toBe(1);
       const [tables] = await connection.query<Array<{ count: number }>>(
-        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('users', 'passwordResetRequests')"
+        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('users', 'passwordResetRequests', 'transactions')"
       );
-      expect(Number(tables[0]?.count)).toBe(2);
+      expect(Number(tables[0]?.count)).toBe(3);
     } finally {
       await connection.end();
     }
