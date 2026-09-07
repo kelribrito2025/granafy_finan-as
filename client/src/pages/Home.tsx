@@ -16,6 +16,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
@@ -148,13 +149,7 @@ function Sidebar({
         }`}
       >
         <div className="flex items-center gap-2.5 px-1.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white shadow-[0_8px_18px_rgba(18,184,92,.22)]">
-            NV
-          </span>
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-bold">NV Financeiro</span>
-            <span className="truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span>
-          </div>
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" />
           <button
             type="button"
             aria-label="Fechar menu"

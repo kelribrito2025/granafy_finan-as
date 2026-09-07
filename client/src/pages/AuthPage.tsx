@@ -7,6 +7,7 @@ import {
   ShowIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { PasswordResetPanel } from "@/pages/PasswordResetPage";
@@ -26,14 +27,8 @@ function BrandPanel() {
       <div className="pointer-events-none absolute -right-32 -top-32 h-[420px] w-[420px] rounded-full bg-[#12B85C]/12 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-44 -left-32 h-[380px] w-[380px] rounded-full bg-[#7EE2A8]/10 blur-3xl" />
 
-      <div className="relative z-10 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#12B85C] text-[16px] font-bold shadow-[0_10px_28px_rgba(18,184,92,.28)]">
-          NV
-        </span>
-        <div>
-          <p className="text-[15px] font-bold tracking-[-0.01em]">NV Financeiro</p>
-          <p className="mt-0.5 text-[11px] text-[#8FB39E]">Número Virtual LTDA</p>
-        </div>
+      <div className="relative z-10">
+        <GranafyLogo size={44} tone="onDark" subtitle="Número Virtual LTDA" />
       </div>
 
       <div className="relative z-10 my-auto max-w-[540px] py-12">
@@ -145,15 +140,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
         <ThemeToggle showLabel={false} className="absolute right-5 top-6 z-20 sm:right-10 sm:top-9 lg:right-12 xl:right-16" />
         <div className="flex items-center justify-between lg:hidden">
-          <div className="flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(18,184,92,.2)]">
-              NV
-            </span>
-            <div>
-              <p className="text-[13px] font-bold">NV Financeiro</p>
-              <p className="text-[10px] text-[#8A968D]">Número Virtual LTDA</p>
-            </div>
-          </div>
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="lg:hidden" />
         </div>
 
         <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
@@ -174,7 +161,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-[15px] leading-6 text-[#718077]">
               {isSignup
                 ? "Comece agora a organizar sua operação financeira."
-                : "Bem-vindo de volta ao NV Financeiro."}
+                : "Bem-vindo de volta ao Granafy."}
             </p>
           </div>
 
@@ -341,7 +328,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-[#9AA69E] lg:justify-start">
-          <span>© 2026 NV Financeiro · Todos os direitos reservados</span>
+          <span>© 2026 Granafy · Número Virtual LTDA</span>
         </div>
       </section>
     </main>

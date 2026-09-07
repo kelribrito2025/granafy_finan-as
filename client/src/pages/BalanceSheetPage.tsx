@@ -19,6 +19,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   currencyInputToNumber,
@@ -276,11 +277,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       )}
       <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
         <div className="flex items-center gap-2.5 px-1.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#12B85C] text-[15px] font-bold text-white">NV</span>
-          <div className="min-w-0">
-            <strong className="block truncate text-sm">NV Financeiro</strong>
-            <span className="block truncate text-[11px] text-[#8A968D]">Número Virtual LTDA</span>
-          </div>
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" />
           <button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden">
             <CloseIcon size={17} />
           </button>
