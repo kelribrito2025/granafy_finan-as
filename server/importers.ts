@@ -14,6 +14,8 @@ export type ParsedImportRow = {
 
 export type ImportClassification = "auto" | "entrada" | "saida";
 
+export const IMPORT_DATABASE_CHUNK_SIZE = 500;
+
 type DraftRow = Omit<ParsedImportRow, "occurrence" | "fingerprint">;
 
 const DATE_ALIASES = ["data", "date", "transactiondate", "dtposted", "dtuser", "datadolancamento"];
@@ -234,8 +236,15 @@ export function findCompatibleImportCategory<T extends { id: number; type: "entr
     ?? categories.find(category => category.type === "ambos");
 }
 
+export function chunkImportRows<T>(rows: T[], chunkSize = IMPORT_DATABASE_CHUNK_SIZE) {
+  if (!Number.isInteger(chunkSize) || chunkSize <= 0) throw new Error("Tamanho de lote inválido");
+  return Array.from(
+    { length: Math.ceil(rows.length / chunkSize) },
+    (_, index) => rows.slice(index * chunkSize, (index + 1) * chunkSize),
+  );
+}
+
 export function parseImportFile(input: { userId: number; accountId: number; format: "csv" | "ofx"; content: string }) {
   const rows = input.format === "csv" ? parseCsv(input.content) : parseOfx(input.content);
-  if (rows.length > 1_000) throw new Error("O arquivo possui mais de 1.000 lançamentos. Divida-o em partes menores.");
   return fingerprintRows(input.userId, input.accountId, rows);
 }

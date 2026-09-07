@@ -21,6 +21,7 @@ import {
   defaultCategoryUpgradeValues,
   defaultCategoryValues,
 } from "./defaultCategories";
+import { chunkImportRows } from "./importers";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -471,7 +472,11 @@ export async function getTransactionsByFingerprints(userId: number, fingerprints
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (!fingerprints.length) return [];
-  return db.select({ fingerprint: financialTransactions.fingerprint }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.fingerprint, fingerprints)));
+  const results: Array<{ fingerprint: string | null }> = [];
+  for (const chunk of chunkImportRows(Array.from(new Set(fingerprints)))) {
+    results.push(...await db.select({ fingerprint: financialTransactions.fingerprint }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.fingerprint, chunk))));
+  }
+  return results;
 }
 
 export async function createImportBatch(input: {
@@ -496,12 +501,12 @@ export async function createImportBatch(input: {
       importedCount: input.transactions.length,
       duplicateCount: input.duplicateCount,
     });
-    if (input.transactions.length) {
-      await tx.insert(financialTransactions).values(input.transactions.map(transaction => ({
-        userId: input.userId,
-        ...transaction,
-        importBatchId: input.id,
-      })));
+    for (const chunk of chunkImportRows(input.transactions)) {
+      await tx.insert(financialTransactions).values(chunk.map(transaction => ({
+          userId: input.userId,
+          ...transaction,
+          importBatchId: input.id,
+        })));
     }
   });
 }

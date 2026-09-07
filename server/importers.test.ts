@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyImportClassification, detectCsvDelimiter, findCompatibleImportCategory, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseOfx } from "./importers";
+import { applyImportClassification, chunkImportRows, detectCsvDelimiter, findCompatibleImportCategory, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseImportFile, parseOfx } from "./importers";
 
 describe("financial file importers", () => {
   it("parses Brazilian amounts and dates", () => {
@@ -63,6 +63,13 @@ describe("financial file importers", () => {
     expect(findCompatibleImportCategory(categories, "entrada", 1)?.id).toBe(2);
     expect(findCompatibleImportCategory(categories, "saida", 2)?.id).toBe(1);
     expect(findCompatibleImportCategory(categories, "entrada", 3)?.id).toBe(3);
+  });
+
+  it("accepts more than one thousand OFX entries and divides database work into safe chunks", () => {
+    const entries = Array.from({ length: 1_205 }, (_, index) => `<STMTTRN><DTPOSTED>20260907<TRNAMT>${index % 2 ? "-1.00" : "2.00"}<FITID>large-${index}<NAME>Movimento ${index}`).join("");
+    const rows = parseImportFile({ userId: 7, accountId: 9, format: "ofx", content: `<OFX><BANKTRANLIST>${entries}</BANKTRANLIST></OFX>` });
+    expect(rows).toHaveLength(1_205);
+    expect(chunkImportRows(rows).map(chunk => chunk.length)).toEqual([500, 500, 205]);
   });
 
   it("rejects CSV without required financial columns", () => {

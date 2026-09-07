@@ -7,10 +7,11 @@ import { applyImportClassification, findCompatibleImportCategory, parseImportFil
 
 const formatSchema = z.enum(["csv", "ofx"]);
 const classificationSchema = z.enum(["auto", "entrada", "saida"]);
+export const MAX_IMPORT_FILE_CHARACTERS = 25_000_000;
 const previewInputSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   format: formatSchema,
-  content: z.string().min(1, "Arquivo vazio").max(5_000_000, "O arquivo deve ter no máximo 5 MB"),
+  content: z.string().min(1, "Arquivo vazio").max(MAX_IMPORT_FILE_CHARACTERS, "O arquivo deve ter no máximo 25 MB"),
   accountId: z.number().int().positive(),
   incomeCategoryId: z.number().int().positive().optional(),
   expenseCategoryId: z.number().int().positive().optional(),
@@ -74,8 +75,8 @@ export const importsRouter = router({
     fileName: z.string().trim().min(1).max(255),
     format: formatSchema,
     accountId: z.number().int().positive(),
-    duplicateCount: z.number().int().min(0).max(1_000),
-    rows: z.array(importRowSchema).min(1, "Selecione ao menos um lançamento").max(1_000),
+    duplicateCount: z.number().int().min(0),
+    rows: z.array(importRowSchema).min(1, "Selecione ao menos um lançamento"),
   })).mutation(async ({ ctx, input }) => {
     const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
     if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "A conta selecionada não está disponível" });

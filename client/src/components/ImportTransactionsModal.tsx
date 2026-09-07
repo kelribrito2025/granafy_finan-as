@@ -11,6 +11,8 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 type TransactionType = "entrada" | "saida";
+const MAX_IMPORT_FILE_BYTES = 25_000_000;
+const PREVIEW_PAGE_SIZE = 100;
 
 type PreviewRow = {
   sourceIndex: number;
@@ -52,12 +54,15 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const [incomeCategoryId, setIncomeCategoryId] = useState("");
   const [expenseCategoryId, setExpenseCategoryId] = useState("");
   const [rows, setRows] = useState<PreviewRow[]>([]);
+  const [previewPage, setPreviewPage] = useState(0);
   const [step, setStep] = useState<"setup" | "preview">("setup");
   const [result, setResult] = useState<{ importedCount: number; duplicateCount: number } | null>(null);
   const options = optionsQuery.data ?? { accounts: [], categories: [] };
   const selectedRows = rows.filter(row => row.selected && !row.duplicate);
   const selectedTotal = selectedRows.reduce((sum, row) => sum + row.amount, 0);
   const allSelected = selectedRows.length > 0 && rows.filter(row => !row.duplicate).every(row => row.selected);
+  const previewPageCount = Math.max(1, Math.ceil(rows.length / PREVIEW_PAGE_SIZE));
+  const previewRows = rows.slice(previewPage * PREVIEW_PAGE_SIZE, (previewPage + 1) * PREVIEW_PAGE_SIZE);
   const incomeCategories = useMemo(() => options.categories.filter(category => category.type === "entrada" || category.type === "ambos"), [options.categories]);
   const expenseCategories = useMemo(() => options.categories.filter(category => category.type === "saida" || category.type === "ambos"), [options.categories]);
 
@@ -76,8 +81,8 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
       event.target.value = "";
       return;
     }
-    if (selected.size > 5_000_000) {
-      toast.error("O arquivo deve ter no máximo 5 MB");
+    if (selected.size > MAX_IMPORT_FILE_BYTES) {
+      toast.error("O arquivo deve ter no máximo 25 MB");
       event.target.value = "";
       return;
     }
@@ -100,6 +105,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
         classification: "auto",
       });
       setRows(response.rows.map(row => ({ ...row, selected: !row.duplicate })));
+      setPreviewPage(0);
       setStep("preview");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível ler o arquivo");
@@ -187,7 +193,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                   <input aria-label="Selecionar arquivo OFX ou CSV" type="file" accept=".ofx,.csv,text/csv,application/x-ofx" onChange={chooseFile} className="sr-only" />
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#0A7A42] ring-1 ring-[#DDE8E1]"><DocumentIcon size={23} /></span>
                   <strong className="mt-4 text-[14px]">{file?.name ?? "Selecione seu arquivo bancário"}</strong>
-                  <span className="mt-1 text-[11.5px] text-[#8A968D]">{file ? `${(file.size / 1024).toFixed(1)} KB · ${format.toUpperCase()}` : "OFX ou CSV · máximo de 5 MB"}</span>
+                  <span className="mt-1 text-[11.5px] text-[#8A968D]">{file ? `${(file.size / 1024).toFixed(1)} KB · ${format.toUpperCase()}` : "OFX ou CSV · máximo de 25 MB · sem limite de lançamentos"}</span>
                   <span className="mt-4 rounded-[10px] bg-[#0B1F14] px-4 py-2 text-[11.5px] font-bold text-white">{file ? "Trocar arquivo" : "Escolher arquivo"}</span>
                 </label>
                 <div className="mt-3 rounded-xl bg-[#FFF8E8] p-3 text-[11px] leading-5 text-[#7A5A14]"><strong>Classificação automática:</strong> crédito usa a categoria de receita; débito usa a categoria de despesa. Na revisão você poderá ajustar cada lançamento.</div>
@@ -233,7 +239,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full min-w-[920px] border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-white"><tr className="border-b border-[#E8EEEA] text-[10px] uppercase tracking-[.04em] text-[#8A968D]"><th className="w-12 px-5 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setRows(current => current.map(row => row.duplicate ? row : { ...row, selected: !allSelected }))} className="h-4 w-4 accent-[#12B85C]" /></th><th className="w-24 py-3">Data</th><th className="min-w-[220px] py-3">Descrição</th><th className="w-28 py-3">Natureza</th><th className="w-48 py-3">Categoria</th><th className="w-28 py-3 text-right">Valor</th><th className="w-24 px-5 py-3 text-center">Situação</th></tr></thead>
-                <tbody>{rows.map((row, index) => <tr key={`${row.fingerprint}-${index}`} className={`border-b border-[#EDF1EE] text-[11.5px] ${row.duplicate ? "bg-[#FFF9EB] opacity-70" : row.selected ? "bg-[#F8FCFA]" : ""}`}>
+                <tbody>{previewRows.map((row, pageRowIndex) => { const index = previewPage * PREVIEW_PAGE_SIZE + pageRowIndex; return <tr key={`${row.fingerprint}-${index}`} className={`border-b border-[#EDF1EE] text-[11.5px] ${row.duplicate ? "bg-[#FFF9EB] opacity-70" : row.selected ? "bg-[#F8FCFA]" : ""}`}>
                   <td className="px-5 py-2.5"><input aria-label={`Selecionar linha ${row.sourceIndex}`} disabled={row.duplicate} type="checkbox" checked={row.selected} onChange={() => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: !item.selected } : item))} className="h-4 w-4 accent-[#12B85C]" /></td>
                   <td className="py-2.5"><input aria-label={`Data da linha ${row.sourceIndex}`} type="date" value={row.transactionDate} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transactionDate: event.target.value } : item))} className="w-[116px] bg-transparent text-[11px] outline-none disabled:cursor-not-allowed" /></td>
                   <td className="py-2.5 pr-3"><div className="flex items-center gap-2"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${row.type === "saida" ? "bg-[#FDECEA] text-[#B3261E]" : "bg-[#DFF6EA] text-[#0A7A42]"}`}>{row.type === "saida" ? <ArrowDownIcon size={14} /> : <ArrowUpIcon size={14} />}</span><input aria-label={`Descrição da linha ${row.sourceIndex}`} value={row.description} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item))} className="min-w-0 flex-1 bg-transparent font-semibold outline-none disabled:cursor-not-allowed" /></div></td>
@@ -241,10 +247,15 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                   <td className="py-2.5 pr-3"><select aria-label={`Categoria da linha ${row.sourceIndex}`} value={row.categoryId} disabled={row.duplicate} onChange={event => { const id = Number(event.target.value); const categoryName = options.categories.find(category => category.id === id)?.name ?? row.categoryName; setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, categoryId: id, categoryName } : item)); }} className="h-8 w-full rounded-lg bg-[#F1F4F2] px-2 text-[10.5px] outline-none disabled:cursor-not-allowed">{options.categories.filter(category => category.type === "ambos" || category.type === row.type).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></td>
                   <td className={`py-2.5 text-right font-bold ${row.type === "entrada" ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(row.amount)}</td>
                   <td className="px-5 py-2.5 text-center">{row.duplicate ? <span className="rounded-md bg-[#FFF0C9] px-2 py-1 text-[9.5px] font-bold text-[#936000]">Duplicata</span> : <span className="rounded-md bg-[#DFF6EA] px-2 py-1 text-[9.5px] font-bold text-[#0A7A42]">Novo</span>}</td>
-                </tr>)}</tbody>
+                </tr>; })}</tbody>
               </table>
             </div>
-            <footer className="flex flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-4 sm:px-6"><button type="button" onClick={() => setStep("setup")} className="rounded-xl bg-[#F1F4F2] px-4 py-2.5 text-[12px] font-bold text-[#4C6355]">Voltar</button><p className="mr-auto text-[10.5px] text-[#8A968D]">Somente itens selecionados e ainda não importados serão salvos.</p><button type="button" disabled={confirmMutation.isPending || selectedRows.length === 0} onClick={confirm} className="rounded-xl bg-[#12B85C] px-5 py-2.5 text-[12px] font-bold text-white disabled:opacity-45">{confirmMutation.isPending ? "Importando..." : `Importar ${selectedRows.length} lançamento${selectedRows.length === 1 ? "" : "s"}`}</button></footer>
+            <footer className="flex flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-4 sm:px-6">
+              <button type="button" onClick={() => setStep("setup")} className="rounded-xl bg-[#F1F4F2] px-4 py-2.5 text-[12px] font-bold text-[#4C6355]">Voltar</button>
+              {rows.length > PREVIEW_PAGE_SIZE && <div className="flex items-center gap-1.5 rounded-xl bg-[#F1F4F2] p-1"><button type="button" aria-label="Página anterior" disabled={previewPage === 0} onClick={() => setPreviewPage(page => Math.max(0, page - 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">←</button><span className="min-w-[150px] text-center text-[10.5px] font-semibold text-[#607067]">Página {previewPage + 1} de {previewPageCount} · {previewPage * PREVIEW_PAGE_SIZE + 1}–{Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, rows.length)}</span><button type="button" aria-label="Próxima página" disabled={previewPage >= previewPageCount - 1} onClick={() => setPreviewPage(page => Math.min(previewPageCount - 1, page + 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">→</button></div>}
+              <p className="mr-auto text-[10.5px] text-[#8A968D]">Todos os selecionados serão processados em lotes seguros.</p>
+              <button type="button" disabled={confirmMutation.isPending || selectedRows.length === 0} onClick={confirm} className="rounded-xl bg-[#12B85C] px-5 py-2.5 text-[12px] font-bold text-white disabled:opacity-45">{confirmMutation.isPending ? `Importando ${selectedRows.length}...` : `Importar ${selectedRows.length} lançamento${selectedRows.length === 1 ? "" : "s"}`}</button>
+            </footer>
           </>
         )}
       </section>
