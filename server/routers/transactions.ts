@@ -80,6 +80,15 @@ function summarize(records: TransactionRecord[]) {
 }
 
 const MAX_BULK_DELETE_IDS = 20_000;
+const MAX_BULK_UPDATE_IDS = 20_000;
+
+const bulkUpdateChangesSchema = z.object({
+  status: z.enum(["Pago", "Pendente"]).optional(),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida").optional(),
+  accountId: z.number().int().positive().optional(),
+  categoryId: z.number().int().positive().optional(),
+  recurring: z.boolean().optional(),
+}).refine(changes => Object.values(changes).some(value => value !== undefined), "Escolha ao menos uma alteração");
 
 export const transactionsRouter = router({
   list: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
@@ -239,6 +248,40 @@ export const transactionsRouter = router({
     return toTransaction(record);
   }),
 
+  updateMany: protectedProcedure.input(z.object({
+    ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_UPDATE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
+    changes: bulkUpdateChangesSchema,
+  })).mutation(async ({ ctx, input }) => {
+    const ids = Array.from(new Set(input.ids));
+    const records = await db.getTransactionsByIds(ctx.user.id, ids);
+    if (records.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum lançamento selecionado foi encontrado" });
+
+    const values: Parameters<typeof db.updateTransactions>[2] = {};
+    if (input.changes.status !== undefined) values.status = input.changes.status;
+    if (input.changes.transactionDate !== undefined) values.transactionDate = input.changes.transactionDate;
+    if (input.changes.recurring !== undefined) values.recurring = input.changes.recurring;
+
+    if (input.changes.accountId !== undefined) {
+      const account = await db.getFinancialAccount(ctx.user.id, input.changes.accountId);
+      if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada ou inativa" });
+      values.accountId = account.id;
+      values.account = account.name;
+    }
+
+    if (input.changes.categoryId !== undefined) {
+      const category = await db.getTransactionCategory(ctx.user.id, input.changes.categoryId);
+      if (!category?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Categoria não encontrada ou inativa" });
+      if (records.some(record => category.type !== "ambos" && category.type !== record.type)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A categoria não é compatível com todos os lançamentos selecionados" });
+      }
+      values.categoryId = category.id;
+      values.category = category.name;
+    }
+
+    const updatedCount = await db.updateTransactions(ctx.user.id, ids, values);
+    return { success: true, requestedCount: ids.length, matchedCount: records.length, updatedCount } as const;
+  }),
+
   delete: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
@@ -255,4 +298,4 @@ export const transactionsRouter = router({
   }),
 });
 
-export { MAX_BULK_DELETE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesSchema };
+export { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesSchema };

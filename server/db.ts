@@ -12,6 +12,7 @@ import {
   transactionImportBatches,
   transactions as financialTransactions,
   type InsertTransaction,
+  type TransactionRecord,
   type User,
   type UserRecord,
   users,
@@ -320,6 +321,20 @@ export async function getTransactionById(userId: number, id: number) {
   return rows[0];
 }
 
+export async function getTransactionsByIds(userId: number, ids: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const chunks = chunkTransactionIds(ids);
+  const records: TransactionRecord[] = [];
+  for (const chunk of chunks) {
+    records.push(...await db
+      .select()
+      .from(financialTransactions)
+      .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk))));
+  }
+  return records;
+}
+
 export async function createTransaction(userId: number, values: TransactionValues) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -356,6 +371,29 @@ export function chunkTransactionIds(ids: number[], chunkSize = TRANSACTION_DELET
     { length: Math.ceil(uniqueIds.length / chunkSize) },
     (_, index) => uniqueIds.slice(index * chunkSize, (index + 1) * chunkSize),
   );
+}
+
+export async function updateTransactions(
+  userId: number,
+  ids: number[],
+  values: Partial<Pick<InsertTransaction, "transactionDate" | "category" | "categoryId" | "account" | "accountId" | "status" | "recurring">>,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const chunks = chunkTransactionIds(ids);
+  if (chunks.length === 0 || Object.keys(values).length === 0) return 0;
+
+  return db.transaction(async tx => {
+    let updatedCount = 0;
+    for (const chunk of chunks) {
+      const result = await tx
+        .update(financialTransactions)
+        .set(values)
+        .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk)));
+      updatedCount += Number(result[0].affectedRows ?? 0);
+    }
+    return updatedCount;
+  });
 }
 
 export async function deleteTransactions(userId: number, ids: number[]) {

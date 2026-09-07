@@ -257,6 +257,59 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
   );
 }
 
+type BulkTransactionChanges = {
+  status?: Transaction["status"];
+  transactionDate?: string;
+  accountId?: number;
+  categoryId?: number;
+  recurring?: boolean;
+};
+
+function BulkEditModal({ selectedCount, selectedTypes, options, pending, onClose, onSave }: { selectedCount: number; selectedTypes: Transaction["type"][]; options: OrganizationOptions; pending: boolean; onClose: () => void; onSave: (changes: BulkTransactionChanges) => Promise<void> }) {
+  const [status, setStatus] = useState("");
+  const [transactionDate, setTransactionDate] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [recurring, setRecurring] = useState("");
+  const compatibleCategories = options.categories.filter(category => selectedTypes.length === 1
+    ? category.type === "ambos" || category.type === selectedTypes[0]
+    : category.type === "ambos");
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const changes: BulkTransactionChanges = {};
+    if (status) changes.status = status as Transaction["status"];
+    if (transactionDate) changes.transactionDate = transactionDate;
+    if (accountId) changes.accountId = Number(accountId);
+    if (categoryId) changes.categoryId = Number(categoryId);
+    if (recurring) changes.recurring = recurring === "sim";
+    if (Object.keys(changes).length === 0) return toast.info("Escolha ao menos um campo para alterar.");
+    await onSave(changes);
+  };
+
+  const selectClass = "h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]";
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150D]/45 p-4 backdrop-blur-[2px]">
+      <form onSubmit={submit} className="modal-enter w-full max-w-[570px] rounded-[22px] bg-white p-5 ring-1 ring-black/5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#DFF6EA] text-[#0A7A42]"><EditIcon size={20} /></span>
+          <div><span className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Edição em lote</span><h2 className="mt-1 text-[20px] font-bold">Alterar lançamentos</h2><p className="mt-1 text-[12px] text-[#718077]">Somente os campos escolhidos serão aplicados aos {selectedCount.toLocaleString("pt-BR")} itens selecionados.</p></div>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#F1F4F2] text-[#4C6355]"><CloseIcon size={16} /></button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={status} onChange={event => setStatus(event.target.value)} className={selectClass}><option value="">Manter atual</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Data</span><input type="date" value={transactionDate} onChange={event => setTransactionDate(event.target.value)} className={selectClass} /></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Conta</span><select value={accountId} onChange={event => setAccountId(event.target.value)} className={selectClass}><option value="">Manter atual</option>{options.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Categoria</span><select value={categoryId} onChange={event => setCategoryId(event.target.value)} className={selectClass}><option value="">Manter atual</option>{compatibleCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Recorrência</span><select value={recurring} onChange={event => setRecurring(event.target.value)} className={selectClass}><option value="">Manter atual</option><option value="sim">Recorrente</option><option value="nao">Não recorrente</option></select></label>
+        </div>
+        {selectedTypes.length > 1 && compatibleCategories.length === 0 && <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-[11px] text-[#7A5A14]">A seleção combina receitas e despesas. Para alterar a categoria em conjunto, cadastre uma categoria do tipo “Ambos”.</p>}
+        <div className="mt-5 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">Cancelar</button><button type="submit" disabled={pending} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60"><CheckIcon size={16} />{pending ? "Aplicando..." : "Aplicar alterações"}</button></div>
+      </form>
+    </div>
+  );
+}
+
 export default function LancamentosPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -272,6 +325,7 @@ export default function LancamentosPage() {
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -292,6 +346,7 @@ export default function LancamentosPage() {
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
   const deleteManyMutation = trpc.transactions.deleteMany.useMutation({ onSuccess: refresh });
+  const updateManyMutation = trpc.transactions.updateMany.useMutation({ onSuccess: refresh });
   const toggleStatusMutation = trpc.transactions.toggleStatus.useMutation({ onSuccess: refresh });
 
   useEffect(() => {
@@ -311,6 +366,8 @@ export default function LancamentosPage() {
   const dateColumnVisible = visibleColumns.date || sort !== null;
   const tableDataColumnCount = visibleCount + (sort && !visibleColumns.date ? 1 : 0);
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
+  const selectedTransactions = useMemo(() => transactions.filter(transaction => selected.includes(transaction.id)), [selected, transactions]);
+  const selectedTypes = useMemo(() => Array.from(new Set(selectedTransactions.map(transaction => transaction.type))), [selectedTransactions]);
   const groupedTransactions = useMemo(() => buildTransactionDisplayGroups(filtered, sort), [filtered, sort]);
   const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthCursor).replace(/^./, letter => letter.toUpperCase());
@@ -327,6 +384,7 @@ export default function LancamentosPage() {
       if (editing) await updateMutation.mutateAsync({ id: editing.id, ...input });
       else await createMutation.mutateAsync(input);
       setModalOpen(false);
+      if (editing && selected.includes(editing.id)) setSelected([]);
       setEditing(null);
       toast.success(editing ? "Lançamento atualizado no banco" : "Lançamento salvo no banco");
     } catch (error) {
@@ -365,6 +423,37 @@ export default function LancamentosPage() {
       toast.success(`${result.deletedCount.toLocaleString("pt-BR")} lançamento${result.deletedCount === 1 ? " removido" : "s removidos"} do banco`);
     } catch (error) {
       toast.error(safeErrorMessage(error, "Não foi possível excluir os lançamentos selecionados. Tente novamente."));
+    }
+  };
+
+  const markSelectedPaid = async () => {
+    if (selected.length === 0) return;
+    try {
+      const result = await updateManyMutation.mutateAsync({ ids: selected, changes: { status: "Pago" } });
+      setSelected([]);
+      toast.success(`${result.matchedCount.toLocaleString("pt-BR")} lançamento${result.matchedCount === 1 ? " marcado" : "s marcados"} como pago`);
+    } catch (error) {
+      toast.error(safeErrorMessage(error, "Não foi possível marcar os lançamentos como pagos."));
+    }
+  };
+
+  const editSelected = () => {
+    if (selectedTransactions.length === 1) {
+      setEditing(selectedTransactions[0]);
+      setModalOpen(true);
+      return;
+    }
+    setBulkEditOpen(true);
+  };
+
+  const saveBulkChanges = async (changes: BulkTransactionChanges) => {
+    try {
+      const result = await updateManyMutation.mutateAsync({ ids: selected, changes });
+      setBulkEditOpen(false);
+      setSelected([]);
+      toast.success(`${result.matchedCount.toLocaleString("pt-BR")} lançamento${result.matchedCount === 1 ? " atualizado" : "s atualizados"}`);
+    } catch (error) {
+      toast.error(safeErrorMessage(error, "Não foi possível alterar os lançamentos selecionados."));
     }
   };
 
@@ -423,6 +512,13 @@ export default function LancamentosPage() {
             </div>
           </section>
 
+          {selected.length > 0 && <section aria-live="polite" className="modal-enter flex flex-wrap items-center gap-2 rounded-[16px] bg-white px-3 py-3 ring-1 ring-[#DCE5DF] sm:px-4">
+            <button type="button" disabled={updateManyMutation.isPending} onClick={markSelectedPaid} className="flex h-9 items-center gap-2 rounded-[10px] bg-[#F1FBF6] px-3.5 text-[12px] font-bold text-[#0A7A42] ring-1 ring-[#CFE9DA] transition hover:bg-[#E4F7ED] active:scale-[.98] disabled:opacity-50"><CheckIcon size={16} />Marcar como pago</button>
+            <button type="button" disabled={updateManyMutation.isPending} onClick={editSelected} className="flex h-9 items-center gap-2 rounded-[10px] bg-white px-3.5 text-[12px] font-bold text-[#3F5146] ring-1 ring-[#DCE5DF] transition hover:bg-[#F4F8F6] active:scale-[.98] disabled:opacity-50"><EditIcon size={16} />Editar</button>
+            <button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="flex h-9 items-center gap-2 rounded-[10px] bg-white px-3.5 text-[12px] font-bold text-[#B3261E] ring-1 ring-[#F0D1CE] transition hover:bg-[#FDECEA] active:scale-[.98] disabled:opacity-50"><DeleteIcon size={16} />{deleteManyMutation.isPending ? "Excluindo..." : "Excluir"}</button>
+            <strong className="ml-auto text-[12px] font-semibold text-[#607067]">{selected.length.toLocaleString("pt-BR")} {selected.length === 1 ? "item selecionado" : "itens selecionados"}</strong>
+          </section>}
+
           {filtersOpen && <section className="grid gap-3 rounded-[16px] bg-white p-3.5 ring-1 ring-[#DFE6E1] sm:grid-cols-3"><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select></label><label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="h-9 w-full rounded-[10px] bg-[#F4F8F6] px-3 text-[12px] outline-none"><option value="todos">Todos</option><option value="Pago">Pago</option><option value="Pendente">Pendente</option></select></label><div className="flex items-end"><button type="button" onClick={() => { setTypeFilter("todos"); setStatusFilter("todos"); setSearch(""); }} className="h-9 w-full rounded-[10px] bg-[#F1F4F2] text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Limpar filtros</button></div></section>}
 
           <section className="grid gap-3 sm:grid-cols-3">
@@ -432,7 +528,6 @@ export default function LancamentosPage() {
           </section>
 
           <section className="relative min-h-0 flex-1 overflow-hidden rounded-[18px] bg-white ring-1 ring-[#E1E8E3]">
-            {selected.length > 0 && <div className="flex items-center gap-3 border-b border-[#E8EEEA] bg-[#F1FBF6] px-4 py-2.5"><strong className="text-[12px] text-[#0A7A42]">{selected.length} selecionado{selected.length > 1 ? "s" : ""}</strong><button type="button" disabled={deleteManyMutation.isPending} onClick={removeSelected} className="ml-auto text-[12px] font-semibold text-[#B3261E] disabled:opacity-50">{deleteManyMutation.isPending ? "Excluindo em lotes..." : "Excluir selecionados"}</button></div>}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1060px] border-collapse text-left">
                 <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} className="h-4 w-4 accent-[#12B85C]" /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{dateColumnVisible && <th className="w-24 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} className="min-w-[180px]" />}{visibleColumns.amount && <SortableColumnHeader label="Valor" sortKey="amount" sort={sort} onSort={toggleSort} className="w-32 text-right" />}{visibleColumns.account && <SortableColumnHeader label="Conta" sortKey="account" sort={sort} onSort={toggleSort} className="w-20 text-center" />}{visibleColumns.status && <SortableColumnHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} className="w-20 text-center" />}<th className="w-14 py-3 pr-3" /></tr></thead>
@@ -444,7 +539,7 @@ export default function LancamentosPage() {
               {transactionsQuery.isLoading && <div className="flex items-center justify-center gap-3 px-5 py-16 text-[12.5px] text-[#718077]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando seus lançamentos...</div>}
               {transactionsQuery.isError && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><strong className="text-[14px] text-[#B3261E]">Não foi possível carregar os lançamentos</strong><button type="button" onClick={() => transactionsQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-semibold text-[#8E1F16]">Tentar novamente</button></div>}
             </div>
-            {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && <div className={`absolute inset-x-0 bottom-0 ${selected.length > 0 ? "top-[82px]" : "top-[41px]"} flex flex-col items-center justify-center px-5 py-8 text-center`}><DocumentIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">{transactions.length === 0 ? "Nenhum lançamento salvo neste mês" : "Nenhum lançamento encontrado"}</strong><span className="mt-1 text-[12px] text-[#8A968D]">{transactions.length === 0 ? "Crie o primeiro lançamento para começar." : "Ajuste a busca ou limpe os filtros."}</span>{transactions.length === 0 && <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white"><PlusIcon size={14} className="mr-1 inline" />Novo lançamento</button>}</div>}
+            {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && <div className="absolute inset-x-0 bottom-0 top-[41px] flex flex-col items-center justify-center px-5 py-8 text-center"><DocumentIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">{transactions.length === 0 ? "Nenhum lançamento salvo neste mês" : "Nenhum lançamento encontrado"}</strong><span className="mt-1 text-[12px] text-[#8A968D]">{transactions.length === 0 ? "Crie o primeiro lançamento para começar." : "Ajuste a busca ou limpe os filtros."}</span>{transactions.length === 0 && <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white"><PlusIcon size={14} className="mr-1 inline" />Novo lançamento</button>}</div>}
           </section>
 
           <footer className="sticky bottom-1 z-20 grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
@@ -452,6 +547,7 @@ export default function LancamentosPage() {
       </div>
 
       {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {bulkEditOpen && <BulkEditModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setBulkEditOpen(false)} onSave={saveBulkChanges} />}
       {importOpen && <ImportTransactionsModal onClose={() => setImportOpen(false)} onImported={refresh} onManageOrganization={() => setLocation("/organizacao")} />}
     </main>
   );

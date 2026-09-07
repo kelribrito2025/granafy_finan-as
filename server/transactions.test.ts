@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
 import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
-import { MAX_BULK_DELETE_IDS, periodBounds, signedAmount, summarize } from "./routers/transactions";
+import { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
   return {
@@ -60,5 +60,13 @@ describe("transactions helpers", () => {
 
   it("deduplicates selected ids before chunking", () => {
     expect(chunkTransactionIds([1, 2, 2, 3], 2)).toEqual([[1, 2], [3]]);
+  });
+
+  it("accepts only meaningful bulk changes", () => {
+    expect(bulkUpdateChangesSchema.safeParse({}).success).toBe(false);
+    expect(bulkUpdateChangesSchema.parse({ status: "Pago" })).toEqual({ status: "Pago" });
+    expect(bulkUpdateChangesSchema.parse({ transactionDate: "2026-09-07", recurring: true })).toEqual({ transactionDate: "2026-09-07", recurring: true });
+    expect(bulkUpdateChangesSchema.safeParse({ transactionDate: "07/09/2026" }).success).toBe(false);
+    expect(MAX_BULK_UPDATE_IDS).toBeGreaterThanOrEqual(668);
   });
 });
