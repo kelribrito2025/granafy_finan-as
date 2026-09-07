@@ -272,8 +272,8 @@ function TransactionModal({ onClose }: { onClose: () => void }) {
               className={`rounded-[9px] px-3 py-2 text-xs font-bold capitalize transition active:scale-[0.98] ${
                 entryType === type
                   ? type === "entrada"
-                    ? "bg-white text-[#0A7A42] shadow-sm"
-                    : "bg-white text-[#B3261E] shadow-sm"
+                    ? "bg-white text-[#0A7A42]"
+                    : "bg-white text-[#B3261E]"
                   : "text-[#8A968D]"
               }`}
             >
@@ -323,7 +323,7 @@ function TransactionModal({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] transition hover:bg-[#E7ECE9] active:scale-[0.98]">
             Cancelar
           </button>
-          <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white shadow-[0_10px_24px_rgba(18,184,92,.22)] transition hover:bg-[#0F9E4E] active:scale-[0.98]">
+          <button type="submit" className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98]">
             <CheckIcon size={15} /> Salvar lançamento
           </button>
         </div>
@@ -440,7 +440,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white shadow-[0_10px_24px_rgba(18,184,92,.18)] transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
+              className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
             >
               <PlusIcon size={15} />
               <span className="hidden sm:inline">Novo lançamento</span>
@@ -453,7 +453,7 @@ export default function Home() {
                 aria-label="Abrir menu da conta"
                 aria-expanded={accountOpen}
                 onClick={() => setAccountOpen(open => !open)}
-                className="flex h-[42px] min-w-[42px] items-center justify-center rounded-[14px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white shadow-[0_8px_20px_rgba(11,31,20,.12)] transition hover:bg-[#183526] active:scale-95"
+                className="flex h-[42px] min-w-[42px] items-center justify-center rounded-[14px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white transition hover:bg-[#183526] active:scale-95"
               >
                 {accountInitials || "NV"}
               </button>

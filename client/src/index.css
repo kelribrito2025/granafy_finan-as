@@ -100,6 +100,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  button,
+  [role="button"],
+  [data-slot="button"] {
+    box-shadow: none !important;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
