@@ -21,6 +21,8 @@ import {
 } from "./email";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { importsRouter } from "./routers/imports";
+import { organizationRouter } from "./routers/organization";
 import { transactionsRouter } from "./routers/transactions";
 
 const credentialsSchema = z.object({
@@ -33,6 +35,8 @@ const credentialsSchema = z.object({
 
 export const appRouter = router({
   system: systemRouter,
+  imports: importsRouter,
+  organization: organizationRouter,
   transactions: transactionsRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

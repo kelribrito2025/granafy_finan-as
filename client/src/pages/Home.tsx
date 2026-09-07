@@ -11,6 +11,7 @@ import {
   MenuIcon,
   NotificationIcon,
   PlusIcon,
+  SettingsIcon,
   TrendUpIcon,
   UsersIcon,
   type IconlyIcon,
@@ -40,6 +41,10 @@ const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon },
   { label: "Relatórios", icon: ChartIcon },
   { label: "Clientes", icon: UsersIcon },
+];
+
+const organizationItems: NavItem[] = [
+  { label: "Contas e categorias", icon: SettingsIcon },
 ];
 
 function formatMoney(value: number, compact = false) {
@@ -154,6 +159,7 @@ function Sidebar({
 
         <NavGroup title="Painel" items={panelItems} active={active} onSelect={select} />
         <NavGroup title="Análise" items={analysisItems} active={active} onSelect={select} />
+        <NavGroup title="Organização" items={organizationItems} active={active} onSelect={select} />
 
         <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">
@@ -215,6 +221,10 @@ export default function Home() {
     setActiveNav(item);
     if (item === "Lançamentos") {
       setLocation("/lancamentos");
+      return;
+    }
+    if (item === "Contas e categorias") {
+      setLocation("/organizacao");
       return;
     }
     if (item !== "Visão geral") {

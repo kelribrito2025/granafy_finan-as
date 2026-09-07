@@ -30,9 +30,13 @@ describe("TiDB Cloud connection", () => {
       const [rows] = await connection.query<Array<{ ok: number }>>("SELECT 1 AS ok");
       expect(rows[0]?.ok).toBe(1);
       const [tables] = await connection.query<Array<{ count: number }>>(
-        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('users', 'passwordResetRequests', 'transactions')"
+        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('users', 'passwordResetRequests', 'transactions', 'financialAccounts', 'transactionCategories', 'transactionImportBatches')"
       );
-      expect(Number(tables[0]?.count)).toBe(3);
+      expect(Number(tables[0]?.count)).toBe(6);
+      const [columns] = await connection.query<Array<{ count: number }>>(
+        "SELECT COUNT(*) AS count FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transactions' AND COLUMN_NAME IN ('accountId', 'categoryId', 'importBatchId', 'externalId', 'fingerprint')"
+      );
+      expect(Number(columns[0]?.count)).toBe(5);
     } finally {
       await connection.end();
     }

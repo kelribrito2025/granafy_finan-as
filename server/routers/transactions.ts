@@ -12,6 +12,8 @@ const transactionValuesSchema = z.object({
   category: z.string().trim().min(2, "Informe a categoria").max(120),
   amount: z.number().finite().positive("O valor deve ser maior que zero").max(999_999_999_999.99),
   account: z.string().trim().min(1, "Informe a conta").max(80),
+  accountId: z.number().int().positive().nullable().optional(),
+  categoryId: z.number().int().positive().nullable().optional(),
   status: z.enum(["Pago", "Pendente"]),
   recurring: z.boolean().default(false),
 });
@@ -43,11 +45,32 @@ function toTransaction(record: TransactionRecord) {
     category: record.category,
     amount: Number(record.amount),
     account: record.account,
+    accountId: record.accountId,
+    categoryId: record.categoryId,
+    importBatchId: record.importBatchId,
     status: record.status,
     recurring: record.recurring,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
+}
+
+async function resolveTransactionOrganization(userId: number, input: z.infer<typeof transactionValuesSchema>) {
+  const normalized = { ...input };
+  if (input.accountId) {
+    const account = await db.getFinancialAccount(userId, input.accountId);
+    if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada ou inativa" });
+    normalized.account = account.name;
+  }
+  if (input.categoryId) {
+    const category = await db.getTransactionCategory(userId, input.categoryId);
+    if (!category?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Categoria não encontrada ou inativa" });
+    if (category.type !== "ambos" && category.type !== input.type) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "A categoria não é compatível com o tipo do lançamento" });
+    }
+    normalized.category = category.name;
+  }
+  return normalized;
 }
 
 function summarize(records: TransactionRecord[]) {
@@ -59,11 +82,13 @@ function summarize(records: TransactionRecord[]) {
 export const transactionsRouter = router({
   list: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
     const { start, end } = periodBounds(input.year, input.month);
-    const [records, previousRecords] = await Promise.all([
+    const [records, previousRecords, accounts] = await Promise.all([
       db.listTransactionsByPeriod(ctx.user.id, start, end),
       db.listTransactionsBefore(ctx.user.id, start),
+      db.listFinancialAccounts(ctx.user.id),
     ]);
-    const previousBalance = previousRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+    const initialBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
+    const previousBalance = initialBalance + previousRecords.reduce((sum, record) => sum + Number(record.amount), 0);
 
     return {
       items: records.map(toTransaction),
@@ -74,7 +99,10 @@ export const transactionsRouter = router({
   dashboard: protectedProcedure
     .input(z.object({ range: z.enum(["month", "quarter", "year"]).default("month") }).optional())
     .query(async ({ ctx, input }) => {
-    const records = await db.listAllTransactions(ctx.user.id);
+    const [records, accounts] = await Promise.all([
+      db.listAllTransactions(ctx.user.id),
+      db.listFinancialAccounts(ctx.user.id),
+    ]);
     const today = new Date();
     const year = today.getUTCFullYear();
     const month = today.getUTCMonth() + 1;
@@ -85,7 +113,7 @@ export const transactionsRouter = router({
     const end = endMonth === 13 ? `${year + 1}-01-01` : `${year}-${String(endMonth).padStart(2, "0")}-01`;
     const current = records.filter(record => record.transactionDate >= start && record.transactionDate < end);
     const currentSummary = summarize(current);
-    const paidBalance = records
+    const paidBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
       .filter(record => record.status === "Pago")
       .reduce((sum, record) => sum + Number(record.amount), 0);
     const pendingReceivable = records.filter(record => record.status === "Pendente" && Number(record.amount) > 0);
@@ -147,9 +175,10 @@ export const transactionsRouter = router({
   }),
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
+    const normalized = await resolveTransactionOrganization(ctx.user.id, input);
     const record = await db.createTransaction(ctx.user.id, {
-      ...input,
-      amount: signedAmount(input).toFixed(2),
+      ...normalized,
+      amount: signedAmount(normalized).toFixed(2),
     });
     if (!record) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
     return toTransaction(record);
@@ -159,9 +188,10 @@ export const transactionsRouter = router({
     const { id, ...values } = input;
     const existing = await db.getTransactionById(ctx.user.id, id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+    const normalized = await resolveTransactionOrganization(ctx.user.id, values);
     const record = await db.updateTransaction(ctx.user.id, id, {
-      ...values,
-      amount: signedAmount(values).toFixed(2),
+      ...normalized,
+      amount: signedAmount(normalized).toFixed(2),
     });
     if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
     return toTransaction(record);
@@ -178,6 +208,8 @@ export const transactionsRouter = router({
       category: existing.category,
       amount: existing.amount,
       account: existing.account,
+      accountId: existing.accountId,
+      categoryId: existing.categoryId,
       status: existing.status,
       recurring: existing.recurring,
     });
@@ -196,6 +228,8 @@ export const transactionsRouter = router({
       category: existing.category,
       amount: existing.amount,
       account: existing.account,
+      accountId: existing.accountId,
+      categoryId: existing.categoryId,
       status: existing.status === "Pago" ? "Pendente" : "Pago",
       recurring: existing.recurring,
     });

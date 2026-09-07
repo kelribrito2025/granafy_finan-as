@@ -17,9 +17,11 @@ import {
   SearchIcon,
   SettingsIcon,
   TrendUpIcon,
+  UploadIcon,
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -41,13 +43,21 @@ type Transaction = {
   category: string;
   amount: number;
   account: string;
+  accountId: number | null;
+  categoryId: number | null;
+  importBatchId: string | null;
   status: "Pago" | "Pendente";
   recurring: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
 
-type TransactionInput = Omit<Transaction, "id" | "createdAt" | "updatedAt"> & { amount: number };
+type TransactionInput = Omit<Transaction, "id" | "createdAt" | "updatedAt" | "importBatchId"> & { amount: number };
+
+type OrganizationOptions = {
+  accounts: Array<{ id: number; name: string; institution: string; color: string }>;
+  categories: Array<{ id: number; name: string; type: "entrada" | "saida" | "ambos"; color: string }>;
+};
 
 type ColumnKey = "type" | "date" | "description" | "recurring" | "contact" | "category" | "amount" | "account" | "status";
 
@@ -66,6 +76,10 @@ const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon },
   { label: "Relatórios", icon: ChartIcon },
   { label: "Clientes", icon: UsersIcon },
+];
+
+const organizationItems: NavItem[] = [
+  { label: "Contas e categorias", icon: SettingsIcon },
 ];
 
 const badgeClass = {
@@ -128,6 +142,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const select = (label: string) => {
     onClose();
     if (label === "Visão geral") setLocation("/");
+    else if (label === "Contas e categorias") setLocation("/organizacao");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };
 
@@ -142,6 +157,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         </div>
         <NavGroup title="Painel" items={panelItems} onSelect={select} />
         <NavGroup title="Análise" items={analysisItems} onSelect={select} />
+        <NavGroup title="Organização" items={organizationItems} onSelect={select} />
         <div className="mt-auto rounded-2xl bg-[#F1FBF6] p-3.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#0A7A42]">Banco conectado</span>
           <div className="mt-2 flex items-center gap-2 text-[12px] text-[#4C6355]"><span className="h-2 w-2 rounded-full bg-[#12B85C]" /><span>TiDB Cloud</span></div>
@@ -169,14 +185,16 @@ function SummaryCard({ label, value, tone, active, onClick }: { label: string; v
   );
 }
 
-function TransactionModal({ transaction, defaultDate, pending, onClose, onSave }: { transaction?: Transaction | null; defaultDate: string; pending: boolean; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
+function TransactionModal({ transaction, defaultDate, pending, options, onManageOrganization, onClose, onSave }: { transaction?: Transaction | null; defaultDate: string; pending: boolean; options: OrganizationOptions; onManageOrganization: () => void; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
   const [type, setType] = useState<Transaction["type"]>(transaction?.type ?? "entrada");
   const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? defaultDate);
   const [description, setDescription] = useState(transaction?.description ?? "");
   const [contact, setContact] = useState(transaction?.contact ?? "");
   const [category, setCategory] = useState(transaction?.category ?? "");
+  const [categoryId, setCategoryId] = useState<number | null>(transaction?.categoryId ?? null);
   const [amount, setAmount] = useState(transaction ? String(Math.abs(transaction.amount)).replace(".", ",") : "");
-  const [account, setAccount] = useState(transaction?.account ?? "Efi");
+  const [account, setAccount] = useState(transaction?.account ?? "");
+  const [accountId, setAccountId] = useState<number | null>(transaction?.accountId ?? null);
   const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
   const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
 
@@ -188,7 +206,8 @@ function TransactionModal({ transaction, defaultDate, pending, onClose, onSave }
       toast.error("Informe um valor válido");
       return;
     }
-    await onSave({ type, transactionDate, description, contact, category, amount: parsed, account, status, recurring });
+    if (!account || !category) return toast.error("Selecione uma conta e uma categoria");
+    await onSave({ type, transactionDate, description, contact, category, categoryId, amount: parsed, account, accountId, status, recurring });
   };
 
   return (
@@ -206,10 +225,11 @@ function TransactionModal({ transaction, defaultDate, pending, onClose, onSave }
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Data</span><input required type="date" value={transactionDate} onChange={event => setTransactionDate(event.target.value)} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Valor</span><div className="flex h-11 items-center rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C] focus-within:ring-4 focus-within:ring-[#12B85C]/10"><span className="mr-2 text-xs font-bold text-[#4C6355]">R$</span><input required inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00" className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none" /></div></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Contato</span><input value={contact} onChange={event => setContact(event.target.value)} placeholder="Fornecedor ou cliente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
-          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span><input required value={category} onChange={event => setCategory(event.target.value)} placeholder="Ex.: Receita recorrente" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
-          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Conta</span><input required value={account} onChange={event => setAccount(event.target.value)} placeholder="Ex.: Inter" className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]" /></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Categoria</span><select required value={categoryId ?? ""} onChange={event => { const id = Number(event.target.value); const selected = options.categories.find(item => item.id === id); setCategoryId(id || null); setCategory(selected?.name ?? ""); }} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option value="">Selecione</option>{options.categories.filter(item => item.type === "ambos" || item.type === type).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Conta</span><select required value={accountId ?? ""} onChange={event => { const id = Number(event.target.value); const selected = options.accounts.find(item => item.id === id); setAccountId(id || null); setAccount(selected?.name ?? ""); }} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option value="">Selecione</option>{options.accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#8A968D]">Status</span><select value={status} onChange={event => setStatus(event.target.value as Transaction["status"])} className="h-11 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[13px] outline-none focus:border-[#12B85C]"><option>Pago</option><option>Pendente</option></select></label>
           <label className="flex items-center gap-2.5 sm:col-span-2"><input type="checkbox" checked={recurring} onChange={event => setRecurring(event.target.checked)} className="h-4 w-4 accent-[#12B85C]" /><span className="text-[12.5px] font-semibold text-[#4C6355]">Lançamento recorrente</span></label>
+          {(options.accounts.length === 0 || options.categories.length === 0) && <button type="button" onClick={onManageOrganization} className="rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-left text-[11px] font-bold text-[#7A5A14] sm:col-span-2">Cadastre uma conta e uma categoria para continuar</button>}
         </div>
         <div className="mt-6 flex gap-2.5"><button type="button" onClick={onClose} className="flex-1 rounded-xl bg-[#F1F4F2] px-4 py-3 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">Cancelar</button><button type="submit" disabled={pending} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#12B85C] px-4 py-3 text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60"><CheckIcon size={15} />{pending ? "Salvando..." : "Salvar"}</button></div>
       </form>
@@ -231,17 +251,20 @@ export default function LancamentosPage() {
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set());
   const period = useMemo(() => ({ year: monthCursor.getFullYear(), month: monthCursor.getMonth() + 1 }), [monthCursor]);
   const utils = trpc.useUtils();
   const transactionsQuery = trpc.transactions.list.useQuery(period);
+  const organizationQuery = trpc.organization.options.useQuery();
+  const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [] };
   const transactions = (transactionsQuery.data?.items ?? EMPTY_TRANSACTIONS) as Transaction[];
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {
-    await Promise.all([utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate()]);
+    await Promise.all([utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate(), utils.organization.overview.invalidate()]);
   };
   const createMutation = trpc.transactions.create.useMutation({ onSuccess: refresh });
   const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });
@@ -354,6 +377,7 @@ export default function LancamentosPage() {
               <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}><ChevronRightIcon size={15} /></button>
             </div>
+            <button type="button" title="Importar OFX ou CSV" aria-label="Importar lançamentos" onClick={() => setImportOpen(true)} className={toolButton}><UploadIcon size={17} /></button>
             <button type="button" title="Exportar CSV" aria-label="Exportar lançamentos" onClick={exportTransactions} className={toolButton}><DownloadIcon size={17} /></button>
             <button type="button" title="Imprimir" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={`${toolButton} hidden sm:flex`}><DocumentIcon size={17} /></button>
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
@@ -399,7 +423,8 @@ export default function LancamentosPage() {
         </section>
       </div>
 
-      {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {importOpen && <ImportTransactionsModal onClose={() => setImportOpen(false)} onImported={refresh} onManageOrganization={() => setLocation("/organizacao")} />}
     </main>
   );
 }

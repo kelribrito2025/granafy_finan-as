@@ -4,6 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import AuthPage from "@/pages/AuthPage";
 import LancamentosPage from "@/pages/LancamentosPage";
 import NotFound from "@/pages/NotFound";
+import OrganizationPage from "@/pages/OrganizationPage";
 import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -46,6 +47,7 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
       <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
       <Route path="/"><ProtectedPage><Home /></ProtectedPage></Route>
       <Route path={"/404"} component={NotFound} />
