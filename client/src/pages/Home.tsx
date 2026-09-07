@@ -136,7 +136,7 @@ function NavGroup({
             onClick={() => onSelect(label)}
             className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[11px] text-left text-[13.5px] transition-all duration-150 active:scale-[0.98] ${
               selected
-                ? "bg-[#12B85C] font-bold text-white shadow-[0_8px_20px_rgba(18,184,92,.18)]"
+                ? "bg-[#12B85C] font-bold text-white"
                 : "text-[#28382E] hover:bg-[#F1FBF6]"
             }`}
           >
@@ -509,17 +509,17 @@ export default function Home() {
             <div className="flex min-w-0 flex-col gap-5">
               <div className="grid gap-5 sm:grid-cols-3">
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#DFF6EA]"><ArrowUpIcon size={17} className="text-[#0A7A42]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A receber</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA]"><ArrowUpIcon size={20} className="text-[#0A7A42]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A receber</span></div>
                   <strong className="text-[26px] tracking-[-0.02em] text-[#0A7A42]">R$ 42.180</strong>
                   <span className="text-xs text-[#8A968D]">12 títulos · 3 vencem hoje</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#FDECEA]"><ArrowDownIcon size={17} className="text-[#B3261E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A pagar</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#FDECEA]"><ArrowDownIcon size={20} className="text-[#B3261E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">A pagar</span></div>
                   <strong className="text-[26px] tracking-[-0.02em] text-[#B3261E]">R$ 27.640</strong>
                   <span className="text-xs font-semibold text-[#B3261E]">2 em atraso · R$ 4.180</span>
                 </article>
                 <article className="card-hover flex flex-col gap-3 rounded-[20px] bg-white p-5">
-                  <div className="flex items-center gap-2.5"><span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-[#F1F4F2]"><ChartIcon size={17} className="text-[#28382E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">Margem líquida</span></div>
+                  <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#F1F4F2]"><ChartIcon size={20} className="text-[#28382E]" /></span><span className="text-[12.5px] font-semibold text-[#4C6355]">Margem líquida</span></div>
                   <strong className="text-[26px] tracking-[-0.02em]">40,2%</strong>
                   <span className="text-xs font-semibold text-[#0A7A42]">+2,6 p.p. vs. agosto</span>
                 </article>

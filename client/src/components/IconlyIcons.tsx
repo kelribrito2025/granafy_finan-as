@@ -13,6 +13,7 @@ function IconShell({
 }: IconlyIconProps & { children: ReactNode }) {
   return (
     <svg
+      data-iconly-icon=""
       width={size}
       height={size}
       viewBox="0 0 48 48"

@@ -105,6 +105,10 @@ const columns: Array<{ key: ColumnKey; label: string }> = [
   { key: "status", label: "Status" },
 ];
 
+const defaultColumnVisibility = () => Object.fromEntries(
+  columns.map(column => [column.key, column.key !== "date"])
+) as Record<ColumnKey, boolean>;
+
 const monthLabels = ["Julho 2026", "Agosto 2026", "Setembro 2026", "Outubro 2026", "Novembro 2026"];
 
 function formatMoney(value: number) {
@@ -251,12 +255,13 @@ export default function LancamentosPage() {
   const [typeFilter, setTypeFilter] = useState<"todos" | Transaction["type"]>("todos");
   const [statusFilter, setStatusFilter] = useState<"todos" | Transaction["status"]>("todos");
   const [columnsOpen, setColumnsOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(() => Object.fromEntries(columns.map(column => [column.key, true])) as Record<ColumnKey, boolean>);
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(defaultColumnVisibility);
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set());
 
   const filtered = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -268,6 +273,21 @@ export default function LancamentosPage() {
 
   const visibleCount = Object.values(visibleColumns).filter(Boolean).length;
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
+  const groupedTransactions = useMemo(() => {
+    const groups = new Map<string, Transaction[]>();
+
+    filtered.forEach(transaction => {
+      const group = groups.get(transaction.date) ?? [];
+      group.push(transaction);
+      groups.set(transaction.date, group);
+    });
+
+    return Array.from(groups, ([date, items]) => ({
+      date,
+      items,
+      total: items.reduce((sum, transaction) => sum + transaction.amount, 0),
+    }));
+  }, [filtered]);
   const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
 
   const saveTransaction = (transaction: Transaction) => {
@@ -326,7 +346,7 @@ export default function LancamentosPage() {
             <button type="button" onClick={() => setFiltersOpen(value => !value)} className={`flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[12.5px] font-semibold ring-1 transition ${filtersOpen || typeFilter !== "todos" || statusFilter !== "todos" ? "bg-[#DFF6EA] text-[#0A7A42] ring-[#BDE8CF]" : "bg-white text-[#4C6355] ring-[#DFE6E1] hover:bg-[#F1FBF6]"}`}><FilterIcon size={16} />Filtrar</button>
             <label className="relative min-w-[210px] flex-1 sm:max-w-[310px]"><SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8A968D]" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar lançamento" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[12.5px] outline-none ring-1 ring-[#DFE6E1] placeholder:text-[#AAB4AD] focus:ring-2 focus:ring-[#12B85C]" /></label>
             <div className="relative ml-auto"><button type="button" aria-label="Configurar colunas" onClick={() => setColumnsOpen(value => !value)} className={toolButton}><SettingsIcon size={17} /></button>
-              {columnsOpen && <div className="popover-enter absolute right-0 top-12 z-40 w-[290px] rounded-[18px] bg-white p-4 shadow-[0_22px_60px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><div className="flex items-center"><strong className="text-[14px]">Colunas</strong><span className="ml-auto text-[12px] font-semibold text-[#8A968D]">{visibleCount} de {columns.length}</span></div><div className="mt-3 space-y-1">{columns.map(column => <button key={column.key} type="button" onClick={() => setVisibleColumns(current => ({ ...current, [column.key]: !current[column.key] }))} className="flex w-full items-center gap-3 rounded-[11px] px-2.5 py-2 text-left text-[12.5px] hover:bg-[#F1FBF6]"><span className="grid h-5 w-3 grid-cols-2 gap-[2px]">{Array.from({ length: 6 }).map((_, index) => <i key={index} className="h-[3px] w-[3px] rounded-full bg-[#AAB4AD]" />)}</span><span className="flex-1">{column.label}</span><span className={`flex h-5 w-5 items-center justify-center rounded-md ${visibleColumns[column.key] ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#F1F4F2] text-[#AAB4AD]"}`}>{visibleColumns[column.key] ? <CheckIcon size={13} /> : "—"}</span></button>)}</div><button type="button" onClick={() => setVisibleColumns(Object.fromEntries(columns.map(column => [column.key, true])) as Record<ColumnKey, boolean>)} className="mt-3 w-full rounded-xl bg-[#F1F4F2] px-3 py-2.5 text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Restaurar padrão</button></div>}
+              {columnsOpen && <div className="popover-enter absolute right-0 top-12 z-40 w-[290px] rounded-[18px] bg-white p-4 shadow-[0_22px_60px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><div className="flex items-center"><strong className="text-[14px]">Colunas</strong><span className="ml-auto text-[12px] font-semibold text-[#8A968D]">{visibleCount} de {columns.length}</span></div><div className="mt-3 space-y-1">{columns.map(column => <button key={column.key} type="button" onClick={() => setVisibleColumns(current => ({ ...current, [column.key]: !current[column.key] }))} className="flex w-full items-center gap-3 rounded-[11px] px-2.5 py-2 text-left text-[12.5px] hover:bg-[#F1FBF6]"><span className="grid h-5 w-3 grid-cols-2 gap-[2px]">{Array.from({ length: 6 }).map((_, index) => <i key={index} className="h-[3px] w-[3px] rounded-full bg-[#AAB4AD]" />)}</span><span className="flex-1">{column.label}</span><span className={`flex h-5 w-5 items-center justify-center rounded-md ${visibleColumns[column.key] ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#F1F4F2] text-[#AAB4AD]"}`}>{visibleColumns[column.key] ? <CheckIcon size={13} /> : "—"}</span></button>)}</div><button type="button" onClick={() => setVisibleColumns(defaultColumnVisibility())} className="mt-3 w-full rounded-xl bg-[#F1F4F2] px-3 py-2.5 text-[12px] font-semibold text-[#4C6355] hover:bg-[#E8EEEA]">Restaurar padrão</button></div>}
             </div>
           </section>
 
@@ -343,7 +363,34 @@ export default function LancamentosPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1060px] border-collapse text-left">
                 <thead><tr className="border-b border-[#E8EEEA] text-[10.5px] font-semibold uppercase tracking-[.045em] text-[#8A968D]"><th className="w-12 px-4 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? selected.filter(id => !filtered.some(item => item.id === id)) : Array.from(new Set([...selected, ...filtered.map(item => item.id)])))} className="h-4 w-4 accent-[#12B85C]" /></th>{visibleColumns.type && <th className="w-14 py-3">Tipo</th>}{visibleColumns.date && <th className="w-20 py-3">Data</th>}{visibleColumns.description && <th className="min-w-[210px] py-3">Descrição</th>}{visibleColumns.recurring && <th className="w-24 py-3 text-center">Recorr.</th>}{visibleColumns.contact && <th className="min-w-[130px] py-3">Contato</th>}{visibleColumns.category && <th className="min-w-[180px] py-3">Categoria</th>}{visibleColumns.amount && <th className="w-32 py-3 text-right">Valor</th>}{visibleColumns.account && <th className="w-20 py-3 text-center">Conta</th>}{visibleColumns.status && <th className="w-20 py-3 text-center">Status</th>}<th className="w-14 py-3 pr-3" /></tr></thead>
-                <tbody>{filtered.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><input aria-label={`Selecionar ${transaction.description}`} type="checkbox" checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} className="h-4 w-4 accent-[#12B85C]" /></td>{visibleColumns.type && <td className="py-2.5"><span title={transaction.type === "entrada" ? "Entrada" : "Saída"} className={`flex h-7 w-7 items-center justify-center rounded-[9px] ${transaction.type === "entrada" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}>{transaction.type === "entrada" ? <ArrowUpIcon size={14} /> : <ArrowDownIcon size={14} />}</span></td>}{visibleColumns.date && <td className="py-2.5 text-[#607067]">{transaction.date}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title="Recorrente" className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F1F4F2] text-[18px] text-[#718077]">↻</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction.id)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>)}</tbody>
+                <tbody>{groupedTransactions.flatMap(group => [
+                  <tr key={`group-${group.date}`}>
+                    <td colSpan={visibleCount + 2} className="border-b border-[#DDE5E0] bg-[#EDF2EF] p-0">
+                      <button
+                        type="button"
+                        aria-label={`${collapsedDates.has(group.date) ? "Expandir" : "Recolher"} lançamentos de ${group.date}`}
+                        aria-expanded={!collapsedDates.has(group.date)}
+                        onClick={() => setCollapsedDates(current => {
+                          const next = new Set(current);
+                          if (next.has(group.date)) next.delete(group.date);
+                          else next.add(group.date);
+                          return next;
+                        })}
+                        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12.5px] text-[#28382E] transition hover:bg-[#E5ECE7]"
+                      >
+                        <ChevronRightIcon size={16} className={`transition-transform ${collapsedDates.has(group.date) ? "" : "rotate-90"}`} />
+                        <strong className="text-[13px]">{group.date}</strong>
+                        <span className="rounded-md bg-white/75 px-2 py-0.5 text-[10.5px] font-semibold text-[#718077]">
+                          {group.items.length} lançamento{group.items.length === 1 ? "" : "s"}
+                        </span>
+                        <span className="ml-auto text-[10.5px] font-medium text-[#718077]">
+                          Total do dia <strong className={group.total >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}>{formatMoney(group.total)}</strong>
+                        </span>
+                      </button>
+                    </td>
+                  </tr>,
+                  ...(!collapsedDates.has(group.date) ? group.items.map(transaction => <tr key={transaction.id} className={`border-b border-[#EDF1EE] text-[12.5px] transition hover:bg-[#F8FBF9] ${selected.includes(transaction.id) ? "bg-[#F1FBF6]" : ""}`}><td className="px-4 py-2.5"><input aria-label={`Selecionar ${transaction.description}`} type="checkbox" checked={selected.includes(transaction.id)} onChange={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])} className="h-4 w-4 accent-[#12B85C]" /></td>{visibleColumns.type && <td className="py-2.5"><span title={transaction.type === "entrada" ? "Entrada" : "Saída"} className={`flex h-7 w-7 items-center justify-center rounded-[9px] ${transaction.type === "entrada" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}>{transaction.type === "entrada" ? <ArrowUpIcon size={14} /> : <ArrowDownIcon size={14} />}</span></td>}{visibleColumns.date && <td className="py-2.5 text-[#607067]">{transaction.date}</td>}{visibleColumns.description && <td className="max-w-[240px] truncate py-2.5 pr-4 font-semibold">{transaction.description}</td>}{visibleColumns.recurring && <td className="py-2.5 text-center">{transaction.recurring ? <span title="Recorrente" className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#F1F4F2] text-[18px] text-[#718077]">↻</span> : <span className="text-[#CDD4CF]">—</span>}</td>}{visibleColumns.contact && <td className="max-w-[150px] truncate py-2.5 pr-4 text-[#607067]">{transaction.contact}</td>}{visibleColumns.category && <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{transaction.category}</td>}{visibleColumns.amount && <td className={`py-2.5 text-right font-bold ${transaction.amount > 0 ? "text-[#0A7A42]" : "text-[#17241C]"}`}>{formatMoney(transaction.amount)}</td>}{visibleColumns.account && <td className="py-2.5 text-center"><AccountBadge account={transaction.account} /></td>}{visibleColumns.status && <td className="py-2.5 text-center"><button type="button" title={transaction.status} aria-label={`${transaction.status}: alterar status`} onClick={() => markPaid(transaction)} className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] ${transaction.status === "Pago" ? "bg-[#EAF8F0] text-[#12B85C]" : "bg-[#FFF5DD] text-[#B87500]"}`}><CheckIcon size={16} /></button></td>}<td className="relative py-2.5 pr-3 text-right"><button type="button" aria-label={`Ações de ${transaction.description}`} onClick={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#718077] hover:bg-[#F1F4F2]"><MenuIcon size={16} /></button>{actionOpen === transaction.id && <div className="popover-enter absolute right-3 top-10 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]"><button type="button" onClick={() => duplicate(transaction)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button><button type="button" onClick={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button><button type="button" onClick={() => remove(transaction.id)} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button></div>}</td></tr>) : []),
+                ])}</tbody>
               </table>
               {filtered.length === 0 && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><SearchIcon size={28} className="text-[#AAB4AD]" /><strong className="mt-3 text-[14px]">Nenhum lançamento encontrado</strong><span className="mt-1 text-[12px] text-[#8A968D]">Ajuste a busca ou limpe os filtros.</span></div>}
             </div>

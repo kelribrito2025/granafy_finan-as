@@ -106,6 +106,24 @@
     box-shadow: none !important;
   }
 
+  button > svg[data-iconly-icon],
+  [role="button"] > svg[data-iconly-icon],
+  [data-slot="button"] > svg[data-iconly-icon] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  svg[data-iconly-icon][width="13"],
+  svg[data-iconly-icon][width="14"],
+  svg[data-iconly-icon][width="15"],
+  svg[data-iconly-icon][width="16"],
+  svg[data-iconly-icon][width="17"],
+  svg[data-iconly-icon][width="18"] {
+    width: 20px;
+    height: 20px;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
