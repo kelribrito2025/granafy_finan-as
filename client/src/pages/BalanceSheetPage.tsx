@@ -39,6 +39,13 @@ import {
 } from "@/lib/period";
 import { trpc } from "@/lib/trpc";
 import {
+  buildMovementRow,
+  monthKeyOf,
+  monthLabel,
+  monthlyDepreciationOf,
+  contributionsOf,
+} from "@/lib/patrimonyMovement";
+import {
   ASSET_CATEGORIES,
   ASSET_CATEGORY_LABELS,
   DEPRECIABLE_CATEGORIES,
@@ -111,6 +118,9 @@ type OrganizationOptions = {
   costCenters: Array<{ id: number; name: string }>;
 };
 type Tab = "overview" | "assets" | "liabilities" | "evolution";
+type EvolutionRange = "12" | "24" | "tudo";
+/** Colunas da movimentação. Uma constante para cabeçalho e linhas não desalinharem. */
+const MOVEMENT_GRID = "grid grid-cols-[86px_minmax(0,1fr)_116px_116px_124px_28px] gap-3";
 type StatementRow = { label: string; value: number; hint?: string };
 type StatementSection = { title: string; total: number; rows: StatementRow[] };
 
@@ -747,40 +757,61 @@ function SnapshotModal({ pending, onClose, onSave }: {
   );
 }
 
-function EvolutionChart({ history }: { history: Array<{ referenceDate: string; netWorth: number }> }) {
+type EvolutionPoint = { referenceDate: string; netWorth: number };
+
+/**
+ * Área + linha sobre o cartão escuro, no formato do modelo. Um ponto só não
+ * desenha linha: dois pixels ligados por nada sugeririam uma tendência que o
+ * histórico ainda não tem.
+ */
+function EvolutionChart({ points }: { points: EvolutionPoint[] }) {
   const chart = useMemo(() => {
-    if (!history.length) return null;
-    const values = history.map(item => item.netWorth);
-    let min = Math.min(...values, 0);
-    let max = Math.max(...values, 0);
-    if (min === max) { min -= 1; max += 1; }
-    const width = 680;
-    const height = 210;
-    const horizontalPadding = 34;
-    const verticalPadding = 28;
-    const points = history.map((item, index) => {
-      const x = history.length === 1
-        ? width / 2
-        : horizontalPadding + index * ((width - horizontalPadding * 2) / (history.length - 1));
-      const y = verticalPadding + (max - item.netWorth) * ((height - verticalPadding * 2) / (max - min));
-      return { ...item, x, y };
-    });
-    const zeroY = verticalPadding + max * ((height - verticalPadding * 2) / (max - min));
-    return { points, zeroY, width, height };
-  }, [history]);
+    if (points.length === 0) return null;
+    const width = 720;
+    const height = 190;
+    const topPadding = 22;
+    const values = points.map(point => point.netWorth);
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    if (min === max) {
+      // Série plana: centraliza em vez de dividir por zero.
+      min -= Math.max(1, Math.abs(min) * 0.1);
+      max += Math.max(1, Math.abs(max) * 0.1);
+    }
+    const plotted = points.map((point, index) => ({
+      ...point,
+      x: points.length === 1 ? width / 2 : (index * width) / (points.length - 1),
+      y: height - ((point.netWorth - min) / (max - min)) * (height - topPadding),
+    }));
+    return { width, height, plotted };
+  }, [points]);
+
   if (!chart) return null;
+  const line = chart.plotted.map(point => `${point.x},${point.y}`).join(" ");
+  const last = chart.plotted[chart.plotted.length - 1];
+
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${chart.width} ${chart.height}`} className="min-w-[620px]" role="img" aria-label="Evolução do patrimônio líquido">
-        <defs><linearGradient id="patrimony-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#12B85C" stopOpacity=".24" /><stop offset="1" stopColor="#12B85C" stopOpacity="0" /></linearGradient></defs>
-        <line x1="34" x2="646" y1={chart.zeroY} y2={chart.zeroY} stroke="#D9E3DC" strokeDasharray="5 5" />
-        {chart.points.length > 1 && <polygon points={`${chart.points.map(point => `${point.x},${point.y}`).join(" ")} ${chart.points.at(-1)?.x},182 ${chart.points[0].x},182`} fill="url(#patrimony-area)" />}
-        {chart.points.length > 1 && <polyline points={chart.points.map(point => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#12B85C" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
-        {chart.points.map(point => <g key={point.referenceDate}><circle cx={point.x} cy={point.y} r="6" fill="white" stroke="#12B85C" strokeWidth="4" /><text x={point.x} y="202" textAnchor="middle" fontSize="10" fill="#718077">{formatDate(point.referenceDate).slice(0, 5)}</text></g>)}
+    <div className="relative h-[190px] border-b border-[#1F3D2B]">
+      <svg
+        viewBox={`0 0 ${chart.width} ${chart.height}`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        role="img"
+        aria-label="Evolução do patrimônio líquido"
+      >
+        {[47, 95, 143].map(y => <line key={y} x1="0" y1={y} x2={chart.width} y2={y} stroke="#1F3D2B" strokeWidth="1" />)}
+        {chart.plotted.length > 1 && (
+          <>
+            <polygon points={`${line} ${chart.width},${chart.height} 0,${chart.height}`} fill="#12B85C" opacity=".16" />
+            <polyline points={line} fill="none" stroke="#12B85C" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+          </>
+        )}
+        <circle cx={last.x} cy={last.y} r="5" fill="#7EE2A8" />
       </svg>
     </div>
   );
 }
+
 
 function ItemList({ items, emptyTitle, emptyText, onCreate, onEdit, onToggle, onDelete }: {
   items: PatrimonialItem[];
@@ -896,6 +927,7 @@ export default function BalanceSheetPage() {
   const [period, setPeriod] = useState<Period>("mensal");
   const [itemModal, setItemModal] = useState(false);
   const [snapshotModal, setSnapshotModal] = useState(false);
+  const [evolutionRange, setEvolutionRange] = useState<EvolutionRange>("12");
   const [editingItem, setEditingItem] = useState<PatrimonialItem | null>(null);
   const [newItemGroup, setNewItemGroup] = useState<BalanceGroup>("ativo_nao_circulante");
   const utils = trpc.useUtils();
@@ -1033,6 +1065,82 @@ export default function BalanceSheetPage() {
   const liabilitiesCaption = summary?.debtRatio == null
     ? "Obrigações de curto e longo prazo"
     : `${formatPercent(summary.debtRatio)} do ativo`;
+
+  // A janela do gráfico e das métricas. "Tudo" não corta nada.
+  const evolution = useMemo(() => {
+    const history = data?.history ?? [];
+    const months = evolutionRange === "tudo" ? null : Number(evolutionRange);
+    const cutoff = months
+      ? new Date(Date.UTC(
+          Number(referenceDate.slice(0, 4)),
+          Number(referenceDate.slice(5, 7)) - 1 - months,
+          Number(referenceDate.slice(8, 10))
+        )).toISOString().slice(0, 10)
+      : null;
+    const points = cutoff ? history.filter(snapshot => snapshot.referenceDate >= cutoff) : history;
+
+    const movementItems = activeItems
+      .filter(item => item.balanceGroup.startsWith("ativo_"))
+      .map(item => ({
+        name: item.name,
+        isActive: item.isActive,
+        acquisitionDate: item.acquisitionDate,
+        acquisitionValueNumber: item.acquisitionValueNumber,
+        residualValueNumber: item.residualValueNumber,
+        usefulLifeMonths: item.usefulLifeMonths,
+        valuationMethod: item.valuationMethod,
+      }));
+
+    // Os meses da janela, do mais antigo até a referência. Sem corte de data
+    // ("Tudo") a janela precisa alcançar a aquisição mais antiga: começar no
+    // primeiro fechamento fazia "Tudo" somar menos aportes que "12 meses",
+    // porque um bem comprado antes do primeiro fechamento ficava de fora.
+    const monthsInRange: string[] = [];
+    const earliestAcquisition = movementItems
+      .map(item => item.acquisitionDate)
+      .filter((date): date is string => Boolean(date))
+      .sort()[0];
+    const start = cutoff
+      ?? [points[0]?.referenceDate, earliestAcquisition]
+        .filter((date): date is string => Boolean(date))
+        .sort()[0]
+      ?? referenceDate;
+    let cursor = monthKeyOf(start);
+    const end = monthKeyOf(referenceDate);
+    for (let guard = 0; guard < 600 && cursor <= end; guard += 1) {
+      monthsInRange.push(cursor);
+      const [year, month] = cursor.split("-").map(Number);
+      cursor = month === 12
+        ? `${year + 1}-01`
+        : `${year}-${String(month + 1).padStart(2, "0")}`;
+    }
+
+    const oldest = points.length > 1 ? points[0].netWorth : null;
+    return {
+      points,
+      growth: oldest ? ((totals.netWorth - oldest) / Math.abs(oldest)) * 100 : null,
+      growthSince: points.length > 1 ? points[0].referenceDate : null,
+      contributions: monthsInRange.reduce((sum, key) => sum + contributionsOf(movementItems, key), 0),
+      depreciation: monthsInRange.reduce(
+        (sum, key) => sum + movementItems.reduce((inner, item) => inner + monthlyDepreciationOf(item, key), 0),
+        0
+      ),
+      assetCount: movementItems.length,
+      movementItems,
+    };
+  }, [activeItems, data?.history, evolutionRange, referenceDate, totals.netWorth]);
+
+  // Cada fechamento salvo vira uma linha, do mais recente para o mais antigo.
+  const movementRows = useMemo(
+    () => (data?.history ?? [])
+      .slice()
+      .reverse()
+      .map(snapshot => ({
+        ...buildMovementRow(evolution.movementItems, monthKeyOf(snapshot.referenceDate)),
+        snapshot,
+      })),
+    [data?.history, evolution.movementItems]
+  );
 
   const exportBalanceSheet = () => {
     const reference = referenceDate;
@@ -1251,7 +1359,151 @@ export default function BalanceSheetPage() {
 
               {(tab === "assets" || tab === "liabilities") && <section className="min-h-[430px] flex-1 rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="mb-4 flex items-center"><div><h2 className="text-[15px] font-bold">{tab === "assets" ? "Bens e direitos da empresa" : "Obrigações e patrimônio líquido"}</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">{tab === "assets" ? "Ativos circulantes, imobilizados, estoques e investimentos" : "Dívidas de curto e longo prazo, capital e ajustes"}</p></div><span className="ml-auto rounded-lg bg-[#F1F4F2] px-2.5 py-1 text-[10.5px] font-bold text-[#607067]">{tab === "assets" ? assetItems.length : liabilityItems.length} {(tab === "assets" ? assetItems.length : liabilityItems.length) === 1 ? "cadastrado" : "cadastrados"}</span></div><ItemList items={tab === "assets" ? assetItems : liabilityItems} emptyTitle={tab === "assets" ? "Nenhum bem ou direito cadastrado" : "Nenhuma obrigação ou linha de PL"} emptyText={tab === "assets" ? "Cadastre imóveis, veículos, equipamentos, estoque, investimentos e outros bens da empresa." : "Cadastre fornecedores, empréstimos, financiamentos, capital social e ajustes patrimoniais."} onCreate={() => openNew(tab === "assets" ? "ativo_nao_circulante" : "passivo_circulante")} onEdit={openEdit} onToggle={item => toggleItem.mutate({ id: item.id })} onDelete={handleDelete} /></section>}
 
-              {tab === "evolution" && <section className="grid flex-1 gap-4 2xl:grid-cols-[1fr_360px]"><article className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="flex items-start"><div><h2 className="text-[15px] font-bold">Evolução do patrimônio líquido</h2><p className="mt-0.5 text-[11.5px] text-[#8A968D]">Ativos menos passivos em cada posição registrada</p></div><span className="ml-auto rounded-lg bg-[#DFF6EA] px-2.5 py-1 text-[10px] font-bold text-[#0A7A42]">{data?.history.length ?? 0} {(data?.history.length ?? 0) === 1 ? "posição" : "posições"}</span></div>{(data?.history.length ?? 0) === 0 ? <div className="flex min-h-[340px] flex-col items-center justify-center text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><ChartIcon size={23} /></span><strong className="mt-3 text-[14px]">A evolução começa no primeiro fechamento</strong><p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">Registre a posição atual para criar o primeiro ponto real do histórico patrimonial.</p><button type="button" onClick={() => setSnapshotModal(true)} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white">Registrar primeira posição</button></div> : <div className="mt-5"><EvolutionChart history={data?.history ?? []} /><div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#EDF1EE] pt-4"><div><span className="text-[10px] text-[#8A968D]">Primeira posição</span><strong className="mt-1 block text-[13px]">{formatMoney(data?.history[0]?.netWorth ?? 0)}</strong></div><div><span className="text-[10px] text-[#8A968D]">Posição mais recente</span><strong className="mt-1 block text-[13px] text-[#0A7A42]">{formatMoney(data?.history.at(-1)?.netWorth ?? 0)}</strong></div></div></div>}</article><aside className="rounded-[20px] bg-white p-4 ring-1 ring-[#E1E8E3] sm:p-5"><div className="flex items-center"><h2 className="text-[14px] font-bold">Fechamentos</h2><button type="button" onClick={() => setSnapshotModal(true)} className="ml-auto text-[11px] font-bold text-[#0A7A42]">Adicionar</button></div><div className="mt-4 space-y-2">{data?.history.slice().reverse().map(snapshot => <div key={snapshot.id} className="rounded-[14px] bg-[#F8FAF9] p-3"><div className="flex items-start"><div><strong className="block text-[12px]">{formatDate(snapshot.referenceDate)}</strong><span className="mt-0.5 block text-[10px] text-[#8A968D]">{snapshot.itemCount} {snapshot.itemCount === 1 ? "item" : "itens"} no fechamento</span></div><button type="button" aria-label={`Excluir posição de ${formatDate(snapshot.referenceDate)}`} onClick={async () => { if (!window.confirm("Excluir esta posição histórica?")) return; await deleteSnapshot.mutateAsync({ id: snapshot.id }); toast.success("Posição removida"); }} className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg bg-[#FDECEA] text-[#B3261E]"><DeleteIcon size={12} /></button></div><div className="mt-3 grid grid-cols-2 gap-2"><span className="text-[9.5px] text-[#718077]">Ativos <b className="block text-[10.5px] text-[#0A7A42]">{formatMoney(snapshot.totalAssets)}</b></span><span className="text-[9.5px] text-[#718077]">Patrimônio <b className={`block text-[10.5px] ${snapshot.netWorth >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(snapshot.netWorth)}</b></span></div></div>)}{(data?.history.length ?? 0) === 0 && <p className="rounded-xl bg-[#F8FAF9] p-3 text-[11px] leading-relaxed text-[#8A968D]">Nenhuma posição registrada até o momento.</p>}</div></aside></section>}
+              {tab === "evolution" && (
+                <section className="flex flex-1 flex-col gap-5">
+                  <article className="flex flex-col gap-[18px] rounded-[20px] bg-[#0B1F14] p-6 text-white">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8FB39E]">
+                          Evolução do patrimônio líquido
+                        </span>
+                        <strong className="mt-1 block text-[34px] font-bold leading-[1.1] tracking-[-.03em]">
+                          {formatMoney(totals.netWorth)}
+                        </strong>
+                      </div>
+                      <div className="ml-auto flex items-center gap-1.5 rounded-[12px] bg-[#12321F] p-1.5">
+                        {(["12", "24", "tudo"] as const).map(value => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setEvolutionRange(value)}
+                            aria-pressed={evolutionRange === value}
+                            className={`rounded-[9px] px-3 py-1.5 text-[12.5px] transition ${
+                              evolutionRange === value ? "bg-[#12B85C] font-bold text-white" : "text-[#A9CBBA] hover:bg-[#1A4229]"
+                            }`}
+                          >
+                            {value === "tudo" ? "Tudo" : `${value} meses`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-8 gap-y-4">
+                      <div>
+                        <span className="block text-[11px] text-[#8FB39E]">
+                          {evolution.growthSince ? `Crescimento desde ${formatDate(evolution.growthSince)}` : "Crescimento"}
+                        </span>
+                        <strong className={`mt-0.5 block text-[17px] font-bold ${evolution.growth == null ? "text-white" : evolution.growth >= 0 ? "text-[#7EE2A8]" : "text-[#F4A497]"}`}>
+                          {evolution.growth == null ? "—" : formatSignedPercent(evolution.growth)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-[#8FB39E]">Aporte de bens</span>
+                        <strong className="mt-0.5 block text-[17px] font-bold">{formatMoney(evolution.contributions)}</strong>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-[#8FB39E]">Depreciação no período</span>
+                        <strong className={`mt-0.5 block text-[17px] font-bold ${evolution.depreciation > 0 ? "text-[#F4A497]" : "text-white"}`}>
+                          {evolution.depreciation > 0 ? `− ${formatMoney(evolution.depreciation)}` : formatMoney(0)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-[#8FB39E]">Itens no imobilizado</span>
+                        <strong className="mt-0.5 block text-[17px] font-bold">{evolution.assetCount}</strong>
+                      </div>
+                    </div>
+
+                    {evolution.points.length === 0 ? (
+                      <div className="flex min-h-[190px] flex-col items-center justify-center rounded-[14px] border border-dashed border-[#1F3D2B] px-6 text-center">
+                        <strong className="text-[14px]">A evolução começa no primeiro fechamento</strong>
+                        <p className="mt-1 max-w-[400px] text-[12px] leading-relaxed text-[#C5DACE]">
+                          Registre a posição atual para criar o primeiro ponto real do histórico. O gráfico só usa posições que você salvou.
+                        </p>
+                        <button type="button" onClick={() => setSnapshotModal(true)} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12.5px] font-bold text-white hover:bg-[#0F9E4E]">
+                          Registrar primeira posição
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <EvolutionChart points={evolution.points} />
+                        <div className="flex text-[11.5px] text-[#8FB39E]">
+                          {evolution.points.map((point, index) => (
+                            <span
+                              key={point.referenceDate}
+                              className={`flex-1 ${index === evolution.points.length - 1 ? "text-right font-semibold text-white" : ""}`}
+                            >
+                              {monthLabel(monthKeyOf(point.referenceDate))}
+                            </span>
+                          ))}
+                        </div>
+                        {evolution.points.length === 1 && (
+                          <p className="text-[11.5px] text-[#C5DACE]">
+                            Um único fechamento salvo: a linha aparece a partir do segundo.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </article>
+
+                  <article className="flex flex-1 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-[15px] font-bold">Movimentação do patrimônio</h2>
+                      <button type="button" onClick={() => setSnapshotModal(true)} className="ml-auto text-[12.5px] font-semibold text-[#0A7A42] hover:underline">
+                        Registrar posição
+                      </button>
+                    </div>
+
+                    {movementRows.length === 0 ? (
+                      <p className="rounded-[14px] bg-[#F8FAF9] p-4 text-[12px] leading-relaxed text-[#8A968D]">
+                        Nenhum fechamento registrado até o momento. Cada posição salva vira uma linha aqui.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <div className="min-w-[680px]">
+                          <div className={`${MOVEMENT_GRID} border-b border-[#F1F4F2] px-3 pb-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]`}>
+                            <span>Mês</span>
+                            <span>Principal movimento</span>
+                            <span className="text-right">Aportes</span>
+                            <span className="text-right">Depreciação</span>
+                            <span className="text-right">Patrimônio</span>
+                            <span />
+                          </div>
+                          <div className="flex flex-col gap-1 pt-1">
+                            {movementRows.map((row, index) => (
+                              <div key={row.snapshot.id} className={`${MOVEMENT_GRID} items-center rounded-[14px] px-3 py-2.5 text-[13.5px] ${index === 0 ? "bg-[#F1FBF6]" : "bg-[#F8FAF9]"}`}>
+                                <span className={index === 0 ? "font-bold text-[#0A7A42]" : "text-[#8A968D]"}>{row.label}</span>
+                                <span className={`truncate ${index === 0 ? "font-semibold text-[#0A7A42]" : ""}`} title={row.movement}>{row.movement}</span>
+                                <span className={`text-right font-semibold ${row.contributions > 0 ? (index === 0 ? "text-[#0A7A42]" : "") : "text-[#8A968D]"}`}>
+                                  {row.contributions > 0 ? `+ ${formatDecimal(row.contributions)}` : "—"}
+                                </span>
+                                <span className={`text-right ${row.depreciation > 0 ? "text-[#B3261E]" : "text-[#8A968D]"}`}>
+                                  {row.depreciation > 0 ? formatDecimal(row.depreciation) : "—"}
+                                </span>
+                                <span className={`text-right font-bold ${index === 0 ? "text-[#0A7A42]" : ""}`}>{formatDecimal(row.snapshot.netWorth)}</span>
+                                <button
+                                  type="button"
+                                  aria-label={`Excluir fechamento de ${formatDate(row.snapshot.referenceDate)}`}
+                                  onClick={async () => {
+                                    if (!window.confirm(`Excluir o fechamento de ${formatDate(row.snapshot.referenceDate)}? Os bens e obrigações não são afetados.`)) return;
+                                    await deleteSnapshot.mutateAsync({ id: row.snapshot.id });
+                                    toast.success("Fechamento removido");
+                                  }}
+                                  className="flex h-7 w-7 items-center justify-center justify-self-end rounded-lg text-[#B3BFB7] hover:bg-[#FDECEA] hover:text-[#B3261E]"
+                                >
+                                  <DeleteIcon size={14} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-[11px] leading-relaxed text-[#8A968D]">
+                      Aportes e depreciação são calculados a partir das datas de aquisição e da vida útil dos bens. O patrimônio é o valor salvo em cada fechamento.
+                    </p>
+                  </article>
+                </section>
+              )}
             </>
           )}
         </section>
