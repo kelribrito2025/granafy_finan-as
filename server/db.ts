@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
@@ -52,6 +52,15 @@ function createTiDbClient(databaseUrl: string) {
     },
     connectionLimit: 10,
     enableKeepAlive: true,
+    /*
+     * O TiDB fica em us-east-1 e cada conexão nova paga um handshake TLS de
+     * ida e volta. Com o padrão de 60 s de ocioso, quem voltasse à tela depois
+     * de um minuto pagava esse handshake de novo, uma vez por consulta em
+     * paralelo. Meia hora de ocioso mantém o pool quente sem segurar conexão à
+     * toa — o keep-alive acima cuida de derrubar a que morreu do outro lado.
+     */
+    idleTimeout: 30 * 60_000,
+    maxIdle: 10,
   });
 
   return drizzle(pool);
@@ -439,7 +448,7 @@ export async function listFinancialAccounts(userId: number) {
  * carregar os 8 mil lançamentos só para somá-los em memória seria caro por
  * navegação — um GROUP BY devolve uma linha por conta.
  */
-export async function getAccountBalances(userId: number) {
+export async function getAccountBalances(userId: number, throughDate?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
@@ -451,11 +460,31 @@ export async function getAccountBalances(userId: number) {
     .where(and(
       eq(financialTransactions.userId, userId),
       eq(financialTransactions.status, "Pago"),
-      isNotNull(financialTransactions.accountId)
+      isNotNull(financialTransactions.accountId),
+      ...(throughDate ? [lte(financialTransactions.transactionDate, throughDate)] : [])
     ))
     .groupBy(financialTransactions.accountId);
 
   return new Map(rows.map(row => [Number(row.accountId), Number(row.total ?? 0)]));
+}
+
+/**
+ * A soma de tudo que veio antes de `date`, para o saldo anterior do extrato.
+ *
+ * Existe porque a alternativa era baixar o razão inteiro só para somar uma
+ * coluna: no maior usuário são 5.850 linhas para produzir um número.
+ */
+export async function sumTransactionsBefore(userId: number, date: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({ total: sql<string>`SUM(${financialTransactions.amount})` })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      lt(financialTransactions.transactionDate, date)
+    ));
+  return Number(row?.total ?? 0);
 }
 
 export async function getFinancialAccount(userId: number, id: number) {

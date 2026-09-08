@@ -332,13 +332,14 @@ const bulkUpdateChangesSchema = z.object({
 export const transactionsRouter = router({
   list: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
     const { start, end } = periodBounds(input.year, input.month);
-    const [records, previousRecords, accounts] = await Promise.all([
+    const [records, previousTotal, accounts] = await Promise.all([
       db.listTransactionsByPeriod(ctx.user.id, start, end),
-      db.listTransactionsBefore(ctx.user.id, start),
+      // Só o total interessa aqui; a lista inteira era baixada para somar uma coluna.
+      db.sumTransactionsBefore(ctx.user.id, start),
       db.listFinancialAccounts(ctx.user.id),
     ]);
     const initialBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
-    const previousBalance = initialBalance + previousRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+    const previousBalance = initialBalance + previousTotal;
 
     return {
       items: records.map(toTransaction),

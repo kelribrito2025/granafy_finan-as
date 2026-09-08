@@ -99,7 +99,9 @@ export function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const [switcher, setSwitcher] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
-  const companyQuery = trpc.settings.company.useQuery(undefined, { staleTime: 60_000 });
+  // O nome da empresa só aparece depois que o menu abre. Buscá-lo junto com a
+  // página punha mais uma consulta no lote que o conteúdo espera.
+  const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: open || switcher, staleTime: 60_000 });
 
   const company = companyQuery.data;
   const companyName = company?.tradeName || company?.legalName || "Empresa sem nome";

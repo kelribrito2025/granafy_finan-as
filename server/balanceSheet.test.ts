@@ -6,6 +6,7 @@ import type {
 } from "../drizzle/schema";
 import {
   calculateFinancialPositions,
+  summarizeAccountPositions,
   calculateItemBookValue,
   calculatePatrimonialItems,
   summarizeBalanceSheet,
@@ -122,6 +123,36 @@ describe("balance sheet calculations", () => {
       "2026-09-07"
     );
     expect(positions).toEqual({ cashAndEquivalents: 1500, currentLiabilities: 250 });
+  });
+
+  it("chega ao mesmo resultado partindo do movimento já somado por conta", () => {
+    const accounts = [account(1, "corrente", "1000.00"), account(2, "cartao", "0.00")];
+    const pelaLista = calculateFinancialPositions(
+      accounts,
+      [transaction(1, 1, "500.00"), transaction(2, 2, "-250.00")],
+      "2026-09-07"
+    );
+    const peloAgregado = summarizeAccountPositions(accounts, new Map([[1, 500], [2, -250]]));
+    expect(peloAgregado).toEqual(pelaLista);
+    expect(peloAgregado).toEqual({ cashAndEquivalents: 1500, currentLiabilities: 250 });
+  });
+
+  it("ignora movimento de conta que não está na lista", () => {
+    expect(summarizeAccountPositions([account(1, "corrente", "100.00")], new Map([[9, 5000]])))
+      .toEqual({ cashAndEquivalents: 100, currentLiabilities: 0 });
+  });
+
+  it("cartão com saldo positivo não vira caixa", () => {
+    // Crédito sobrando no cartão é limite, não dinheiro em conta.
+    expect(summarizeAccountPositions(
+      [account(1, "corrente", "1000.00"), account(2, "cartao", "300.00")],
+      new Map()
+    )).toEqual({ cashAndEquivalents: 1000, currentLiabilities: 0 });
+  });
+
+  it("conta sem movimento fica com o saldo inicial", () => {
+    expect(summarizeAccountPositions([account(1, "corrente", "250.00")], new Map()))
+      .toEqual({ cashAndEquivalents: 250, currentLiabilities: 0 });
   });
 
   it("summarizes assets, liabilities, net worth and accounting indicators", () => {

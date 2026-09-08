@@ -2,10 +2,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { ASSET_CATEGORIES, assetItemType } from "@shared/assetCategory";
 import {
-  addDays,
   BALANCE_GROUPS,
-  calculateFinancialPositions,
   calculatePatrimonialItems,
+  summarizeAccountPositions,
   summarizeBalanceSheet,
 } from "../balanceSheet";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -144,13 +143,15 @@ async function resolveItemValues(
 }
 
 async function calculatePosition(userId: number, referenceDate: string) {
-  const [items, accounts, transactions] = await Promise.all([
+  const [items, accounts, balances] = await Promise.all([
     db.listPatrimonialItems(userId),
     db.listFinancialAccounts(userId),
-    db.listTransactionsBefore(userId, addDays(referenceDate, 1)),
+    // O saldo por conta vem somado do banco. Trazer o razão inteiro para fazer
+    // a mesma soma em memória custava quase meio segundo por abertura da tela.
+    db.getAccountBalances(userId, referenceDate),
   ]);
   const calculatedItems = calculatePatrimonialItems(items, referenceDate);
-  const financial = calculateFinancialPositions(accounts, transactions, referenceDate);
+  const financial = summarizeAccountPositions(accounts, balances);
   const summary = summarizeBalanceSheet(
     calculatedItems,
     financial.cashAndEquivalents,

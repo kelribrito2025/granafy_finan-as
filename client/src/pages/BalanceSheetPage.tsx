@@ -847,7 +847,10 @@ export default function BalanceSheetPage() {
   const [newItemGroup, setNewItemGroup] = useState<BalanceGroup>("ativo_nao_circulante");
   const utils = trpc.useUtils();
   const overviewQuery = trpc.balanceSheet.overview.useQuery(undefined);
-  const organizationQuery = trpc.organization.options.useQuery();
+  // Contas e centros de custo só alimentam os selects do modal. Buscá-los na
+  // abertura da página empurrava o balanço para trás na fila: o cliente junta
+  // as consultas num lote só e o spinner espera a mais lenta de todas.
+  const organizationQuery = trpc.organization.options.useQuery(undefined, { enabled: itemModal });
   const organizationOptions: OrganizationOptions = {
     accounts: organizationQuery.data?.accounts ?? [],
     costCenters: organizationQuery.data?.costCenters ?? [],
