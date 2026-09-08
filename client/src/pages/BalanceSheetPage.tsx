@@ -24,6 +24,7 @@ import { CURRENCY_LABELS } from "@shared/preferences";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { GranafyLogo } from "@/components/GranafyLogo";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   currencyInputToNumber,
@@ -1217,7 +1218,7 @@ export default function BalanceSheetPage() {
             </div>
             <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
             <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
-            <div className="relative"><button type="button" aria-label="Abrir conta" onClick={() => setAccountOpen(value => !value)} className="flex h-10 min-w-10 items-center justify-center rounded-[12px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white">{initials || "NV"}</button>{accountOpen && <div className="absolute right-0 top-12 z-40 w-[250px] rounded-[17px] bg-white p-3 shadow-[0_20px_50px_rgba(11,31,20,.18)]"><div className="rounded-xl bg-[#F8FAF9] p-3"><strong className="block truncate text-[12px]">{user?.name || "Sua conta"}</strong><span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email}</span></div><ThemeToggle className="mt-2 rounded-xl bg-[#F8FAF9] p-2" /><button type="button" onClick={async () => { await logout(); setLocation("/login", { replace: true }); }} className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[12px] font-semibold text-[#8E1F16] hover:bg-[#FDECEA]">Sair <ChevronRightIcon size={14} /></button></div>}</div>
+            <ProfileMenu />
           </header>
 
           {overviewQuery.isLoading && <section className="flex min-h-[520px] flex-1 items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando patrimônio...</section>}

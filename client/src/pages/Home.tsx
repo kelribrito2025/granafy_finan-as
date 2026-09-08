@@ -18,6 +18,7 @@ import {
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
 import { activePreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { usePreferences } from "@/contexts/PreferencesContext";
@@ -344,39 +345,7 @@ export default function Home() {
               <span className="sm:hidden">Novo</span>
             </button>
 
-            <div className="relative">
-              <button
-                type="button"
-                aria-label="Abrir menu da conta"
-                aria-expanded={accountOpen}
-                onClick={() => setAccountOpen(open => !open)}
-                className="flex h-[42px] min-w-[42px] items-center justify-center rounded-[14px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white transition hover:bg-[#183526] active:scale-95"
-              >
-                {accountInitials || "NV"}
-              </button>
-              {accountOpen && (
-                <div className="popover-enter absolute right-0 top-12 z-30 w-[260px] rounded-[18px] bg-white p-3.5 shadow-[0_20px_50px_rgba(11,31,20,.18)]">
-                  <div className="flex items-center gap-3 rounded-[13px] bg-[#F8FAF9] p-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">
-                      <UsersIcon size={17} />
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block truncate text-[12.5px]">{user?.name || "Sua conta"}</strong>
-                      <span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email || "Acesso protegido"}</span>
-                    </span>
-                  </div>
-                  <ThemeToggle className="mt-2 rounded-[12px] bg-[#F8FAF9] p-2" />
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="mt-2 flex w-full items-center justify-between rounded-[12px] px-3 py-2.5 text-left text-[12px] font-semibold text-[#8E1F16] transition hover:bg-[#FDECEA] active:scale-[0.99]"
-                  >
-                    Sair da conta
-                    <ChevronRightIcon size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
+            <ProfileMenu />
           </header>
 
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
