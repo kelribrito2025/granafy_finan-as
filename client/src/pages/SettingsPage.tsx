@@ -111,7 +111,9 @@ export default function SettingsPage() {
           </header>
 
           <div className="flex flex-1 flex-col gap-5 xl:flex-row">
-            <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:overflow-visible">
+            {/* `self-start` porque numa linha flex o padrão é esticar: sem ele o
+                cartão de duas abas descia até o pé da página. */}
+            <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:self-start xl:overflow-visible">
               {([["company", "Empresa"], ["preferences", "Preferências"]] as const).map(([value, label]) => (
                 <button
                   key={value}
