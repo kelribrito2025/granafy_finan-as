@@ -293,11 +293,13 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
     : transaction.amount >= 0
       ? "text-[#0A7A42]"
       : "text-[#B3261E]";
+  // O par da saída espelha o da entrada: tinta clara com a letra escura por
+  // cima. Fundo branco fazia o quadradinho sumir dentro da linha.
   const monogramClass = isTransfer
     ? "bg-[#F1F4F2] text-[#4C6355]"
     : transaction.amount >= 0
       ? "bg-[#DFF6EA] text-[#0A7A42]"
-      : "bg-white text-[#8E1F16]";
+      : "bg-[#FDECEA] text-[#8E1F16]";
 
   return (
     <div className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}>
