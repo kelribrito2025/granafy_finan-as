@@ -3,6 +3,7 @@ import { AuroraSurface } from "@/components/AuroraSurface";
 import {
   CheckIcon,
   ChevronRightIcon,
+  CloseIcon,
   DownloadIcon,
   MenuIcon,
   SearchIcon,
@@ -36,6 +37,96 @@ const STATUS_STYLE: Record<Item["status"], { label: string; chip: string }> = {
 // A data cabe em "dd/mm" e o valor precisa de espaço para "− R$ 1.147,30" sem
 // encostar no botão de confirmar.
 const ROW_GRID = "grid grid-cols-[30px_minmax(0,1fr)_128px] gap-2.5 lg:grid-cols-[30px_54px_minmax(0,1fr)_minmax(0,1.05fr)_128px_112px]";
+
+
+type Classification = "transferencia" | "pessoal" | "duplicidade" | "estorno" | "fora_dos_relatorios";
+
+/**
+ * As cinco saídas para uma movimentação sem lançamento. Cada uma declara o
+ * efeito no saldo, porque "ignorar" escondia justamente isso.
+ */
+const CLASSIFICATIONS: Array<{ value: Classification; label: string; effect: string }> = [
+  { value: "transferencia", label: "Transferência entre contas", effect: "some no consolidado e fica fora do DRE" },
+  { value: "pessoal", label: "Movimento pessoal do sócio", effect: "sai do resultado da empresa, continua no extrato" },
+  { value: "duplicidade", label: "Duplicidade importada", effect: "arquiva a linha repetida, mantendo a original" },
+  { value: "estorno", label: "Estorno", effect: "os dois itens se cancelam no período" },
+  { value: "fora_dos_relatorios", label: "Não contabilizar nos relatórios", effect: "fica no extrato, sai do DRE e do fluxo · exige justificativa" },
+];
+
+const CLASSIFICATION_LABELS: Record<Classification, string> =
+  Object.fromEntries(CLASSIFICATIONS.map(item => [item.value, item.label])) as Record<Classification, string>;
+
+function ModalShell({ title, subtitle, children, onClose }: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[#0B1F14]/[.42] p-4 sm:p-10">
+      <div className="flex w-full max-w-[520px] flex-col gap-5 rounded-[20px] bg-white p-6 shadow-[0_20px_50px_rgba(11,31,20,.24)]">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[18px] font-bold">{title}</h2>
+            {subtitle && <p className="mt-1 truncate text-[13px] text-[#4C6355]" title={subtitle}>{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={onClose}
+            className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#4C6355] transition hover:bg-[#E3EBE6]"
+          >
+            <CloseIcon size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Menu de ações da linha. */
+function RowMenu({ item, onAction, onClose }: {
+  item: Item;
+  onAction: (action: string) => void;
+  onClose: () => void;
+}) {
+  const conciliada = item.status === "conciliado";
+  const classificada = item.status === "classificado";
+  const acoes: Array<{ key: string; label: string; danger?: boolean }> = conciliada || classificada
+    ? [
+        { key: "undo", label: conciliada ? "Desfazer conciliação" : "Desfazer classificação", danger: true },
+        { key: "history", label: "Ver histórico" },
+      ]
+    : [
+        ...(item.suggestion ? [{ key: "confirm", label: "Confirmar sugestão" }] : []),
+        { key: "link", label: "Vincular a um lançamento" },
+        { key: "create", label: "Criar lançamento" },
+        { key: "split", label: "Dividir entre lançamentos" },
+        { key: "classify", label: "Classificar sem lançamento" },
+        { key: "history", label: "Ver histórico" },
+      ];
+
+  return (
+    <>
+      <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 cursor-default" onClick={onClose} />
+      <div className="absolute right-0 top-9 z-50 w-[236px] overflow-hidden rounded-[9px] bg-white py-1.5 shadow-[0_14px_34px_rgba(11,31,20,.16)] ring-1 ring-[#E3EBE6]">
+        {acoes.map(acao => (
+          <button
+            key={acao.key}
+            type="button"
+            onClick={() => { onClose(); onAction(acao.key); }}
+            className={`flex w-full items-center px-3.5 py-2.5 text-left text-[13px] transition hover:bg-[#F1FBF6] ${
+              acao.danger ? "text-[#B3261E]" : "text-[#28382E]"
+            }`}
+          >
+            {acao.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
 
 function signedMoney(value: number) {
   return value < 0 ? `− ${formatMoney(Math.abs(value))}` : `+ ${formatMoney(value)}`;
@@ -193,6 +284,384 @@ function ConfirmBatchModal({ items, onClose, onConfirm, pending }: {
   );
 }
 
+
+/** Classificar sem lançamento: as cinco saídas do modelo. */
+function ClassifyModal({ item, onClose, onConfirm, pending }: {
+  item: Item;
+  onClose: () => void;
+  onConfirm: (values: { classification: Classification; note: string }) => void;
+  pending: boolean;
+}) {
+  const [classification, setClassification] = useState<Classification>("transferencia");
+  const [note, setNote] = useState("");
+  const exigeNota = classification === "fora_dos_relatorios";
+
+  return (
+    <ModalShell title="Classificar movimentação" subtitle={item.description} onClose={onClose}>
+      <div className="flex flex-col gap-2">
+        {CLASSIFICATIONS.map(option => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setClassification(option.value)}
+            className={`flex items-start gap-3 rounded-[14px] p-3.5 text-left transition ${
+              classification === option.value
+                ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                : "border border-[#E3EBE6] hover:bg-[#F8FAF9]"
+            }`}
+          >
+            <span className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
+              classification === option.value ? "bg-[#12B85C]" : "border-[1.5px] border-[#C9D4CD]"
+            }`}>
+              {classification === option.value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+            </span>
+            <span className="min-w-0">
+              <span className={`block text-[14px] font-semibold ${classification === option.value ? "text-[#0A7A42]" : ""}`}>
+                {option.label}
+              </span>
+              <span className="mt-0.5 block text-[12px] leading-relaxed text-[#4C6355]">{option.effect}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[12.5px] font-semibold text-[#4C6355]">
+          Justificativa {exigeNota ? "(obrigatória)" : "(opcional)"}
+        </span>
+        <textarea
+          value={note}
+          onChange={event => setNote(event.target.value)}
+          rows={2}
+          placeholder="Por que esta movimentação recebe essa classificação?"
+          className="w-full resize-none rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[#12B85C]"
+        />
+      </label>
+
+      <p className="rounded-xl bg-[#FFF3E6] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#8A4B00]">
+        Classificar não apaga a movimentação nem zera a diferença de saldo sozinho. A linha
+        continua no extrato, com a explicação registrada no histórico.
+      </p>
+
+      <div className="flex gap-2.5">
+        <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#E3EBE6]">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={pending || (exigeNota && note.trim().length < 3)}
+          onClick={() => onConfirm({ classification, note: note.trim() })}
+          className="h-11 flex-1 rounded-xl bg-[#12B85C] text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
+        >
+          {pending ? "Salvando…" : "Classificar"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+type Part = { description: string; categoryId: number | null; amount: string };
+
+/**
+ * Criar o lançamento que faltava — ou dividir a movimentação em vários.
+ *
+ * A soma tem que fechar ao centavo: o botão só libera quando o que sobra é
+ * zero, porque dividir errado deixaria dinheiro fora do razão sem avisar.
+ */
+function CreateModal({ item, categories, split, onClose, onConfirm, pending }: {
+  item: Item;
+  categories: Array<{ id: number; name: string; type: string }>;
+  split: boolean;
+  onClose: () => void;
+  onConfirm: (parts: Array<{ description: string; categoryId: number; amount: number }>) => void;
+  pending: boolean;
+}) {
+  const tipo = item.amount < 0 ? "saida" : "entrada";
+  const compativeis = categories.filter(category => category.type === "ambos" || category.type === tipo);
+  const [parts, setParts] = useState<Part[]>(() =>
+    split
+      ? [
+          { description: item.description, categoryId: compativeis[0]?.id ?? null, amount: "" },
+          { description: item.description, categoryId: compativeis[0]?.id ?? null, amount: "" },
+        ]
+      : [{ description: item.description, categoryId: compativeis[0]?.id ?? null, amount: Math.abs(item.amount).toFixed(2) }]
+  );
+
+  const valores = parts.map(part => Number(part.amount.replace(",", ".")) || 0);
+  const somado = Math.round(valores.reduce((total, value) => total + value, 0) * 100) / 100;
+  const alvo = Math.abs(item.amount);
+  const resta = Math.round((alvo - somado) * 100) / 100;
+  const completo = resta === 0 && parts.every(part => part.categoryId && part.description.trim().length >= 2);
+
+  const atualizar = (index: number, campo: keyof Part, valor: string | number | null) =>
+    setParts(current => current.map((part, i) => (i === index ? { ...part, [campo]: valor } : part)));
+
+  return (
+    <ModalShell
+      title={split ? "Dividir entre lançamentos" : "Criar lançamento"}
+      subtitle={`${item.description} · ${signedMoney(item.amount)}`}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-3">
+        {parts.map((part, index) => (
+          <div key={index} className="flex flex-col gap-2 rounded-[14px] border border-[#E3EBE6] p-3.5">
+            <input
+              value={part.description}
+              onChange={event => atualizar(index, "description", event.target.value)}
+              placeholder="Descrição do lançamento"
+              className="h-10 w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3 text-[13.5px] outline-none focus:border-[#12B85C]"
+            />
+            <div className="flex gap-2">
+              <select
+                value={part.categoryId ?? ""}
+                onChange={event => atualizar(index, "categoryId", Number(event.target.value))}
+                className="h-10 min-w-0 flex-1 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3 text-[13.5px] outline-none focus:border-[#12B85C]"
+              >
+                {compativeis.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              <input
+                value={part.amount}
+                onChange={event => atualizar(index, "amount", event.target.value.replace(/[^\d.,]/g, ""))}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="h-10 w-[110px] shrink-0 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3 text-right text-[13.5px] outline-none focus:border-[#12B85C]"
+              />
+              {parts.length > 1 && (
+                <button
+                  type="button"
+                  aria-label="Remover parte"
+                  onClick={() => setParts(current => current.filter((_, i) => i !== index))}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#8A968D] transition hover:bg-[#FDECEA] hover:text-[#B3261E]"
+                >
+                  <CloseIcon size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setParts(current => [...current, { description: item.description, categoryId: compativeis[0]?.id ?? null, amount: "" }])}
+          className="h-10 rounded-xl border border-dashed border-[#B9C7BE] px-3.5 text-[13px] font-semibold text-[#4C6355] transition hover:bg-[#F8FAF9]"
+        >
+          + Outra parte
+        </button>
+        <span className={`ml-auto text-[13px] font-semibold ${resta === 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
+          {resta === 0 ? "fecha com a movimentação" : `faltam ${formatMoney(resta)}`}
+        </span>
+      </div>
+
+      <div className="flex gap-2.5">
+        <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#E3EBE6]">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={pending || !completo}
+          onClick={() => onConfirm(parts.map((part, index) => ({
+            description: part.description.trim(),
+            categoryId: part.categoryId!,
+            amount: item.amount < 0 ? -valores[index] : valores[index],
+          })))}
+          className="h-11 flex-1 rounded-xl bg-[#12B85C] text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
+        >
+          {pending ? "Salvando…" : split ? `Criar ${parts.length} lançamentos` : "Criar lançamento"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/** Vincular a um lançamento que já existe. Só entram os de valor idêntico. */
+function LinkModal({ item, candidates, onClose, onConfirm, pending }: {
+  item: Item;
+  candidates: Array<{ id: number; description: string; transactionDate: string; amount: number; category: string }>;
+  onClose: () => void;
+  onConfirm: (transactionId: number) => void;
+  pending: boolean;
+}) {
+  const [escolhido, setEscolhido] = useState<number | null>(candidates[0]?.id ?? null);
+  return (
+    <ModalShell title="Vincular a um lançamento" subtitle={`${item.description} · ${signedMoney(item.amount)}`} onClose={onClose}>
+      {candidates.length === 0 ? (
+        <p className="rounded-xl bg-[#F8FAF9] px-4 py-6 text-center text-[13px] leading-relaxed text-[#4C6355]">
+          Nenhum lançamento em aberto com este valor, nesta conta, em até três dias.
+          Use “Criar lançamento” para registrar um novo.
+        </p>
+      ) : (
+        <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto">
+          {candidates.map(candidate => (
+            <button
+              key={candidate.id}
+              type="button"
+              onClick={() => setEscolhido(candidate.id)}
+              className={`flex items-center gap-3 rounded-[14px] p-3.5 text-left transition ${
+                escolhido === candidate.id
+                  ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                  : "border border-[#E3EBE6] hover:bg-[#F8FAF9]"
+              }`}
+            >
+              <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
+                escolhido === candidate.id ? "bg-[#12B85C]" : "border-[1.5px] border-[#C9D4CD]"
+              }`}>
+                {escolhido === candidate.id && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-semibold">{candidate.description}</span>
+                <span className="block truncate text-[12px] text-[#4C6355]">
+                  {formatDate(candidate.transactionDate)} · {candidate.category}
+                </span>
+              </span>
+              <span className={`shrink-0 text-[13.5px] font-bold ${candidate.amount < 0 ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>
+                {signedMoney(candidate.amount)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2.5">
+        <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#E3EBE6]">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={pending || escolhido === null}
+          onClick={() => escolhido !== null && onConfirm(escolhido)}
+          className="h-11 flex-1 rounded-xl bg-[#12B85C] text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
+        >
+          {pending ? "Vinculando…" : "Vincular"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/** A composição da diferença: quais movimentações o razão não tem. */
+function DifferenceModal({ data, onClose, onResolve }: {
+  data: inferRouterOutputs<AppRouter>["reconciliation"]["difference"];
+  onClose: () => void;
+  onResolve: (movementId: number) => void;
+}) {
+  return (
+    <ModalShell
+      title="Composição da diferença"
+      subtitle={data.difference === null ? undefined : `${formatMoney(Math.abs(data.difference))} entre o extrato do banco e o GranaFy`}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between rounded-[14px] bg-[#F8FAF9] px-4 py-3 text-[13px]">
+          <span className="text-[#4C6355]">Saldo no extrato · {data.accountName}</span>
+          <span className="font-bold">{data.statement === null ? "—" : formatMoney(data.statement)}</span>
+        </div>
+        <div className="flex justify-between rounded-[14px] bg-[#F8FAF9] px-4 py-3 text-[13px]">
+          <span className="text-[#4C6355]">Saldo conciliado no GranaFy</span>
+          <span className="font-bold">{formatMoney(data.system)}</span>
+        </div>
+        <div className="flex justify-between rounded-[14px] bg-[#FDECEA] px-4 py-3 text-[13px]">
+          <span className="text-[#8E1F16]">Diferença</span>
+          <span className="font-bold text-[#8E1F16]">
+            {data.difference === null ? "—" : formatMoney(Math.abs(data.difference))}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[12.5px] font-semibold text-[#4C6355]">
+          {data.items.length} {data.items.length === 1 ? "movimentação responsável" : "movimentações responsáveis"}
+        </span>
+        {data.items.length === 0 ? (
+          <p className="rounded-xl bg-[#F1FBF6] px-4 py-4 text-center text-[13px] text-[#0A7A42]">
+            Todas as movimentações do mês têm lançamento. A diferença que sobrar vem de fora deste período.
+          </p>
+        ) : (
+          <div className="flex max-h-[260px] flex-col gap-2 overflow-y-auto">
+            {data.items.map(movement => (
+              <div key={movement.id} className="flex items-center gap-3 rounded-[14px] border border-[#E3EBE6] px-3.5 py-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-semibold">{movement.description}</span>
+                  <span className="block text-[12px] text-[#4C6355]">
+                    {formatDate(movement.movementDate)} ·{" "}
+                    {movement.classification
+                      ? CLASSIFICATION_LABELS[movement.classification as Classification]
+                      : "no banco, sem lançamento no sistema"}
+                  </span>
+                </span>
+                <span className={`shrink-0 text-[13.5px] font-bold ${movement.amount < 0 ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>
+                  {signedMoney(movement.amount)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onResolve(movement.id)}
+                  className="shrink-0 rounded-[10px] bg-[#F1FBF6] px-3 py-1.5 text-[12px] font-semibold text-[#0A7A42] transition hover:bg-[#DFF6EA]"
+                >
+                  Resolver
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11.5px] leading-relaxed text-[#4C6355]">
+        A diferença só zera quando cada uma dessas movimentações virar lançamento.
+        Classificar explica o dinheiro, mas não o coloca no saldo do sistema.
+      </p>
+    </ModalShell>
+  );
+}
+
+/** O histórico de uma movimentação. */
+function HistoryModal({ item, entries, loading, onClose }: {
+  item: Item;
+  entries: Array<{ id: number; action: string; previousStatus: string; newStatus: string; detail: string; createdAt: Date | string }>;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  const ACTION_LABELS: Record<string, string> = {
+    conciliar: "Conciliou",
+    desfazer: "Desfez a conciliação",
+    classificar: "Classificou",
+    criar_lancamento: "Criou o lançamento",
+    dividir: "Dividiu entre lançamentos",
+    agrupar: "Agrupou movimentações",
+  };
+  return (
+    <ModalShell title="Histórico" subtitle={item.description} onClose={onClose}>
+      {loading ? (
+        <p className="py-6 text-center text-[13px] text-[#4C6355]">Carregando…</p>
+      ) : entries.length === 0 ? (
+        <p className="rounded-xl bg-[#F8FAF9] px-4 py-6 text-center text-[13px] text-[#4C6355]">
+          Nada registrado ainda para esta movimentação.
+        </p>
+      ) : (
+        <div className="flex max-h-[360px] flex-col gap-2 overflow-y-auto">
+          {entries.map(entry => (
+            <div key={entry.id} className="flex flex-col gap-1 rounded-[14px] border border-[#E3EBE6] px-3.5 py-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[13.5px] font-semibold">{ACTION_LABELS[entry.action] ?? entry.action}</span>
+                <span className="ml-auto shrink-0 text-[11.5px] text-[#4C6355]">
+                  {new Date(entry.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                </span>
+              </div>
+              <span className="text-[12px] text-[#4C6355]">
+                {entry.previousStatus} → {entry.newStatus}
+              </span>
+              {entry.detail && <span className="truncate text-[12px] text-[#4C6355]" title={entry.detail}>{entry.detail}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
 export default function ConciliacaoPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
@@ -201,6 +670,11 @@ export default function ConciliacaoPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [batchModal, setBatchModal] = useState(false);
+  const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [modal, setModal] = useState<{ kind: "classify" | "create" | "split" | "link" | "history"; item: Item } | null>(null);
+  const [differenceOpen, setDifferenceOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
 
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.reconciliation.overview.useQuery({ ...period, accountId });
@@ -231,6 +705,53 @@ export default function ConciliacaoPage() {
     onError: error => toast.error(error.message),
   });
 
+  const undo = trpc.reconciliation.undo.useMutation({
+    onSuccess: async () => { await refresh(); toast.success("Conciliação desfeita."); },
+    onError: error => toast.error(error.message),
+  });
+  const classify = trpc.reconciliation.classify.useMutation({
+    onSuccess: async () => { setModal(null); await refresh(); toast.success("Movimentação classificada."); },
+    onError: error => toast.error(error.message),
+  });
+  const createFromMovement = trpc.reconciliation.createFromMovement.useMutation({
+    onSuccess: async result => {
+      setModal(null);
+      await refresh();
+      toast.success(result.criados > 1 ? `${result.criados} lançamentos criados.` : "Lançamento criado e conciliado.");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const closePeriod = trpc.reconciliation.closePeriod.useMutation({
+    onSuccess: async () => { await refresh(); toast.success("Mês fechado."); },
+    onError: error => toast.error(error.message),
+  });
+  const applyAutoRules = trpc.reconciliation.applyAutoRules.useMutation({
+    onSuccess: async result => {
+      await refresh();
+      toast.success(result.aplicadas > 0
+        ? `${result.aplicadas} ${result.aplicadas === 1 ? "movimentação conciliada" : "movimentações conciliadas"} por regra`
+        : "Nenhuma movimentação foi coberta pelas regras automáticas");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const reopenPeriod = trpc.reconciliation.reopenPeriod.useMutation({
+    onSuccess: async () => { setReopenOpen(false); setReopenReason(""); await refresh(); toast.success("Mês reaberto."); },
+    onError: error => toast.error(error.message),
+  });
+
+  // As opções e a composição da diferença só carregam quando o modal precisa.
+  const options = trpc.organization.options.useQuery(undefined, {
+    enabled: modal?.kind === "create" || modal?.kind === "split",
+  });
+  const differenceQuery = trpc.reconciliation.difference.useQuery(
+    { ...period, accountId },
+    { enabled: differenceOpen }
+  );
+  const historyQuery = trpc.reconciliation.history.useQuery(
+    { movementId: modal?.item.id ?? 0 },
+    { enabled: modal?.kind === "history" }
+  );
+
   const data = query.data;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
 
@@ -256,6 +777,47 @@ export default function ConciliacaoPage() {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+
+  /*
+   * Para "vincular a um lançamento" só entram os que a engine já considerou
+   * possíveis: mesmo valor, mesma conta, até três dias. Mostrar o razão inteiro
+   * seria oferecer o erro de vincular valores diferentes.
+   */
+  const linkCandidates = useMemo(() => {
+    if (!data || modal?.kind !== "link") return [];
+    const alvo = Math.round(modal.item.amount * 100);
+    const vistos = new Set<number>();
+    return data.items
+      .map(other => other.suggestion)
+      .filter((suggestion): suggestion is NonNullable<typeof suggestion> => suggestion !== null)
+      .filter(suggestion => {
+        if (vistos.has(suggestion.transactionId)) return false;
+        vistos.add(suggestion.transactionId);
+        return true;
+      })
+      .filter(suggestion => Math.round(modal.item.amount * 100) === alvo)
+      .map(suggestion => ({
+        id: suggestion.transactionId,
+        description: suggestion.description,
+        transactionDate: modal.item.movementDate,
+        amount: modal.item.amount,
+        category: suggestion.category,
+      }));
+  }, [data, modal]);
+
+  const abrirAcao = (action: string, item: Item) => {
+    if (action === "confirm" && item.suggestion) {
+      confirm.mutate({ movementId: item.id, transactionId: item.suggestion.transactionId, origin: "sugestao" });
+      return;
+    }
+    if (action === "undo") {
+      undo.mutate({ movementId: item.id });
+      return;
+    }
+    if (action === "classify" || action === "create" || action === "split" || action === "link" || action === "history") {
+      setModal({ kind: action, item });
+    }
+  };
 
   const exportCsv = () => {
     if (!data || data.items.length === 0) return toast.info("Não há movimentações para exportar.");
@@ -329,6 +891,29 @@ export default function ConciliacaoPage() {
             </div>
 
             <button type="button" aria-label="Exportar conciliação" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            {data && (
+              data.period.closed ? (
+                <button
+                  type="button"
+                  onClick={() => setReopenOpen(true)}
+                  title={data.period.closedAt ? `Fechado em ${formatDate(new Date(data.period.closedAt).toISOString().slice(0, 10))}` : undefined}
+                  className="flex h-11 items-center gap-2 rounded-[12px] bg-[#F1F4F2] px-4 text-[14px] font-bold text-[#4C6355] transition hover:bg-[#E3EBE6]"
+                >
+                  Mês fechado
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={closePeriod.isPending || data.balance.difference !== 0}
+                  title={data.balance.difference === 0 ? "Fecha o mês com a diferença zerada" : "O mês só fecha com a diferença de saldo zerada"}
+                  onClick={() => closePeriod.mutate({ ...period, accountId })}
+                  className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <CheckIcon size={15} />
+                  {closePeriod.isPending ? "Fechando…" : "Fechar o mês"}
+                </button>
+              )
+            )}
             <ProfileMenu />
           </header>
 
@@ -361,8 +946,12 @@ export default function ConciliacaoPage() {
                   valueClass="text-[#B3261E]"
                   hint="precisam de decisão manual"
                 />
-                <AuroraSurface className="rounded-[20px] p-6">
-                  <div className="flex flex-1 flex-col gap-2.5">
+                <AuroraSurface className="rounded-[20px] p-0">
+                  <button
+                    type="button"
+                    onClick={() => setDifferenceOpen(true)}
+                    className="flex flex-1 flex-col gap-2.5 p-6 text-left transition hover:opacity-90"
+                  >
                     <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8FB39E]">Diferença de saldo</span>
                     <strong className="text-[26px] font-bold tracking-[-.02em] text-[#7EE2A8]">
                       {data.balance.difference === null ? "—" : formatMoney(Math.abs(data.balance.difference))}
@@ -372,7 +961,7 @@ export default function ConciliacaoPage() {
                         ? "o extrato importado não declara saldo"
                         : `banco ${formatMoney(data.balance.statement)} · sistema ${formatMoney(data.balance.system)}`}
                     </span>
-                  </div>
+                  </button>
                 </AuroraSurface>
               </section>
 
@@ -490,7 +1079,7 @@ export default function ConciliacaoPage() {
                           <span className={`whitespace-nowrap text-right text-[14.5px] font-bold ${item.amount < 0 ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>
                             {signedMoney(item.amount)}
                           </span>
-                          <span className="hidden justify-self-end lg:block">
+                          <span className="relative hidden items-center justify-end gap-1 justify-self-end lg:flex">
                             {item.suggestion && (
                               <button
                                 type="button"
@@ -506,6 +1095,19 @@ export default function ConciliacaoPage() {
                                 Confirmar
                               </button>
                             )}
+                            <button
+                              type="button"
+                              aria-label={`Ações de ${item.description}`}
+                              onClick={() => setMenuFor(current => (current === item.id ? null : item.id))}
+                              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] text-[#8A968D] transition hover:bg-[#F1F4F2]"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+                              </svg>
+                            </button>
+                            {menuFor === item.id && (
+                              <RowMenu item={item} onClose={() => setMenuFor(null)} onAction={action => abrirAcao(action, item)} />
+                            )}
                           </span>
                         </div>
                       );
@@ -515,7 +1117,19 @@ export default function ConciliacaoPage() {
 
                 <aside className="flex w-full shrink-0 flex-col gap-5 xl:w-[340px]">
                   <div className="flex flex-col gap-3 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">
-                    <span className="text-[15px] font-bold">Regras de conciliação</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[15px] font-bold">Regras de conciliação</span>
+                      {data.rules.some(rule => rule.autoReconcile) && (
+                        <button
+                          type="button"
+                          disabled={applyAutoRules.isPending}
+                          onClick={() => applyAutoRules.mutate({ ...period, accountId })}
+                          className="ml-auto rounded-[10px] bg-[#F1FBF6] px-2.5 py-1.5 text-[12px] font-semibold text-[#0A7A42] transition hover:bg-[#DFF6EA] disabled:opacity-50"
+                        >
+                          {applyAutoRules.isPending ? "Aplicando…" : "Aplicar automáticas"}
+                        </button>
+                      )}
+                    </div>
                     {data.rules.length === 0 ? (
                       <p className="text-[12.5px] leading-relaxed text-[#4C6355]">
                         Nenhuma regra cadastrada. As regras de categoria de Contas e categorias também
@@ -527,7 +1141,14 @@ export default function ConciliacaoPage() {
                           <span className="truncate text-[12.5px] text-[#4C6355]">
                             Extrato contém <span className="font-semibold text-[#0B1F14]">“{rule.matchValue}”</span>
                           </span>
-                          <span className="truncate text-[12.5px] font-semibold text-[#0A7A42]">{rule.category}</span>
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-[12.5px] font-semibold text-[#0A7A42]">{rule.category}</span>
+                            {rule.autoReconcile && (
+                              <span className="shrink-0 rounded-[5px] bg-[#DFF6EA] px-[7px] py-[2px] text-[10.5px] font-semibold text-[#0A7A42]">
+                                automática
+                              </span>
+                            )}
+                          </span>
                         </div>
                       ))
                     )}
@@ -574,6 +1195,95 @@ export default function ConciliacaoPage() {
           onClose={() => setBatchModal(false)}
           onConfirm={() => confirmBatch.mutate({ movementIds: selectedItems.map(item => item.id) })}
         />
+      )}
+
+      {modal?.kind === "classify" && (
+        <ClassifyModal
+          item={modal.item}
+          pending={classify.isPending}
+          onClose={() => setModal(null)}
+          onConfirm={values => classify.mutate({ movementId: modal.item.id, ...values, relatedMovementId: null })}
+        />
+      )}
+
+      {(modal?.kind === "create" || modal?.kind === "split") && (
+        <CreateModal
+          item={modal.item}
+          split={modal.kind === "split"}
+          categories={options.data?.categories ?? []}
+          pending={createFromMovement.isPending}
+          onClose={() => setModal(null)}
+          onConfirm={parts => createFromMovement.mutate({
+            movementId: modal.item.id,
+            parts: parts.map(part => ({ ...part, costCenterId: null })),
+          })}
+        />
+      )}
+
+      {modal?.kind === "link" && (
+        <LinkModal
+          item={modal.item}
+          candidates={linkCandidates}
+          pending={confirm.isPending}
+          onClose={() => setModal(null)}
+          onConfirm={transactionId => {
+            confirm.mutate({ movementId: modal.item.id, transactionId, origin: "manual" });
+            setModal(null);
+          }}
+        />
+      )}
+
+      {modal?.kind === "history" && (
+        <HistoryModal
+          item={modal.item}
+          entries={historyQuery.data ?? []}
+          loading={historyQuery.isPending}
+          onClose={() => setModal(null)}
+        />
+      )}
+
+      {differenceOpen && differenceQuery.data && (
+        <DifferenceModal
+          data={differenceQuery.data}
+          onClose={() => setDifferenceOpen(false)}
+          onResolve={movementId => {
+            const item = data?.items.find(candidate => candidate.id === movementId);
+            setDifferenceOpen(false);
+            if (item) setModal({ kind: "create", item });
+          }}
+        />
+      )}
+
+      {reopenOpen && (
+        <ModalShell title="Reabrir o mês" subtitle={monthLabel} onClose={() => setReopenOpen(false)}>
+          <p className="text-[13px] leading-relaxed text-[#4C6355]">
+            Reabrir volta a permitir alterações na conciliação deste mês. O motivo fica registrado
+            no histórico junto de quem reabriu.
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12.5px] font-semibold text-[#4C6355]">Motivo</span>
+            <textarea
+              value={reopenReason}
+              onChange={event => setReopenReason(event.target.value)}
+              rows={2}
+              placeholder="Ex.: lançamento de tarifa esquecido"
+              className="w-full resize-none rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[#12B85C]"
+            />
+          </label>
+          <div className="flex gap-2.5">
+            <button type="button" onClick={() => setReopenOpen(false)} className="h-11 flex-1 rounded-xl bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#E3EBE6]">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={reopenPeriod.isPending || reopenReason.trim().length < 3}
+              onClick={() => reopenPeriod.mutate({ ...period, accountId, reason: reopenReason.trim() })}
+              className="h-11 flex-1 rounded-xl bg-[#B3261E] text-[13.5px] font-bold text-white transition hover:bg-[#8E1F16] disabled:opacity-50"
+            >
+              {reopenPeriod.isPending ? "Reabrindo…" : "Reabrir"}
+            </button>
+          </div>
+        </ModalShell>
       )}
     </main>
   );

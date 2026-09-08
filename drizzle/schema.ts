@@ -145,6 +145,14 @@ export const categoryRules = mysqlTable("categoryRules", {
   costCenter: varchar("costCenter", { length: 120 }).default("").notNull(),
   /** Menor number ganha. Empate resolve pelo id. */
   priority: int("priority").default(0).notNull(),
+  /**
+   * Se a regra concilia sozinha ou só sugere.
+   *
+   * O padrão é sugerir: conciliação automática que ninguém pediu é lançamento
+   * entrando no razão sem decisão humana, e desfazer depois custa mais do que
+   * confirmar antes.
+   */
+  autoReconcile: boolean("autoReconcile").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -251,6 +259,31 @@ export const reconciliationLinks = mysqlTable("reconciliationLinks", {
  * O histórico. Toda ação de conciliação passa por aqui antes de o usuário poder
  * perguntar "quem foi que mexeu nisso".
  */
+/**
+ * O fechamento de um mês por conta.
+ *
+ * Só pode fechar com diferença zero, e os saldos ficam gravados na linha: o
+ * fechamento é uma fotografia do que era verdade naquele dia, não uma consulta
+ * que muda toda vez que alguém edita um lançamento antigo.
+ */
+export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  accountId: int("accountId").notNull(),
+  year: int("year").notNull(),
+  month: int("month").notNull(),
+  statementBalance: decimal("statementBalance", { precision: 15, scale: 2 }).notNull(),
+  systemBalance: decimal("systemBalance", { precision: 15, scale: 2 }).notNull(),
+  movementCount: int("movementCount").default(0).notNull(),
+  closedAt: timestamp("closedAt").defaultNow().notNull(),
+  closedBy: int("closedBy"),
+  reopenedAt: timestamp("reopenedAt"),
+  reopenedBy: int("reopenedBy"),
+  reopenReason: varchar("reopenReason", { length: 500 }).default("").notNull(),
+}, table => [
+  uniqueIndex("reconciliation_periods_uidx").on(table.userId, table.accountId, table.year, table.month),
+]);
+
 export const reconciliationAudit = mysqlTable("reconciliationAudit", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -426,6 +459,7 @@ export type InsertBankMovement = typeof bankMovements.$inferInsert;
 export type ReconciliationLinkRecord = typeof reconciliationLinks.$inferSelect;
 export type InsertReconciliationLink = typeof reconciliationLinks.$inferInsert;
 export type InsertReconciliationAudit = typeof reconciliationAudit.$inferInsert;
+export type ReconciliationPeriodRecord = typeof reconciliationPeriods.$inferSelect;
 export type TransactionRecord = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
 export type PatrimonialItemRecord = typeof patrimonialItems.$inferSelect;

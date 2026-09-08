@@ -24,6 +24,7 @@ import {
   bankMovements,
   reconciliationAudit,
   reconciliationLinks,
+  reconciliationPeriods,
   transactionImportBatches,
   transactions as financialTransactions,
   type InsertTransaction,
@@ -1043,6 +1044,248 @@ export async function linkMovement(input: {
       action: "conciliar",
       previousStatus: input.previousStatus,
       newStatus: "conciliado",
+      detail: input.detail,
+    });
+  });
+}
+
+/**
+ * Desfaz a conciliação: some o vínculo, a movimentação volta a ser decidida e
+ * o histórico registra quem desfez. O lançamento não é apagado — ele continua
+ * existindo no razão, só deixa de estar preso ao extrato.
+ */
+export async function unlinkMovement(input: {
+  userId: number;
+  movementId: number;
+  previousStatus: string;
+  detail: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx.delete(reconciliationLinks)
+      .where(and(eq(reconciliationLinks.userId, input.userId), eq(reconciliationLinks.movementId, input.movementId)));
+    await tx.update(bankMovements)
+      .set({ status: "sem_par", classification: null, reconciledAt: null, reconciledBy: null })
+      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      movementId: input.movementId,
+      action: "desfazer",
+      previousStatus: input.previousStatus,
+      newStatus: "sem_par",
+      detail: input.detail,
+    });
+  });
+}
+
+/**
+ * Classifica a movimentação sem criar lançamento.
+ *
+ * A linha do extrato continua onde está: classificar não apaga nem esconde
+ * nada, só diz o que aquele dinheiro foi. É o que substitui o antigo "ignorar".
+ */
+export async function classifyMovement(input: {
+  userId: number;
+  movementId: number;
+  classification: "transferencia" | "pessoal" | "duplicidade" | "estorno" | "fora_dos_relatorios";
+  note: string;
+  relatedMovementId: number | null;
+  previousStatus: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx.update(bankMovements)
+      .set({
+        status: "classificado",
+        classification: input.classification,
+        classificationNote: input.note,
+        relatedMovementId: input.relatedMovementId,
+      })
+      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      movementId: input.movementId,
+      action: "classificar",
+      previousStatus: input.previousStatus,
+      newStatus: `classificado:${input.classification}`,
+      detail: input.note,
+    });
+  });
+}
+
+/**
+ * Cria lançamentos a partir de uma movimentação e prende os dois.
+ *
+ * Uma parte só é "criar o lançamento que faltava"; várias partes é dividir a
+ * movimentação. O mesmo caminho serve para os dois porque a diferença entre
+ * eles é só quantas linhas entram no razão.
+ */
+export async function createTransactionsForMovement(input: {
+  userId: number;
+  movementId: number;
+  previousStatus: string;
+  detail: string;
+  parts: Array<TransactionValues & { linkAmount: string }>;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    const criados: number[] = [];
+    for (const part of input.parts) {
+      const { linkAmount: _linkAmount, ...values } = part;
+      const [inserted] = await tx.insert(financialTransactions).values({ userId: input.userId, ...values });
+      criados.push(Number(inserted.insertId));
+    }
+    await tx.insert(reconciliationLinks).values(
+      criados.map((transactionId, index) => ({
+        userId: input.userId,
+        movementId: input.movementId,
+        transactionId,
+        amount: input.parts[index].linkAmount,
+        origin: "manual" as const,
+        createdBy: input.userId,
+      }))
+    );
+    await tx.update(bankMovements)
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
+      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      movementId: input.movementId,
+      transactionId: criados[0] ?? null,
+      action: input.parts.length > 1 ? "dividir" : "criar_lancamento",
+      previousStatus: input.previousStatus,
+      newStatus: "conciliado",
+      detail: input.detail,
+    });
+  });
+}
+
+/** Prende várias movimentações a um lançamento só. */
+export async function groupMovements(input: {
+  userId: number;
+  movementIds: number[];
+  transactionId: number;
+  amounts: string[];
+  detail: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx.insert(reconciliationLinks).values(
+      input.movementIds.map((movementId, index) => ({
+        userId: input.userId,
+        movementId,
+        transactionId: input.transactionId,
+        amount: input.amounts[index],
+        origin: "manual" as const,
+        createdBy: input.userId,
+      }))
+    );
+    await tx.update(bankMovements)
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
+      .where(and(eq(bankMovements.userId, input.userId), inArray(bankMovements.id, input.movementIds)));
+    for (const movementId of input.movementIds) {
+      await tx.insert(reconciliationAudit).values({
+        userId: input.userId,
+        movementId,
+        transactionId: input.transactionId,
+        action: "agrupar",
+        previousStatus: "sem_par",
+        newStatus: "conciliado",
+        detail: input.detail,
+      });
+    }
+  });
+}
+
+export async function getReconciliationPeriod(userId: number, accountId: number, year: number, month: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(reconciliationPeriods)
+    .where(and(
+      eq(reconciliationPeriods.userId, userId),
+      eq(reconciliationPeriods.accountId, accountId),
+      eq(reconciliationPeriods.year, year),
+      eq(reconciliationPeriods.month, month)
+    ))
+    .limit(1);
+  return rows[0];
+}
+
+export async function closeReconciliationPeriod(input: {
+  userId: number;
+  accountId: number;
+  year: number;
+  month: number;
+  statementBalance: string;
+  systemBalance: string;
+  movementCount: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const existing = await getReconciliationPeriod(input.userId, input.accountId, input.year, input.month);
+
+  await db.transaction(async tx => {
+    if (existing) {
+      await tx.update(reconciliationPeriods)
+        .set({
+          statementBalance: input.statementBalance,
+          systemBalance: input.systemBalance,
+          movementCount: input.movementCount,
+          closedAt: new Date(),
+          closedBy: input.userId,
+          reopenedAt: null,
+          reopenedBy: null,
+          reopenReason: "",
+        })
+        .where(eq(reconciliationPeriods.id, existing.id));
+    } else {
+      await tx.insert(reconciliationPeriods).values({
+        userId: input.userId,
+        accountId: input.accountId,
+        year: input.year,
+        month: input.month,
+        statementBalance: input.statementBalance,
+        systemBalance: input.systemBalance,
+        movementCount: input.movementCount,
+        closedBy: input.userId,
+      });
+    }
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      action: "fechar_periodo",
+      previousStatus: "aberto",
+      newStatus: "fechado",
+      detail: `${String(input.month).padStart(2, "0")}/${input.year} · ${input.movementCount} movimentações`,
+    });
+  });
+}
+
+export async function reopenReconciliationPeriod(input: {
+  userId: number;
+  periodId: number;
+  reason: string;
+  detail: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx.update(reconciliationPeriods)
+      .set({ reopenedAt: new Date(), reopenedBy: input.userId, reopenReason: input.reason })
+      .where(and(eq(reconciliationPeriods.userId, input.userId), eq(reconciliationPeriods.id, input.periodId)));
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      action: "reabrir_periodo",
+      previousStatus: "fechado",
+      newStatus: "aberto",
       detail: input.detail,
     });
   });

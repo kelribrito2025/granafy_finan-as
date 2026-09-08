@@ -33,7 +33,9 @@ const ruleValuesSchema = z.object({
       code: "custom",
       path: ["categoryId"],
       message: "A regra precisa definir ao menos uma categoria ou um centro de custo",
-    });
+      /** Só sugere, ou concilia sozinha? O padrão é sugerir. */
+  autoReconcile: z.boolean().default(false),
+});
   }
 });
 
