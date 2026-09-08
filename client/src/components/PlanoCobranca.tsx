@@ -396,10 +396,15 @@ export function PlanoCobranca() {
             {ASSINATURA.plano} {ASSINATURA.ciclo} · próxima cobrança em {ASSINATURA.proximaCobranca}
           </p>
         </div>
+        {/*
+          Vermelho porque cancelar é destrutivo, mas em contorno e não em
+          bloco: preenchido, ele competiria com o "Mudar de plano" e o botão
+          mais perigoso da tela seria o mais chamativo.
+        */}
         <button
           type="button"
           onClick={avisar}
-          className="h-11 rounded-[12px] bg-white px-4 text-[13px] font-semibold text-[#28382E] ring-1 ring-[#E3EBE6] transition hover:bg-[#F8FAF9]"
+          className="h-11 rounded-[12px] bg-white px-4 text-[13px] font-semibold text-[#B3261E] ring-1 ring-[#F0C8C4] transition hover:bg-[#FDECEA]"
         >
           Cancelar assinatura
         </button>
