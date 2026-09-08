@@ -75,6 +75,17 @@ export function rootOf(category: string) {
 }
 
 /**
+ * O que vem depois da primeira barra: "Custos Operacionais/Insumos" → "Insumos".
+ *
+ * Corta pela barra, não pelo tamanho da raiz. A raiz vem aparada, então numa
+ * categoria escrita com espaço — "Despesa bancária / Tarifas PIX" — cortar
+ * pelo tamanho dela deixava a própria barra dentro do rótulo.
+ */
+export function leafOf(category: string) {
+  return category.split("/").slice(1).join("/").trim();
+}
+
+/**
  * Onde a categoria entra na DRE.
  *
  * Categoria fora do plano padrão vai para uma linha própria, fora do
@@ -162,7 +173,7 @@ function collect(rows: readonly DreRow[], regime: DreRegime) {
     buckets.set(bucket, tree);
     const node = tree.get(root) ?? { total: 0, leaves: new Map<string, number>() };
     node.total += row.amount;
-    const leaf = category.slice(root.length + 1).trim();
+    const leaf = leafOf(category);
     if (leaf) node.leaves.set(leaf, (node.leaves.get(leaf) ?? 0) + row.amount);
     tree.set(root, node);
   }

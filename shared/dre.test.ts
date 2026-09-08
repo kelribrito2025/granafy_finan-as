@@ -3,6 +3,7 @@ import {
   breakEvenRevenue,
   buildDreStatement,
   dreBucketOf,
+  leafOf,
   marginOf,
   rootOf,
   variationHelpsProfit,
@@ -67,6 +68,21 @@ describe("rootOf", () => {
     expect(rootOf("Custos Operacionais/Insumos")).toBe("Custos Operacionais");
     expect(rootOf("Outras Receitas")).toBe("Outras Receitas");
     expect(rootOf("  ")).toBe("Sem categoria");
+  });
+});
+
+describe("leafOf", () => {
+  it("devolve o trecho depois da primeira barra", () => {
+    expect(leafOf("Custos Operacionais/Insumos")).toBe("Insumos");
+    expect(leafOf("Outras Receitas")).toBe("");
+  });
+
+  it("não deixa a barra no rótulo quando a categoria tem espaço antes dela", () => {
+    expect(leafOf("Despesa bancária / Tarifas PIX")).toBe("Tarifas PIX");
+  });
+
+  it("mantém as barras seguintes, que fazem parte do nome", () => {
+    expect(leafOf("Despesas Fixas/Benefícios (VR/VT)")).toBe("Benefícios (VR/VT)");
   });
 });
 
