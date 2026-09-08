@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { isPasswordValid, PASSWORD_REQUIREMENT_MESSAGE } from "@shared/password";
 import {
   clearLocalSession,
   createOpaquePasswordResetRequestId,
@@ -19,6 +20,7 @@ import {
   isPasswordResetEmailConfigured,
   sendPasswordResetCode,
 } from "./email";
+import { isGoogleLoginEnabled } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { balanceSheetRouter } from "./routers/balanceSheet";
@@ -38,6 +40,16 @@ const credentialsSchema = z.object({
     .max(128, "A senha é muito longa"),
 });
 
+/*
+ * A política nova vale para senha que está sendo criada — cadastro e
+ * redefinição. O login continua com a regra antiga de propósito: quem já tem
+ * conta com uma senha mais fraca precisa conseguir entrar para poder trocá-la.
+ */
+const strongPasswordSchema = credentialsSchema.shape.password.refine(
+  isPasswordValid,
+  PASSWORD_REQUIREMENT_MESSAGE
+);
+
 export const appRouter = router({
   system: systemRouter,
   balanceSheet: balanceSheetRouter,
@@ -52,10 +64,18 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
 
+    /** O que a tela de entrada precisa saber antes de alguém estar logado. */
+    options: publicProcedure.query(() => ({ google: isGoogleLoginEnabled() })),
+
     signup: publicProcedure
       .input(
         credentialsSchema.extend({
           name: z.string().trim().min(2, "Informe seu nome").max(80),
+          password: strongPasswordSchema,
+          /** Sem o aceite não existe cadastro; o servidor não confia na tela. */
+          acceptedTerms: z.literal(true, {
+            message: "É preciso aceitar os termos de uso e a política de privacidade",
+          }),
         })
       )
       .mutation(async ({ ctx, input }) => {
@@ -202,7 +222,7 @@ export const appRouter = router({
       .input(
         z.object({
           resetToken: z.string().min(1),
-          password: credentialsSchema.shape.password,
+          password: strongPasswordSchema,
         })
       )
       .mutation(async ({ input }) => {

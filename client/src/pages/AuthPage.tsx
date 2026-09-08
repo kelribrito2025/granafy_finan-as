@@ -10,6 +10,13 @@ import {
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
+import {
+  isPasswordValid,
+  PASSWORD_REQUIREMENT_MESSAGE,
+  PASSWORD_RULE_LABELS,
+  passwordChecks,
+  passwordStrength,
+} from "@shared/password";
 import { PasswordResetPanel } from "@/pages/PasswordResetPage";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -90,6 +97,71 @@ function BrandPanel() {
   );
 }
 
+
+/**
+ * A barrinha de força.
+ *
+ * Os três primeiros segmentos são as exigências obrigatórias e o quarto é o
+ * comprimento extra. Quem manda no cálculo é o módulo compartilhado, o mesmo
+ * que o servidor usa para validar — a barra não pode aprovar o que o cadastro
+ * vai recusar.
+ */
+function PasswordStrengthBar({ value }: { value: string }) {
+  const strength = passwordStrength(value);
+  const checks = passwordChecks(value);
+  const cor = strength.valid ? "bg-[#12B85C]" : strength.score >= 2 ? "bg-[#F2A93B]" : "bg-[#B3261E]";
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-1.5" role="img" aria-label={strength.label || "Senha vazia"}>
+        {[0, 1, 2, 3].map(index => (
+          <span
+            key={index}
+            className={`h-[6px] flex-1 rounded-full transition-colors ${index < strength.score ? cor : "bg-[#E3EBE6]"}`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]">
+        {strength.label && (
+          <span className={`font-semibold ${strength.valid ? "text-[#0A7A42]" : "text-[#8E1F16]"}`}>
+            {strength.label}
+          </span>
+        )}
+        {PASSWORD_RULE_LABELS.map(rule => (
+          <span key={rule.key} className={checks[rule.key] ? "text-[#0A7A42]" : "text-[#718077]"}>
+            {checks[rule.key] ? "✓" : "•"} {rule.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Entrar com Google. Só aparece quando o servidor diz que está configurado. */
+function GoogleButton({ label }: { label: string }) {
+  return (
+    <>
+      <a
+        href="/api/auth/google/start"
+        className="flex h-12 items-center justify-center gap-2.5 rounded-[12px] border border-[#E3EAE5] bg-white text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]"
+      >
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1z" />
+          <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.3v5.7C7.9 41 15.4 46 24 46z" />
+          <path fill="#FBBC05" d="M11.7 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8l7.4-5.7z" />
+          <path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.3 29.9 2 24 2 15.4 2 7.9 7 4.3 14.2l7.4 5.7c1.7-5.2 6.6-9.1 12.3-9.1z" />
+        </svg>
+        {label}
+      </a>
+      <div className="flex items-center gap-3 text-[11.5px] text-[#718077]">
+        <span className="h-px flex-1 bg-[#E3EAE5]" />
+        ou
+        <span className="h-px flex-1 bg-[#E3EAE5]" />
+      </div>
+    </>
+  );
+}
+
 export default function AuthPage({ mode }: { mode: AuthMode }) {
   const { user, loading, refresh } = useAuth();
   const [, setLocation] = useLocation();
@@ -99,9 +171,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const isSignup = mode === "signup";
 
+  const options = trpc.auth.options.useQuery(undefined, { staleTime: 5 * 60_000 });
   const loginMutation = trpc.auth.login.useMutation();
   const signupMutation = trpc.auth.signup.useMutation();
   const submitting = loginMutation.isPending || signupMutation.isPending;
@@ -109,20 +183,39 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   useEffect(() => {
     setFormError(null);
     setShowPasswordReset(false);
+    setAcceptedTerms(false);
   }, [mode]);
+
+  // O retorno do Google não tem como mostrar erro sozinho: ele volta pela URL.
+  useEffect(() => {
+    const erro = new URLSearchParams(window.location.search).get("erro");
+    if (!erro) return;
+    setFormError(erro);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
+
+    if (isSignup && !isPasswordValid(password)) {
+      setFormError(PASSWORD_REQUIREMENT_MESSAGE);
+      return;
+    }
 
     if (isSignup && password !== passwordConfirmation) {
       setFormError("As senhas não coincidem");
       return;
     }
 
+    if (isSignup && !acceptedTerms) {
+      setFormError("É preciso aceitar os termos de uso e a política de privacidade");
+      return;
+    }
+
     try {
       if (isSignup) {
-        await signupMutation.mutateAsync({ name, email, password });
+        await signupMutation.mutateAsync({ name, email, password, acceptedTerms: true });
       } else {
         await loginMutation.mutateAsync({ email, password });
       }
@@ -204,6 +297,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                 </label>
               )}
 
+              {options.data?.google && (
+                <GoogleButton label={isSignup ? "Criar conta com Google" : "Continuar com Google"} />
+              )}
+
               <label className="block">
                 <span className="mb-2 block text-[13px] font-semibold text-[#18271F]">E-mail</span>
                 <input
@@ -243,7 +340,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                     autoComplete={isSignup ? "new-password" : "current-password"}
                     value={password}
                     onChange={event => setPassword(event.target.value)}
-                    placeholder="Mínimo de 8 caracteres"
+                    placeholder={isSignup ? "8 caracteres, um número e um especial" : "Mínimo de 8 caracteres"}
                     minLength={8}
                     maxLength={128}
                     required
@@ -259,6 +356,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   </button>
                 </span>
               </label>
+
+              {isSignup && <PasswordStrengthBar value={password} />}
 
               {isSignup && (
                 <label className="block">
@@ -287,6 +386,36 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                     </button>
                   </span>
                 </label>
+              )}
+
+              {isSignup && (
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={acceptedTerms}
+                  onClick={() => setAcceptedTerms(value => !value)}
+                  className="flex items-start gap-2.5 text-left"
+                >
+                  <span className={`mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md transition ${
+                    acceptedTerms ? "bg-[#12B85C] text-white" : "border-[1.5px] border-[#C9D5CD]"
+                  }`}>
+                    {acceptedTerms && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" aria-hidden="true">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-[13px] leading-relaxed text-[#28382E]">
+                    Aceito os{" "}
+                    <a href="/termos" target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="font-semibold text-[#0A7A42] underline-offset-2 hover:underline">
+                      termos de uso
+                    </a>{" "}
+                    e a{" "}
+                    <a href="/privacidade" target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="font-semibold text-[#0A7A42] underline-offset-2 hover:underline">
+                      política de privacidade
+                    </a>.
+                  </span>
+                </button>
               )}
 
               {formError && (

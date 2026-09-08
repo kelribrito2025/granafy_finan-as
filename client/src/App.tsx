@@ -7,6 +7,7 @@ import ConciliacaoPage from "@/pages/ConciliacaoPage";
 import DrePage from "@/pages/DrePage";
 import FluxoCaixaPage from "@/pages/FluxoCaixaPage";
 import LancamentosPage from "@/pages/LancamentosPage";
+import LegalPage from "@/pages/LegalPage";
 import NotFound from "@/pages/NotFound";
 import OrganizationPage from "@/pages/OrganizationPage";
 import PagarReceberPage from "@/pages/PagarReceberPage";
@@ -53,6 +54,8 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/termos"><LegalPage document="termos" /></Route>
+      <Route path="/privacidade"><LegalPage document="privacidade" /></Route>
       <Route path="/conciliacao"><ProtectedPage><ConciliacaoPage /></ProtectedPage></Route>
       <Route path="/fluxo-de-caixa"><ProtectedPage><FluxoCaixaPage /></ProtectedPage></Route>
       <Route path="/a-pagar-e-receber"><ProtectedPage><PagarReceberPage /></ProtectedPage></Route>

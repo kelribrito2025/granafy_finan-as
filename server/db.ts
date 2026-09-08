@@ -102,7 +102,9 @@ export function toPublicUser(record: UserRecord): User {
 export async function createLocalUser(input: {
   email: string;
   name: string;
-  passwordHash: string;
+  /** Null quando a conta nasce por provedor externo: não existe senha para guardar. */
+  passwordHash: string | null;
+  loginMethod?: string;
 }): Promise<User> {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -113,7 +115,7 @@ export async function createLocalUser(input: {
       email: input.email,
       name: input.name,
       passwordHash: input.passwordHash,
-      loginMethod: "password",
+      loginMethod: input.loginMethod ?? "password",
       categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION,
       lastSignedIn: new Date(),
     });
