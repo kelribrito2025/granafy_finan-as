@@ -6,6 +6,7 @@ import {
   DocumentIcon,
   UploadIcon,
 } from "@/components/IconlyIcons";
+import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -95,6 +96,16 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
     setStatementBalance(null);
   };
 
+  /*
+   * O saldo digitado quando o arquivo não declara nenhum.
+   *
+   * CSV nunca declara, e nem todo OFX traz `LEDGERBAL`. Importar sem ele
+   * deixa a conciliação do mês sem contra o que comparar — e o pior é que
+   * isso não aparece: a tela só escreve "—" e a pessoa segue achando que
+   * está conferido.
+   */
+  const [saldoDigitado, setSaldoDigitado] = useState("");
+
   const preview = async () => {
     if (!file || !accountId || !incomeCategoryId || !expenseCategoryId) return toast.error("Selecione arquivo, conta e as categorias de receita e despesa");
     try {
@@ -110,6 +121,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
       });
       setRows(response.rows.map(row => ({ ...row, selected: !row.duplicate })));
       setStatementBalance(response.statementBalance);
+      setSaldoDigitado("");
       setPreviewPage(0);
       setStep("preview");
     } catch (error) {
@@ -152,15 +164,28 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
     }));
   };
 
+  /** A data mais recente do arquivo: é a ela que o saldo final se refere. */
+  const ultimaDataDoArquivo = useMemo(
+    () => rows.reduce((maior, row) => (row.transactionDate > maior ? row.transactionDate : maior), ""),
+    [rows]
+  );
+
   const confirm = async () => {
     if (!file || selectedRows.length === 0) return toast.error("Selecione ao menos um lançamento novo");
+    const digitado = saldoDigitado.trim();
+    let saldoFinal = statementBalance;
+    if (!saldoFinal && digitado) {
+      const numero = currencyInputToNumber(digitado);
+      if (!Number.isFinite(numero)) return toast.error("O saldo informado não é um valor válido");
+      saldoFinal = { balance: numero, asOf: ultimaDataDoArquivo };
+    }
     try {
       const response = await confirmMutation.mutateAsync({
         fileName: file.name,
         format,
         accountId: Number(accountId),
         duplicateCount: rows.filter(row => row.duplicate).length,
-        statementBalance,
+        statementBalance: saldoFinal,
         rows: selectedRows.map(({ categoryName: _categoryName, duplicate: _duplicate, selected: _selected, ...row }) => row),
       });
       setResult(response);
@@ -259,7 +284,29 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-3 sm:px-6">
               <button type="button" onClick={() => setStep("setup")} className="rounded-xl bg-[#F1F4F2] px-4 py-2.5 text-[12px] font-bold text-[#4C6355]">Voltar</button>
               {rows.length > PREVIEW_PAGE_SIZE && <div className="flex items-center gap-1.5 rounded-xl bg-[#F1F4F2] p-1"><button type="button" aria-label="Página anterior" disabled={previewPage === 0} onClick={() => setPreviewPage(page => Math.max(0, page - 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">←</button><span className="min-w-[150px] text-center text-[10.5px] font-semibold text-[#607067]">Página {previewPage + 1} de {previewPageCount} · {previewPage * PREVIEW_PAGE_SIZE + 1}–{Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, rows.length)}</span><button type="button" aria-label="Próxima página" disabled={previewPage >= previewPageCount - 1} onClick={() => setPreviewPage(page => Math.min(previewPageCount - 1, page + 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">→</button></div>}
-              <p className="mr-auto text-[10.5px] text-[#8A968D]">Todos os selecionados serão processados em lotes seguros.</p>
+              {statementBalance ? (
+                <p className="mr-auto text-[10.5px] text-[#8A968D]">
+                  Saldo do extrato reconhecido: <strong className="font-bold text-[#0A7A42]">{statementBalance.balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong> em {statementBalance.asOf.split("-").reverse().join("/")}
+                </p>
+              ) : (
+                <label className="mr-auto flex flex-wrap items-center gap-2">
+                  <span className="text-[10.5px] leading-tight text-[#8A4B00]">
+                    <strong className="font-bold">Este arquivo não declara saldo.</strong> Sem ele a conciliação do mês
+                    não aponta diferença. Informe o saldo do banco em {ultimaDataDoArquivo.split("-").reverse().join("/")}:
+                  </span>
+                  <span className="flex h-9 items-center gap-1.5 rounded-lg border border-[#E0C48A] bg-[#FFF9EB] px-2.5">
+                    <span className="text-[10.5px] font-semibold text-[#8A4B00]">R$</span>
+                    <input
+                      inputMode="decimal"
+                      value={saldoDigitado}
+                      onChange={event => setSaldoDigitado(formatCurrencyInput(event.target.value))}
+                      placeholder="opcional"
+                      aria-label="Saldo do extrato no fim do período"
+                      className="w-[92px] bg-transparent text-[12px] font-bold text-[#8A4B00] outline-none placeholder:font-normal placeholder:text-[#B08A4A]"
+                    />
+                  </span>
+                </label>
+              )}
               <button type="button" disabled={confirmMutation.isPending || selectedRows.length === 0} onClick={confirm} className="rounded-xl bg-[#12B85C] px-5 py-2.5 text-[12px] font-bold text-white disabled:opacity-45">{confirmMutation.isPending ? `Importando ${selectedRows.length}...` : `Importar ${selectedRows.length} lançamento${selectedRows.length === 1 ? "" : "s"}`}</button>
             </footer>
           </div>
