@@ -675,6 +675,43 @@ export async function createTransactionSeries(userId: number, rows: TransactionV
   return getTransactionsByIds(userId, ids);
 }
 
+/**
+ * Transforma uma linha já existente na primeira parcela e insere as seguintes.
+ * A operação é atômica para nunca deixar uma recorrência criada pela metade.
+ */
+export async function materializeTransactionSeries(
+  userId: number,
+  existingId: number,
+  rows: TransactionValues[],
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (rows.length === 0) return [];
+
+  const ids = await db.transaction(async tx => {
+    const updated = await tx
+      .update(financialTransactions)
+      .set(rows[0])
+      .where(and(
+        eq(financialTransactions.userId, userId),
+        eq(financialTransactions.id, existingId),
+        isNull(financialTransactions.recurrenceGroupId),
+      ));
+    if (Number(updated[0].affectedRows ?? 0) !== 1) {
+      throw new Error("Transaction is already part of a recurrence series");
+    }
+
+    const insertedIds = [existingId];
+    for (const row of rows.slice(1)) {
+      const result = await tx.insert(financialTransactions).values({ userId, ...row });
+      insertedIds.push(Number(result[0].insertId));
+    }
+    return insertedIds;
+  });
+
+  return getTransactionsByIds(userId, ids);
+}
+
 export async function getRecurrenceGroup(userId: number, recurrenceGroupId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

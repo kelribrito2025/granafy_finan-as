@@ -301,9 +301,13 @@ export default function PagarReceberPage() {
   const query = trpc.payables.overview.useQuery(period);
   const utils = trpc.useUtils();
   const settle = trpc.transactions.toggleStatus.useMutation({
-    onSuccess: () => {
-      utils.payables.overview.invalidate();
-      utils.transactions.invalidate();
+    onSuccess: async () => {
+      await Promise.all([
+        utils.payables.invalidate(),
+        utils.transactions.invalidate(),
+        utils.cashflow.invalidate(),
+        utils.dre.invalidate(),
+      ]);
       toast.success("Título liquidado.");
     },
     onError: error => toast.error(error.message),

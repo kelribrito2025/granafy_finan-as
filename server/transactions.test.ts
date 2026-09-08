@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
 import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
-import { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize } from "./routers/transactions";
+import { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
   return {
@@ -68,5 +68,24 @@ describe("transactions helpers", () => {
     expect(bulkUpdateChangesSchema.parse({ transactionDate: "2026-09-07", recurring: true })).toEqual({ transactionDate: "2026-09-07", recurring: true });
     expect(bulkUpdateChangesSchema.safeParse({ transactionDate: "07/09/2026" }).success).toBe(false);
     expect(MAX_BULK_UPDATE_IDS).toBeGreaterThanOrEqual(668);
+  });
+
+  it("materializes future installments when an individual transaction becomes recurring", () => {
+    expect(shouldMaterializeRecurrence(
+      { recurrenceGroupId: null, transferGroupId: null },
+      { recurring: true, recurringMonths: 12 },
+    )).toBe(true);
+    expect(shouldMaterializeRecurrence(
+      { recurrenceGroupId: "existing-series", transferGroupId: null },
+      { recurring: true, recurringMonths: 12 },
+    )).toBe(false);
+    expect(shouldMaterializeRecurrence(
+      { recurrenceGroupId: null, transferGroupId: null },
+      { recurring: false, recurringMonths: null },
+    )).toBe(false);
+    expect(shouldMaterializeRecurrence(
+      { recurrenceGroupId: null, transferGroupId: "transfer" },
+      { recurring: true, recurringMonths: 12 },
+    )).toBe(false);
   });
 });

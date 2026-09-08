@@ -754,7 +754,7 @@ function TransactionModal({ transaction, defaultDate, pending, options, onManage
             <p className="mt-2 text-[11px] leading-relaxed text-[#4C6355]">
               {editingSeries
                 ? `Parcela ${transaction.recurrenceIndex ?? 1} de ${transaction.recurringMonths ?? recurringMonths}. Ao salvar, você escolhe se a mudança vale só para esta ou também para as próximas em aberto.`
-                : "Alterar o prazo aqui não cria as parcelas: para gerar uma série, exclua e lance de novo."}
+                : `${recurringMonths} lançamentos serão criados, de ${formatDate(firstInstallmentDate)} até ${formatDate(lastInstallmentDate)}. O mês atual mantém a situação escolhida; os próximos ficam em aberto.`}
             </p>
           )}
         </div>
@@ -917,7 +917,14 @@ export default function LancamentosPage() {
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {
-    await Promise.all([utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate(), utils.organization.overview.invalidate()]);
+    await Promise.all([
+      utils.transactions.list.invalidate(),
+      utils.transactions.dashboard.invalidate(),
+      utils.organization.overview.invalidate(),
+      utils.payables.invalidate(),
+      utils.cashflow.invalidate(),
+      utils.dre.invalidate(),
+    ]);
   };
   const createMutation = trpc.transactions.create.useMutation({ onSuccess: refresh });
   const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });

@@ -89,6 +89,16 @@ function signedAmount(input: TransactionValuesInput) {
   return input.type === "saida" ? -absolute : absolute;
 }
 
+export function shouldMaterializeRecurrence(
+  existing: Pick<TransactionRecord, "recurrenceGroupId" | "transferGroupId">,
+  values: Pick<TransactionValuesInput, "recurring" | "recurringMonths">,
+) {
+  return !existing.recurrenceGroupId
+    && !existing.transferGroupId
+    && values.recurring
+    && Boolean(values.recurringMonths);
+}
+
 function toTransaction(record: TransactionRecord) {
   return {
     id: record.id,
@@ -419,6 +429,27 @@ export const transactionsRouter = router({
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "Não é possível converter uma transferência em entrada ou saída. Exclua e lance de novo.",
+      });
+    }
+
+    // Antes da implementação das séries reais, marcar "recorrente" gravava só
+    // uma flag. Ao editar uma linha avulsa, materializamos agora todas as parcelas
+    // para que os meses futuros apareçam em Lançamentos, A pagar/receber, Fluxo de
+    // caixa e DRE. Transferências precisam ser recriadas porque cada mês tem duas
+    // pernas vinculadas.
+    if (shouldMaterializeRecurrence(existing, values)) {
+      const rows = await buildRowsForCreate(ctx.user.id, values);
+      const records = await db.materializeTransactionSeries(ctx.user.id, id, rows);
+      if (records.length !== rows.length) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar todas as parcelas" });
+      }
+      const first = records.find(record => record.id === id) ?? records[0];
+      return { ...toTransaction(first), updatedCount: records.length };
+    }
+    if (!existing.recurrenceGroupId && wasTransfer && values.recurring) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Para repetir uma transferência, exclua esta linha e crie uma nova transferência recorrente.",
       });
     }
 
