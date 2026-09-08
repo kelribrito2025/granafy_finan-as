@@ -23,6 +23,7 @@ import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWith
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ModalIcon } from "@/components/ModalIcon";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { TransactionModal } from "@/components/TransactionModal";
 import type {
   OrganizationOptions,
@@ -691,7 +692,18 @@ export default function LancamentosPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={
+            <SidebarStatCard
+              tone={summary.balance < 0 ? "negative" : "positive"}
+              kicker={`Resultado de ${monthLabel.split(" ")[0]}`}
+              value={`${summary.balance < 0 ? "−" : "+"} ${formatMoney(Math.abs(summary.balance))}`}
+              hint={`${filtered.length.toLocaleString("pt-BR")} ${filtered.length === 1 ? "lançamento" : "lançamentos"}`}
+            />
+          }
+        />
         <section className="flex min-w-0 flex-1 flex-col gap-4 pb-1">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>

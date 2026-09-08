@@ -1,6 +1,7 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartDot } from "@/components/ChartDot";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
@@ -32,11 +33,12 @@ const MONTH_LABELS = [
 /** Cartão do pé do menu com o dia mais baixo da projeção. */
 function LowestBalanceCard({ lowest }: { lowest: { date: string; balance: number } }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-[16px] bg-[#F1FBF6] p-3.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Menor saldo previsto</span>
-      <span className="text-[20px] font-bold text-[#0A7A42]">{formatMoney(lowest.balance)}</span>
-      <span className="text-[11.5px] text-[#4C6355]">em {formatDate(lowest.date)}</span>
-    </div>
+    <SidebarStatCard
+      tone={lowest.balance < 0 ? "negative" : "positive"}
+      kicker="Menor saldo previsto"
+      value={formatMoney(lowest.balance)}
+      hint={`em ${formatDate(lowest.date)}`}
+    />
   );
 }
 

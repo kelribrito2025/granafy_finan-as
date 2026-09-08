@@ -18,6 +18,7 @@ import {
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ModalIcon } from "@/components/ModalIcon";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { buildCategoryTree, type CategoryNode, type FlatCategory } from "@/lib/categoryTree";
 import { RULE_MATCH_LABELS, RULE_MATCH_TYPES, type RuleMatchType } from "@shared/categoryRules";
@@ -643,7 +644,18 @@ export default function OrganizationPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={
+            <SidebarStatCard
+              tone={totalBalance < 0 ? "negative" : "positive"}
+              kicker="Saldo consolidado"
+              value={formatMoney(totalBalance)}
+              hint={`${activeAccounts} ${activeAccounts === 1 ? "conta ativa" : "contas ativas"}`}
+            />
+          }
+        />
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>

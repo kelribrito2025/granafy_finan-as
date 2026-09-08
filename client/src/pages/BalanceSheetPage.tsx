@@ -20,6 +20,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartDot } from "@/components/ChartDot";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ModalIcon } from "@/components/ModalIcon";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
@@ -1105,7 +1106,18 @@ export default function BalanceSheetPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={
+            <SidebarStatCard
+              tone={totals.netWorth < 0 ? "negative" : "positive"}
+              kicker="Patrimônio líquido"
+              value={formatMoney(totals.netWorth)}
+              hint={netWorthCaption}
+            />
+          }
+        />
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>

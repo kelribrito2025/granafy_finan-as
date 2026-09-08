@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
@@ -41,13 +42,18 @@ const STATUS_STYLE: Record<TitleStatus, string> = {
 };
 
 /** Cartão vermelho no pé do menu: só a dívida vencida, nunca o líquido. */
+/**
+ * O cartão fica na barra mesmo sem atraso: "nada vencido" é uma resposta, e
+ * ver o cartão sumir dá a impressão de que a conta deixou de ser feita.
+ */
 function OverdueCard({ count, amount }: { count: number; amount: number }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-[16px] bg-[#FDECEA] p-3.5">
-      <span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#8E1F16]">Em atraso</span>
-      <span className="text-[20px] font-bold text-[#8E1F16]">{formatMoney(Math.abs(amount))}</span>
-      <span className="text-[11.5px] text-[#8E1F16]">{count === 1 ? "1 título vencido" : `${count} títulos vencidos`}</span>
-    </div>
+    <SidebarStatCard
+      tone={count > 0 ? "negative" : "positive"}
+      kicker="Em atraso"
+      value={formatMoney(Math.abs(amount))}
+      hint={count === 0 ? "nada vencido" : count === 1 ? "1 conta a pagar" : `${count} contas a pagar`}
+    />
   );
 }
 
@@ -375,7 +381,7 @@ export default function PagarReceberPage() {
         <AppSidebar
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
-          footer={overduePayables.length > 0 ? <OverdueCard count={overduePayables.length} amount={data?.totals.overduePayable ?? 0} /> : undefined}
+          footer={<OverdueCard count={overduePayables.length} amount={data?.totals.overduePayable ?? 0} />}
         />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">

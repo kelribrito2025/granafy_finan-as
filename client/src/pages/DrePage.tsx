@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
@@ -405,7 +406,20 @@ export default function DrePage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={statement ? (
+            <SidebarStatCard
+              tone={statement.totals.lucroLiquido < 0 ? "negative" : "positive"}
+              kicker={`Lucro de ${statement.label.split(" ")[0]}`}
+              value={`${statement.totals.lucroLiquido < 0 ? "−" : "+"} ${formatMoney(Math.abs(statement.totals.lucroLiquido))}`}
+              hint={margin === null
+                ? "sem receita no período"
+                : `margem líquida de ${margin.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
+            />
+          ) : undefined}
+        />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">

@@ -11,6 +11,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
+import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
@@ -987,7 +988,17 @@ export default function ConciliacaoPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={data ? (
+            <SidebarStatCard
+              kicker="Conciliado no mês"
+              value={`${data.progress}%`}
+              hint={`${data.counts.pendentes} ${data.counts.pendentes === 1 ? "item pendente" : "itens pendentes"}`}
+            />
+          ) : undefined}
+        />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
