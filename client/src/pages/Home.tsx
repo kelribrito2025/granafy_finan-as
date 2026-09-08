@@ -17,6 +17,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
+import { greetingFor } from "@/lib/greeting";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -181,6 +182,9 @@ export default function Home() {
   const dashboard = dashboardQuery.data;
   // Mesma consulta da sidebar; o react-query aproveita o cache.
   const accountCount = trpc.organization.accountBalances.useQuery().data?.length ?? 0;
+  // Calculado no render: a página é recarregada muitas vezes ao dia e não
+  // vale um timer só para virar a saudação com o relógio na tela.
+  const greeting = greetingFor(new Date());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -255,7 +259,7 @@ export default function Home() {
               <MenuIcon size={18} />
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
-              <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Bom dia, {firstName}</h1>
+              <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">{greeting}, {firstName}</h1>
               <p className="text-xs text-[#8A968D] sm:text-[13px]">{currentMonthLabel} · dados sincronizados</p>
             </div>
 

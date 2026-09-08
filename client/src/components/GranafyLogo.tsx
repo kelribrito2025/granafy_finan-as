@@ -31,11 +31,11 @@ export function GranafySymbol({ size = 36, tone = "auto", className = "" }: {
   );
 }
 
-/** "Granafy" com o "fy" no verde da marca. */
+/** "GranaFy" com o "Fy" no verde da marca, como no arquivo oficial. */
 export function GranafyWordmark({ tone = "auto", className = "" }: { tone?: LogoTone; className?: string }) {
   return (
     <span className={`font-bold tracking-[-0.035em] ${tone === "onDark" ? "text-white" : "text-[#0B1F14]"} ${className}`}>
-      Grana<span className={tone === "onDark" ? "text-[#7EE2A8]" : "text-[#12B85C]"}>fy</span>
+      Grana<span className={tone === "onDark" ? "text-[#7EE2A8]" : "text-[#12B85C]"}>Fy</span>
     </span>
   );
 }

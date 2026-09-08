@@ -161,7 +161,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-[15px] leading-6 text-[#718077]">
               {isSignup
                 ? "Comece agora a organizar sua operação financeira."
-                : "Bem-vindo de volta ao Granafy."}
+                : "Bem-vindo de volta ao GranaFy."}
             </p>
           </div>
 
@@ -328,7 +328,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-[#9AA69E] lg:justify-start">
-          <span>© 2026 Granafy · Número Virtual LTDA</span>
+          <span>© 2026 GranaFy · Número Virtual LTDA</span>
         </div>
       </section>
     </main>

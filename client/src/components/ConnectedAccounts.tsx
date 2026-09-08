@@ -1,11 +1,6 @@
 import { trpc } from "@/lib/trpc";
 
-/** Sem centavos, como no rodapé da sidebar; o valor exato fica no title. */
-function compact(value: number) {
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
-}
-
-function exact(value: number) {
+function money(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
@@ -32,10 +27,10 @@ export function ConnectedAccounts({ className = "" }: { className?: string }) {
       ) : (
         <div className="mt-2.5 flex flex-col gap-1.5">
           {accounts.map(account => (
-            <div key={account.id} className="flex items-baseline gap-2 text-[12px]" title={`${account.name}: ${exact(account.balance)}`}>
+            <div key={account.id} className="flex items-baseline gap-2 text-[12px]" title={`${account.name}: ${money(account.balance)}`}>
               <span className="min-w-0 flex-1 truncate text-[#4C6355]">{account.name}</span>
               <span className={`shrink-0 font-bold ${account.balance >= 0 ? "text-[#0B1F14]" : "text-[#B3261E]"}`}>
-                {compact(account.balance)}
+                {money(account.balance)}
               </span>
             </div>
           ))}
