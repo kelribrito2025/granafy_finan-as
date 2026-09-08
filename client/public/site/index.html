@@ -35,27 +35,54 @@
   }
 
   a { text-decoration:none; color:inherit; }
+
+  /* A mesma superfície escura do cartão "Caixa disponível" do app
+     (client/src/components/AuroraSurface.tsx). Fica numa classe porque
+     aparece em três lugares: as duas seções escuras e o cartão do hero —
+     copiada, uma mudança de tom acabaria aplicada em dois. */
+  /* No celular o cabeçalho fixo precisa caber numa linha: os âncoras saem e
+     ficam só a marca e os dois botões, que é o que a pessoa vai usar. Sem
+     isso o menu quebra em três linhas e come um terço da tela em toda a
+     rolagem. */
+  @media (max-width: 760px) {
+    /* `!important` porque o `display:flex` do bloco é inline e, sem ele,
+       ganha de qualquer seletor. */
+    .nav { display:none !important; }
+    .so-desktop { display:none; }
+    .barra-topo { padding-left:16px !important; padding-right:16px !important; gap:12px !important; }
+    .cta-topo { padding:0 14px !important; }
+  }
+
+  .aurora {
+    background: radial-gradient(135% 115% at 88% -12%, rgba(18,184,92,.58) 0%, rgba(18,184,92,.18) 44%, rgba(18,184,92,0) 70%), radial-gradient(120% 100% at 4% 106%, rgba(13,148,136,.34) 0%, rgba(13,148,136,0) 62%), radial-gradient(85% 60% at 66% 34%, rgba(126,226,168,.16) 0%, rgba(126,226,168,0) 62%), linear-gradient(158deg, #0D2A1B 0%, #08190F 58%, #06120B 100%);
+    background-color:#06120B;
+    color:#FFFFFF;
+  }
 </style>
 </head>
 <body>
-<div style="display:flex; flex-direction:column; width:100%; overflow-x:hidden">
+<!-- `overflow-x:clip` e não `hidden`: `hidden` faz deste bloco um contêiner de
+     rolagem, e aí o cabeçalho `position:sticky` gruda nele em vez de grudar na
+     janela — ou seja, para de acompanhar a página. `clip` corta igual sem criar
+     o contêiner. -->
+<div style="display:flex; flex-direction:column; width:100%; overflow-x:clip">
 
   <div style="position:sticky; top:0; z-index:40; background:rgba(255,255,255,.92); backdrop-filter:blur(10px); border-bottom:1px solid #E3EBE6">
-    <div style="max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:28px">
+    <div class="barra-topo" style="max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:28px">
       <div style="display:flex; align-items:center; gap:10px">
         <span style="width:34px; height:34px; border-radius:11px; background:#12B85C; display:flex; align-items:center; justify-content:center; flex-shrink:0">
           <svg width="21" height="21" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="23" stroke="#FFFFFF" stroke-width="10" opacity=".38"></circle><path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path></svg>
         </span>
         <span style="font-size:18px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:#0A7A42">Fy</span></span>
       </div>
-      <div style="display:flex; align-items:center; gap:22px; flex-wrap:wrap">
+      <div class="nav" style="display:flex; align-items:center; gap:22px">
         <a href="#recursos" class="link" style="font-size:14px; color:#4C6355">Recursos</a>
         <a href="#como-funciona" class="link" style="font-size:14px; color:#4C6355">Como funciona</a>
         <a href="#planos" class="link" style="font-size:14px; color:#4C6355">Planos</a>
       </div>
       <div style="margin-left:auto; display:flex; align-items:center; gap:12px">
         <a href="/login" class="ghost" style="height:42px; padding:0 16px; border-radius:12px; display:flex; align-items:center; font-size:14px; font-weight:600; color:#28382E">Entrar</a>
-        <a href="/cadastro" class="cta" style="height:42px; padding:0 18px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:14px; font-weight:700">Testar 14 dias grátis</a>
+        <a href="/cadastro" class="cta cta-topo" style="height:42px; padding:0 18px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:14px; font-weight:700; white-space:nowrap">Testar<span class="so-desktop">&nbsp;14 dias</span>&nbsp;grátis</a>
       </div>
     </div>
   </div>
@@ -123,7 +150,7 @@
               <span style="height:26px; padding:0 10px; border-radius:9px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:9.5px; font-weight:700; white-space:nowrap; flex-shrink:0">+ Lançamento</span>
             </div>
             <div style="display:flex; gap:10px; align-items:stretch">
-              <div style="width:43%; flex-shrink:0; background:#0B1F14; border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:6px; color:#FFFFFF">
+              <div class="aurora" style="width:43%; flex-shrink:0; border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:6px; color:#FFFFFF">
                 <span style="font-size:8.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:#8FB39E">Caixa disponível</span>
                 <span style="font-size:clamp(19px, 2.3vw, 24px); font-weight:700; letter-spacing:-.03em; line-height:1">R$ 128.430</span>
                 <span style="font-size:9.5px; font-weight:600; color:#7EE2A8">+ R$ 11.240 no mês</span>
@@ -548,7 +575,7 @@
     </div>
   </div>
 
-  <div style="margin-top:80px; background:linear-gradient(105deg, rgba(4,17,12,.86) 0%, rgba(4,17,12,.58) 42%, rgba(4,17,12,.12) 72%, rgba(4,17,12,0) 100%), conic-gradient(from 186deg at 112% 8%, #04110C 0deg, #0F8F49 62deg, #6BF0A8 104deg, #12B85C 148deg, #0A4A2B 208deg, #04110C 260deg, #04110C 360deg); color:#FFFFFF">
+  <div class="aurora" style="margin-top:80px">
     <div style="max-width:1200px; margin:0 auto; padding:72px 24px; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap:44px; align-items:center">
       <div style="display:flex; flex-direction:column; gap:18px; min-width:0">
         <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#7EE2A8">Segurança</span>
@@ -724,7 +751,7 @@
     </div>
   </div>
 
-  <div style="margin-top:80px; background:linear-gradient(105deg, rgba(4,17,12,.86) 0%, rgba(4,17,12,.58) 42%, rgba(4,17,12,.12) 72%, rgba(4,17,12,0) 100%), conic-gradient(from 186deg at 112% 8%, #04110C 0deg, #0F8F49 62deg, #6BF0A8 104deg, #12B85C 148deg, #0A4A2B 208deg, #04110C 260deg, #04110C 360deg); color:#FFFFFF">
+  <div class="aurora" style="margin-top:80px">
     <div style="max-width:1200px; margin:0 auto; padding:72px 24px; display:flex; flex-direction:column; align-items:center; gap:22px; text-align:center">
       <h2 style="margin:0; font-size:clamp(28px, 4vw, 42px); font-weight:700; letter-spacing:-.035em; line-height:1.12; max-width:720px; text-wrap:pretty">Feche setembro sabendo exatamente quanto sobrou.</h2>
       <p style="margin:0; font-size:16px; line-height:1.6; color:#C5DACE; max-width:520px; text-wrap:pretty">Importe o extrato do mês e veja o seu caixa consolidado em minutos.</p>

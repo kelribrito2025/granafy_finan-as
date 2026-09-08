@@ -50,8 +50,10 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
             <Link href="/login" className="flex h-[42px] items-center rounded-[12px] px-4 text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F1FBF6]">
               Entrar
             </Link>
-            <Link href="/cadastro" className="flex h-[42px] items-center rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
-              Testar 14 dias grátis
+            {/* No celular o botão vira "Testar grátis": o rótulo inteiro quebra em
+                duas linhas e estoura a altura de 42px da barra. */}
+            <Link href="/cadastro" className="flex h-[42px] items-center whitespace-nowrap rounded-[12px] bg-[#12B85C] px-3.5 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E] sm:px-[18px]">
+              Testar<span className="hidden sm:inline">&nbsp;14 dias</span>&nbsp;grátis
             </Link>
           </div>
         </div>
