@@ -3,12 +3,30 @@ import {
   ChevronRightIcon,
   CloseIcon,
   SettingsIcon,
-  UsersIcon,
 } from "@/components/IconlyIcons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+
+/** Lucide `user`: uma pessoa, como o modelo do avatar pede. */
+function PersonIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true" className={className}>
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+/** Chevron fino do modelo do avatar — o ChevronRightIcon do conjunto é uma seta. */
+function ChevronDownIcon({ size = 15, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={className}>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 /** Sigla de duas letras para o quadrado da empresa. */
 function initialsOf(text: string) {
@@ -83,8 +101,6 @@ export function ProfileMenu() {
   const anchor = useRef<HTMLDivElement>(null);
   const companyQuery = trpc.settings.company.useQuery(undefined, { staleTime: 60_000 });
 
-  const initials = (user?.name || user?.email || "NV")
-    .split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
   const company = companyQuery.data;
   const companyName = company?.tradeName || company?.legalName || "Empresa sem nome";
 
@@ -110,16 +126,22 @@ export function ProfileMenu() {
           aria-label="Abrir menu do perfil"
           aria-expanded={open}
           onClick={() => setOpen(value => !value)}
-          className="flex h-11 min-w-11 items-center justify-center rounded-[12px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white"
+          title={user?.name || user?.email || "Sua conta"}
+          className={`flex h-11 shrink-0 items-center gap-[9px] rounded-[14px] py-0 pl-1.5 pr-1.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#12B85C] ${
+            open ? "bg-[#F1FBF6]" : "bg-white hover:bg-[#F8FAF9]"
+          }`}
         >
-          {initials || "NV"}
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#DFF6EA] text-[#0A7A42]">
+            <PersonIcon size={20} />
+          </span>
+          <ChevronDownIcon size={15} className="mr-1.5 text-[#8A968D]" />
         </button>
 
         {open && (
           <div className="popover-enter absolute right-0 top-[52px] z-40 w-[312px] rounded-[18px] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,20,.16)] ring-1 ring-[#E1E8E3]">
             <div className="flex items-center gap-3 p-2.5">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#DFF6EA] text-[#0A7A42]">
-                <UsersIcon size={20} />
+                <PersonIcon size={20} />
               </span>
               <div className="min-w-0">
                 <strong className="block truncate text-[15px]">{user?.name || "Sua conta"}</strong>

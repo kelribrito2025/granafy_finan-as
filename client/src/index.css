@@ -316,6 +316,12 @@
 .dark .bg-\[\#EAF7EE\], .dark .bg-\[\#E9F3ED\],
 .dark .bg-\[\#DFF6EA\] { background-color: #173c2a !important; }
 
+/*
+ * No tema escuro #F1FBF6 e #DFF6EA caem no mesmo verde, e o círculo do avatar
+ * sumiria dentro da pílula quando o menu está aberto. Só aqui os dois se separam.
+ */
+.dark [aria-label="Abrir menu do perfil"][aria-expanded="true"] { background-color: #203329 !important; }
+
 .dark .bg-\[\#FDECEA\], .dark .bg-\[\#FFF8F7\],
 .dark .bg-\[\#F7EAE7\] { background-color: #3b2421 !important; }
 
