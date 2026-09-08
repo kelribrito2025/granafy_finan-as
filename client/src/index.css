@@ -224,7 +224,9 @@
   .gf-loader-barra-clara { background: #9BE3BC; }
 
   @media (prefers-reduced-motion: reduce) {
-    .gf-spin, [class^="gf-barrinha"] { animation: none; }
+    .gf-spin { animation: none; }
+    /* As barras param no meio do caminho, para continuarem legíveis. */
+    [class^="gf-barrinha"] { animation: none; transform: scaleY(.62); }
   }
 
   .popover-enter {

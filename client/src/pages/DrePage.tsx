@@ -1,6 +1,6 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
-import { GranafyLoader } from "@/components/GranafyLoader";
+import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
@@ -476,7 +476,10 @@ export default function DrePage() {
           )}
 
           {loading && !error && (
-            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Calculando a demonstração…" /></div>
+            <>
+              <KpiRowSkeleton />
+              <ChartSkeleton minHeight={300} />
+            </>
           )}
 
           {view === "mes" && statement && (

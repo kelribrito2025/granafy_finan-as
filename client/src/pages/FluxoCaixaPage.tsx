@@ -1,5 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
-import { GranafyLoader } from "@/components/GranafyLoader";
+import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { ChartDot } from "@/components/ChartDot";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -418,7 +418,10 @@ export default function FluxoCaixaPage() {
             </div>
           )}
           {loading && !error && (
-            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Calculando o fluxo…" /></div>
+            <>
+              <KpiRowSkeleton cards={3} />
+              <ChartSkeleton minHeight={260} />
+            </>
           )}
 
           {view !== "mes" && daily && (

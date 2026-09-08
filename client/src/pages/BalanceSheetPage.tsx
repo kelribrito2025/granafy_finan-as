@@ -18,7 +18,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
-import { GranafyLoader } from "@/components/GranafyLoader";
+import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { ChartDot } from "@/components/ChartDot";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -1155,7 +1155,12 @@ export default function BalanceSheetPage() {
             <ProfileMenu />
           </header>
 
-          {overviewQuery.isLoading && <section className="flex min-h-[520px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Montando o balanço..." /></section>}
+          {overviewQuery.isLoading && (
+            <>
+              <KpiRowSkeleton cards={3} />
+              <ChartSkeleton minHeight={340} className="flex-1" />
+            </>
+          )}
           {overviewQuery.isError && <section className="flex min-h-[520px] flex-1 flex-col items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><strong className="text-[#B3261E]">Não foi possível carregar o balanço</strong><button type="button" onClick={() => overviewQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button></section>}
 
           {!overviewQuery.isLoading && !overviewQuery.isError && (
