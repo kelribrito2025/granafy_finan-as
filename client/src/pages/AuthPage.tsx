@@ -7,7 +7,7 @@ import {
   ShowIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
-import { GranafyLogo, GranafyWordmark } from "@/components/GranafyLogo";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { PasswordResetPanel } from "@/pages/PasswordResetPage";
@@ -161,7 +161,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             <p className="mt-3 text-[15px] leading-6 text-[#718077]">
               {isSignup
                 ? "Comece agora a organizar sua operação financeira."
-                : <>Bem-vindo de volta ao <GranafyWordmark className="text-[15px]" />.</>}
+                : "Bem-vindo de volta"}
             </p>
           </div>
 
@@ -319,7 +319,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                 href={isSignup ? "/login" : "/cadastro"}
                 className="font-semibold text-[#0A9650] transition-colors hover:text-[#0B1F14]"
               >
-                {isSignup ? "Entre agora" : "Cadastre-se grátis"}
+                {isSignup ? "Entre agora" : "Criar conta"}
               </Link>
             </div>
           )}
