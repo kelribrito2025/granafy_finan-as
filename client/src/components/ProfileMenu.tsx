@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   CloseIcon,
   SettingsIcon,
+  SwapIcon,
 } from "@/components/IconlyIcons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -155,7 +156,8 @@ export function ProfileMenu() {
                 <span className="block truncate text-[14px] font-semibold text-[#0A7A42]">{companyName}</span>
                 <span className="block text-[12px] text-[#4C6355]">empresa atual</span>
               </span>
-              <ChevronRightIcon size={16} className="shrink-0 text-[#0A7A42]" />
+              {/* Troca, não avanço: a seta única dizia "próxima tela". */}
+              <SwapIcon size={17} className="shrink-0 text-[#0A7A42]" />
             </button>
 
             <button

@@ -1,3 +1,4 @@
+import { AuroraSurface } from "@/components/AuroraSurface";
 import { CheckIcon, CloseIcon, DownloadIcon } from "@/components/IconlyIcons";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -398,21 +399,26 @@ export function PlanoCobranca() {
         <button
           type="button"
           onClick={avisar}
-          className="h-11 rounded-[12px] px-4 text-[13px] font-semibold text-[#4C6355] transition hover:bg-[#F1F4F2]"
+          className="h-11 rounded-[12px] bg-white px-4 text-[13px] font-semibold text-[#28382E] ring-1 ring-[#E3EBE6] transition hover:bg-[#F8FAF9]"
         >
           Cancelar assinatura
         </button>
         <button
           type="button"
           onClick={() => setMudando(true)}
-          className="h-11 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E]"
+          className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E]"
         >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14" />
+            <path d="M12 5l7 7-7 7" />
+          </svg>
           Mudar de plano
         </button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <div className="flex flex-col gap-3.5 rounded-[20px] bg-[#0B1F14] p-5 text-white">
+        <AuroraSurface className="rounded-[20px] p-5">
+          <div className="flex h-full flex-col gap-3.5">
           <div className="flex items-center gap-2">
             <span className="text-[10.5px] font-semibold uppercase tracking-[.1em] text-[#8FB39E]">Plano atual</span>
             <span className="ml-auto rounded-md bg-[#12B85C] px-2 py-1 text-[10px] font-bold uppercase tracking-[.06em]">
@@ -438,7 +444,8 @@ export function PlanoCobranca() {
               <strong className="mt-0.5 block text-[13px] font-semibold">{ASSINATURA.assinanteDesde}</strong>
             </div>
           </div>
-        </div>
+          </div>
+        </AuroraSurface>
 
         <div className={`${CARD} flex flex-col gap-3.5`}>
           <div className="flex items-center gap-2">

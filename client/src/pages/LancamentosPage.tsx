@@ -811,7 +811,7 @@ export default function LancamentosPage() {
 
             {selected.length > 0 && (
               <div aria-live="polite" className="modal-enter flex flex-wrap items-center gap-2.5 rounded-[14px] bg-[#0B1F14] px-3.5 py-3 text-white">
-                <SelectionCheckbox checked mixed label="Limpar seleção" onChange={() => setSelected([])} />
+                <SelectionCheckbox checked mixed tone="onDark" label="Limpar seleção" onChange={() => setSelected([])} />
                 <span className="text-[13px] font-semibold">
                   {selected.length.toLocaleString("pt-BR")} {selected.length === 1 ? "lançamento selecionado" : "lançamentos selecionados"} · {formatMoney(selectedTotal)}
                 </span>

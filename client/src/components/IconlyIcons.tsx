@@ -272,6 +272,24 @@ export function CardIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Duas setas em sentidos opostos: trocar. A seta única do cartão de empresa
+ * dizia "avançar", que é outra coisa — quem clica ali quer trocar de conta,
+ * não ir para a próxima tela.
+ */
+export function SwapIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 8.5h13" />
+        <path d="M13.75 5.25 17 8.5l-3.25 3.25" />
+        <path d="M20 15.5H7" />
+        <path d="M10.25 12.25 7 15.5l3.25 3.25" />
+      </g>
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Upload (ID 39036), master canvas 48 px.
 export function UploadIcon(props: IconlyIconProps) {
   return (
