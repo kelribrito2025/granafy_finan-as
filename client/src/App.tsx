@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AuthPage from "@/pages/AuthPage";
 import BalanceSheetPage from "@/pages/BalanceSheetPage";
+import ConciliacaoPage from "@/pages/ConciliacaoPage";
 import DrePage from "@/pages/DrePage";
 import FluxoCaixaPage from "@/pages/FluxoCaixaPage";
 import LancamentosPage from "@/pages/LancamentosPage";
@@ -52,6 +53,7 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/conciliacao"><ProtectedPage><ConciliacaoPage /></ProtectedPage></Route>
       <Route path="/fluxo-de-caixa"><ProtectedPage><FluxoCaixaPage /></ProtectedPage></Route>
       <Route path="/a-pagar-e-receber"><ProtectedPage><PagarReceberPage /></ProtectedPage></Route>
       <Route path="/dre"><ProtectedPage><DrePage /></ProtectedPage></Route>

@@ -26,6 +26,7 @@ import { cashflowRouter, payablesRouter } from "./routers/cashflow";
 import { dreRouter } from "./routers/dre";
 import { importsRouter } from "./routers/imports";
 import { organizationRouter } from "./routers/organization";
+import { reconciliationRouter } from "./routers/reconciliation";
 import { settingsRouter } from "./routers/settings";
 import { transactionsRouter } from "./routers/transactions";
 
@@ -43,6 +44,7 @@ export const appRouter = router({
   cashflow: cashflowRouter,
   dre: dreRouter,
   payables: payablesRouter,
+  reconciliation: reconciliationRouter,
   imports: importsRouter,
   organization: organizationRouter,
   settings: settingsRouter,

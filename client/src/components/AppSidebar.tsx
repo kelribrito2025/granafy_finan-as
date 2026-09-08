@@ -42,7 +42,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
       { label: "Fluxo de caixa", icon: TrendUpIcon, path: "/fluxo-de-caixa" },
       { label: "A pagar e receber", icon: ArrowUpIcon, path: "/a-pagar-e-receber", counter: true },
       { label: "Lançamentos", icon: DocumentIcon, path: "/lancamentos" },
-      { label: "Conciliação", icon: CheckIcon, disabled: true },
+      { label: "Conciliação", icon: CheckIcon, path: "/conciliacao" },
     ],
   },
   {

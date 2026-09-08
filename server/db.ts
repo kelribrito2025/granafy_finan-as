@@ -22,6 +22,7 @@ import {
   transactionCategories,
   type InsertTransactionCategory,
   bankMovements,
+  reconciliationAudit,
   reconciliationLinks,
   transactionImportBatches,
   transactions as financialTransactions,
@@ -914,6 +915,146 @@ export async function getTransactionsByFingerprints(userId: number, fingerprints
     results.push(...await db.select({ fingerprint: financialTransactions.fingerprint }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.fingerprint, chunk))));
   }
   return results;
+}
+
+// ===========================================================================
+// Conciliação bancária
+// ===========================================================================
+
+export async function listBankMovements(userId: number, accountId: number, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(bankMovements)
+    .where(and(
+      eq(bankMovements.userId, userId),
+      eq(bankMovements.accountId, accountId),
+      gte(bankMovements.movementDate, start),
+      lte(bankMovements.movementDate, end)
+    ))
+    .orderBy(desc(bankMovements.movementDate), desc(bankMovements.id));
+}
+
+export async function getBankMovement(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(bankMovements)
+    .where(and(eq(bankMovements.userId, userId), eq(bankMovements.id, id))).limit(1);
+  return rows[0];
+}
+
+export async function listReconciliationLinks(userId: number, movementIds: number[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (movementIds.length === 0) return [];
+  return db.select().from(reconciliationLinks)
+    .where(and(eq(reconciliationLinks.userId, userId), inArray(reconciliationLinks.movementId, movementIds)));
+}
+
+/**
+ * Lançamentos da conta na janela que ainda não estão presos a nenhuma
+ * movimentação. Só eles podem ser sugeridos: oferecer um lançamento já
+ * conciliado seria propor conciliar a mesma coisa duas vezes.
+ */
+export async function listUnlinkedTransactions(userId: number, accountId: number, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({
+      id: financialTransactions.id,
+      accountId: financialTransactions.accountId,
+      transactionDate: financialTransactions.transactionDate,
+      description: financialTransactions.description,
+      contact: financialTransactions.contact,
+      amount: financialTransactions.amount,
+      category: financialTransactions.category,
+      linkId: reconciliationLinks.id,
+    })
+    .from(financialTransactions)
+    .leftJoin(reconciliationLinks, eq(reconciliationLinks.transactionId, financialTransactions.id))
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.accountId, accountId),
+      gte(financialTransactions.transactionDate, start),
+      lte(financialTransactions.transactionDate, end),
+      isNull(reconciliationLinks.id)
+    ));
+  return rows.map(({ linkId: _linkId, ...row }) => row);
+}
+
+/** O saldo mais recente que o banco declarou para a conta até a data. */
+export async function getStatementBalance(userId: number, accountId: number, throughDate: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({
+      balance: transactionImportBatches.statementBalance,
+      asOf: transactionImportBatches.statementBalanceDate,
+    })
+    .from(transactionImportBatches)
+    .where(and(
+      eq(transactionImportBatches.userId, userId),
+      eq(transactionImportBatches.accountId, accountId),
+      isNotNull(transactionImportBatches.statementBalance),
+      lte(transactionImportBatches.statementBalanceDate, throughDate)
+    ))
+    .orderBy(desc(transactionImportBatches.statementBalanceDate))
+    .limit(1);
+  const row = rows[0];
+  return row?.balance && row.asOf ? { balance: Number(row.balance), asOf: row.asOf } : null;
+}
+
+/**
+ * Concilia uma movimentação com um lançamento, numa transação só.
+ *
+ * O vínculo, o novo status e a linha de histórico andam juntos porque, se um
+ * deles falhar sozinho, sobra uma conciliação que ninguém consegue explicar
+ * nem desfazer.
+ */
+export async function linkMovement(input: {
+  userId: number;
+  movementId: number;
+  transactionId: number;
+  amount: string;
+  origin: "sugestao" | "manual" | "regra" | "importacao";
+  previousStatus: string;
+  detail: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    await tx.insert(reconciliationLinks).values({
+      userId: input.userId,
+      movementId: input.movementId,
+      transactionId: input.transactionId,
+      amount: input.amount,
+      origin: input.origin,
+      createdBy: input.userId,
+    });
+    await tx.update(bankMovements)
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
+      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      movementId: input.movementId,
+      transactionId: input.transactionId,
+      action: "conciliar",
+      previousStatus: input.previousStatus,
+      newStatus: "conciliado",
+      detail: input.detail,
+    });
+  });
+}
+
+export async function listReconciliationAudit(userId: number, movementId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(reconciliationAudit)
+    .where(and(eq(reconciliationAudit.userId, userId), eq(reconciliationAudit.movementId, movementId)))
+    .orderBy(desc(reconciliationAudit.createdAt))
+    .limit(50);
 }
 
 export async function createImportBatch(input: {
