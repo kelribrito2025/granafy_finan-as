@@ -4,7 +4,12 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { findMatchingRule, type CategoryRule } from "@shared/categoryRules";
-import { applyImportClassification, findCompatibleImportCategory, parseImportFile } from "../importers";
+import {
+  applyImportClassification,
+  findCompatibleImportCategory,
+  parseImportFile,
+  parseStatementBalance,
+} from "../importers";
 
 const formatSchema = z.enum(["csv", "ofx"]);
 const classificationSchema = z.enum(["auto", "entrada", "saida"]);
@@ -98,6 +103,8 @@ export const importsRouter = router({
         account: { id: account.id, name: account.name },
         rows,
         duplicateCount,
+        // Vai junto para a confirmação devolvê-lo sem reprocessar o arquivo.
+        statementBalance: parseStatementBalance({ format: input.format, content: input.content }),
       };
     } catch (error) {
       throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Não foi possível interpretar o arquivo" });
@@ -109,6 +116,11 @@ export const importsRouter = router({
     format: formatSchema,
     accountId: z.number().int().positive(),
     duplicateCount: z.number().int().min(0),
+    /** O saldo que o arquivo declara, quando ele declara. Vem da prévia. */
+    statementBalance: z.object({
+      balance: z.number().finite(),
+      asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }).nullable().default(null),
     rows: z.array(importRowSchema).min(1, "Selecione ao menos um lançamento"),
   })).mutation(async ({ ctx, input }) => {
     const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
@@ -148,6 +160,7 @@ export const importsRouter = router({
       format: input.format,
       accountId: account.id,
       duplicateCount: input.duplicateCount + (input.rows.length - uniqueRows.length),
+      statementBalance: input.statementBalance,
       transactions: uniqueRows.map(row => {
         const category = categoryMap.get(row.categoryId)!;
         return {

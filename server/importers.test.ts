@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyImportClassification, chunkImportRows, detectCsvDelimiter, findCompatibleImportCategory, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseImportFile, parseOfx } from "./importers";
+import { applyImportClassification, chunkImportRows, detectCsvDelimiter, findCompatibleImportCategory, fingerprintRows, parseCsv, parseImportAmount, parseImportDate, parseImportFile, parseOfx, parseOfxBalance, parseStatementBalance } from "./importers";
 
 describe("financial file importers", () => {
   it("parses Brazilian amounts and dates", () => {
@@ -74,5 +74,39 @@ describe("financial file importers", () => {
 
   it("rejects CSV without required financial columns", () => {
     expect(() => parseCsv("Nome;Cidade\nAna;São Paulo")).toThrow(/CSV incompatível/);
+  });
+});
+
+describe("parseOfxBalance", () => {
+  const arquivo = (miolo: string) => `<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>
+    <BANKTRANLIST><STMTTRN><TRNAMT>-100.00<DTPOSTED>20260903<NAME>TAR PACOTE</STMTTRN></BANKTRANLIST>
+    ${miolo}</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+
+  it("lê o saldo declarado e a data-base", () => {
+    expect(parseOfxBalance(arquivo("<LEDGERBAL><BALAMT>96210.42<DTASOF>20260908</LEDGERBAL>")))
+      .toEqual({ balance: 96210.42, asOf: "2026-09-08" });
+  });
+
+  it("aceita saldo negativo e vírgula decimal", () => {
+    expect(parseOfxBalance(arquivo("<LEDGERBAL><BALAMT>-1.234,56<DTASOF>20260908</LEDGERBAL>"))?.balance)
+      .toBe(-1234.56);
+  });
+
+  it("não confunde o saldo disponível com o contábil", () => {
+    const conteudo = arquivo("<LEDGERBAL><BALAMT>96210.42<DTASOF>20260908</LEDGERBAL><AVAILBAL><BALAMT>50000.00<DTASOF>20260908</AVAILBAL>");
+    expect(parseOfxBalance(conteudo)?.balance).toBe(96210.42);
+  });
+
+  it("devolve null quando o arquivo não declara saldo", () => {
+    expect(parseOfxBalance(arquivo(""))).toBeNull();
+  });
+
+  it("devolve null em vez de inventar zero quando o valor não faz sentido", () => {
+    expect(parseOfxBalance(arquivo("<LEDGERBAL><BALAMT>abc<DTASOF>20260908</LEDGERBAL>"))).toBeNull();
+    expect(parseOfxBalance(arquivo("<LEDGERBAL><BALAMT>10.00<DTASOF>xx</LEDGERBAL>"))).toBeNull();
+  });
+
+  it("CSV não tem saldo declarado", () => {
+    expect(parseStatementBalance({ format: "csv", content: "data;valor\n01/09/2026;10,00" })).toBeNull();
   });
 });

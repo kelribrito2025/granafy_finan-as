@@ -203,6 +203,36 @@ export function parseOfx(content: string): DraftRow[] {
   });
 }
 
+/**
+ * O saldo que o banco declara no fim do extrato.
+ *
+ * É o outro lado da conciliação: sem ele, "diferença entre o extrato e o
+ * GranaFy" não tem contra o que ser calculada. Vem do bloco `LEDGERBAL`, que
+ * nem todo arquivo traz — daí o null em vez de zero, que seria uma diferença
+ * inventada.
+ */
+export function parseOfxBalance(content: string): { balance: number; asOf: string } | null {
+  const block = content.match(/<LEDGERBAL>[\s\S]*?(?=<\/LEDGERBAL>|<AVAILBAL>|$)/i)?.[0];
+  if (!block) return null;
+
+  const raw = getTag(block, "BALAMT");
+  if (!raw) return null;
+  let balance: number;
+  try {
+    balance = parseImportAmount(raw);
+  } catch {
+    return null;
+  }
+
+  let asOf: string;
+  try {
+    asOf = parseImportDate(getTag(block, "DTASOF"));
+  } catch {
+    return null;
+  }
+  return { balance, asOf };
+}
+
 export function fingerprintRows(userId: number, accountId: number, rows: DraftRow[]): ParsedImportRow[] {
   const occurrences = new Map<string, number>();
   return rows.map(row => {
@@ -247,4 +277,9 @@ export function chunkImportRows<T>(rows: T[], chunkSize = IMPORT_DATABASE_CHUNK_
 export function parseImportFile(input: { userId: number; accountId: number; format: "csv" | "ofx"; content: string }) {
   const rows = input.format === "csv" ? parseCsv(input.content) : parseOfx(input.content);
   return fingerprintRows(input.userId, input.accountId, rows);
+}
+
+/** O saldo declarado do arquivo; CSV não tem esse conceito. */
+export function parseStatementBalance(input: { format: "csv" | "ofx"; content: string }) {
+  return input.format === "ofx" ? parseOfxBalance(input.content) : null;
 }

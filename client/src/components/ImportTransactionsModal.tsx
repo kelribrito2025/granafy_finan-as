@@ -54,6 +54,9 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const [incomeCategoryId, setIncomeCategoryId] = useState("");
   const [expenseCategoryId, setExpenseCategoryId] = useState("");
   const [rows, setRows] = useState<PreviewRow[]>([]);
+  // O saldo declarado pelo arquivo viaja da prévia para a confirmação; é o que
+  // a conciliação usa depois para comparar com o saldo do sistema.
+  const [statementBalance, setStatementBalance] = useState<{ balance: number; asOf: string } | null>(null);
   const [previewPage, setPreviewPage] = useState(0);
   const [step, setStep] = useState<"setup" | "preview">("setup");
   const [result, setResult] = useState<{ importedCount: number; duplicateCount: number } | null>(null);
@@ -89,6 +92,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
     setFile(selected);
     setFormat(extension);
     setRows([]);
+    setStatementBalance(null);
   };
 
   const preview = async () => {
@@ -105,6 +109,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
         classification: "auto",
       });
       setRows(response.rows.map(row => ({ ...row, selected: !row.duplicate })));
+      setStatementBalance(response.statementBalance);
       setPreviewPage(0);
       setStep("preview");
     } catch (error) {
@@ -155,6 +160,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
         format,
         accountId: Number(accountId),
         duplicateCount: rows.filter(row => row.duplicate).length,
+        statementBalance,
         rows: selectedRows.map(({ categoryName: _categoryName, duplicate: _duplicate, selected: _selected, ...row }) => row),
       });
       setResult(response);

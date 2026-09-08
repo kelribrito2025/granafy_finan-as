@@ -21,6 +21,8 @@ import {
   patrimonialItems,
   transactionCategories,
   type InsertTransactionCategory,
+  bankMovements,
+  reconciliationLinks,
   transactionImportBatches,
   transactions as financialTransactions,
   type InsertTransaction,
@@ -921,6 +923,7 @@ export async function createImportBatch(input: {
   format: "csv" | "ofx";
   accountId: number;
   duplicateCount: number;
+  statementBalance: { balance: number; asOf: string } | null;
   transactions: TransactionValues[];
 }) {
   const db = await getDb();
@@ -935,13 +938,71 @@ export async function createImportBatch(input: {
       accountId: input.accountId,
       importedCount: input.transactions.length,
       duplicateCount: input.duplicateCount,
+      statementBalance: input.statementBalance ? input.statementBalance.balance.toFixed(2) : null,
+      statementBalanceDate: input.statementBalance?.asOf ?? null,
     });
+
     for (const chunk of chunkImportRows(input.transactions)) {
       await tx.insert(financialTransactions).values(chunk.map(transaction => ({
           userId: input.userId,
           ...transaction,
           importBatchId: input.id,
         })));
+    }
+
+    /*
+     * A mesma linha entra duas vezes de propósito: como lançamento no razão e
+     * como movimentação do extrato. São os dois lados da conciliação — o que a
+     * empresa registrou e o que o banco diz. Elas nascem já vinculadas porque
+     * uma veio da outra; o que a tela de conciliação procura são os casos em
+     * que só existe um dos lados.
+     */
+    for (const chunk of chunkImportRows(input.transactions)) {
+      await tx.insert(bankMovements).values(chunk.map(transaction => ({
+        userId: input.userId,
+        accountId: input.accountId,
+        movementDate: transaction.transactionDate,
+        description: transaction.description,
+        contact: transaction.contact ?? "",
+        amount: transaction.amount,
+        status: "conciliado" as const,
+        importBatchId: input.id,
+        externalId: transaction.externalId ?? null,
+        fingerprint: transaction.fingerprint!,
+        reconciledAt: new Date(),
+      })));
+    }
+
+    // Os ids saem de leitura, não do insertId: o autoincrement do TiDB é
+    // alocado por faixa e adivinhar a sequência de um insert em lote daria
+    // vínculo trocado.
+    const [ledger, statement] = await Promise.all([
+      tx.select({ id: financialTransactions.id, fingerprint: financialTransactions.fingerprint })
+        .from(financialTransactions)
+        .where(and(eq(financialTransactions.userId, input.userId), eq(financialTransactions.importBatchId, input.id))),
+      tx.select({ id: bankMovements.id, fingerprint: bankMovements.fingerprint })
+        .from(bankMovements)
+        .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.importBatchId, input.id))),
+    ]);
+
+    const transactionByFingerprint = new Map(ledger.map(row => [row.fingerprint, row.id]));
+    const amountByFingerprint = new Map(input.transactions.map(row => [row.fingerprint, row.amount]));
+    const links = statement
+      .map(movement => {
+        const transactionId = transactionByFingerprint.get(movement.fingerprint);
+        if (!transactionId) return null;
+        return {
+          userId: input.userId,
+          movementId: movement.id,
+          transactionId,
+          amount: amountByFingerprint.get(movement.fingerprint) ?? "0.00",
+          origin: "importacao" as const,
+        };
+      })
+      .filter((link): link is NonNullable<typeof link> => link !== null);
+
+    for (const chunk of chunkImportRows(links)) {
+      await tx.insert(reconciliationLinks).values(chunk);
     }
   });
 }

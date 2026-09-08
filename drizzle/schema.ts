@@ -160,9 +160,112 @@ export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   accountId: int("accountId").notNull(),
   importedCount: int("importedCount").default(0).notNull(),
   duplicateCount: int("duplicateCount").default(0).notNull(),
+  /**
+   * O saldo que o próprio banco declara no arquivo (`LEDGERBAL`) e a data a que
+   * ele se refere. É o outro lado da conciliação: sem esse número, "diferença
+   * entre o banco e o GranaFy" não tem contra o que ser calculada.
+   */
+  statementBalance: decimal("statementBalance", { precision: 15, scale: 2 }),
+  statementBalanceDate: date("statementBalanceDate", { mode: "string" }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, table => [
   index("transaction_import_batches_user_date_idx").on(table.userId, table.createdAt),
+]);
+
+/**
+ * A linha do extrato como o banco mandou.
+ *
+ * Existe separada de `transactions` porque conciliar é comparar dois lados: o
+ * que o banco diz e o que a empresa registrou. Enquanto a importação gravava
+ * direto no razão, os dois lados eram a mesma linha e a diferença era sempre
+ * zero por construção.
+ *
+ * Nada aqui é editável pelo usuário — o extrato é o que é. O que ele decide
+ * fica em `status`, `classification` e nos vínculos.
+ */
+export const bankMovements = mysqlTable("bankMovements", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  accountId: int("accountId").notNull(),
+  movementDate: date("movementDate", { mode: "string" }).notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
+  contact: varchar("contact", { length: 120 }).default("").notNull(),
+  /** Assinado, como no razão: entrada positiva, saída negativa. */
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  status: mysqlEnum("status", ["sem_par", "sugerido", "conciliado", "classificado"]).default("sem_par").notNull(),
+  /**
+   * O que o usuário respondeu quando a movimentação não vira lançamento.
+   * Substitui o antigo "ignorar": a linha continua no extrato em todos os casos.
+   */
+  classification: mysqlEnum("classification", [
+    "transferencia",
+    "pessoal",
+    "duplicidade",
+    "estorno",
+    "fora_dos_relatorios",
+  ]),
+  classificationNote: varchar("classificationNote", { length: 500 }).default("").notNull(),
+  /** Em duplicidade e estorno, aponta para a movimentação original. */
+  relatedMovementId: int("relatedMovementId"),
+  importBatchId: varchar("importBatchId", { length: 36 }),
+  externalId: varchar("externalId", { length: 160 }),
+  /** Mesma identidade do razão, para a importação não duplicar a movimentação. */
+  fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+  reconciledAt: timestamp("reconciledAt"),
+  reconciledBy: int("reconciledBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  index("bank_movements_user_account_date_idx").on(table.userId, table.accountId, table.movementDate),
+  index("bank_movements_user_status_idx").on(table.userId, table.status),
+  index("bank_movements_user_batch_idx").on(table.userId, table.importBatchId),
+  uniqueIndex("bank_movements_user_fingerprint_uidx").on(table.userId, table.fingerprint),
+]);
+
+/**
+ * O vínculo entre extrato e razão.
+ *
+ * É N:N de propósito: uma movimentação dividida entre vários lançamentos e
+ * vários movimentos agrupados num lançamento só são as duas ações que o
+ * modelo precisa suportar, e nenhuma das duas cabe numa coluna de chave
+ * estrangeira. `amount` guarda quanto daquele movimento foi para aquele
+ * lançamento, que é o que fecha a divisão.
+ */
+export const reconciliationLinks = mysqlTable("reconciliationLinks", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  movementId: int("movementId").notNull(),
+  transactionId: int("transactionId").notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  /** Como o vínculo nasceu: sugestão aceita, escolha manual, regra ou backfill. */
+  origin: mysqlEnum("origin", ["sugestao", "manual", "regra", "importacao"]).default("manual").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdBy: int("createdBy"),
+}, table => [
+  index("reconciliation_links_user_movement_idx").on(table.userId, table.movementId),
+  index("reconciliation_links_user_transaction_idx").on(table.userId, table.transactionId),
+  uniqueIndex("reconciliation_links_pair_uidx").on(table.movementId, table.transactionId),
+]);
+
+/**
+ * O histórico. Toda ação de conciliação passa por aqui antes de o usuário poder
+ * perguntar "quem foi que mexeu nisso".
+ */
+export const reconciliationAudit = mysqlTable("reconciliationAudit", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  movementId: int("movementId"),
+  transactionId: int("transactionId"),
+  action: varchar("action", { length: 40 }).notNull(),
+  previousStatus: varchar("previousStatus", { length: 40 }).default("").notNull(),
+  newStatus: varchar("newStatus", { length: 40 }).default("").notNull(),
+  /** Regra que motivou a ação, quando houve uma. */
+  ruleId: int("ruleId"),
+  detail: varchar("detail", { length: 500 }).default("").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  index("reconciliation_audit_user_date_idx").on(table.userId, table.createdAt),
+  index("reconciliation_audit_user_movement_idx").on(table.userId, table.movementId),
 ]);
 
 export const transactions = mysqlTable("transactions", {
@@ -318,6 +421,11 @@ export type InsertUserPreferences = typeof userPreferences.$inferInsert;
 export type CategoryRuleRecord = typeof categoryRules.$inferSelect;
 export type InsertCategoryRule = typeof categoryRules.$inferInsert;
 export type TransactionImportBatchRecord = typeof transactionImportBatches.$inferSelect;
+export type BankMovementRecord = typeof bankMovements.$inferSelect;
+export type InsertBankMovement = typeof bankMovements.$inferInsert;
+export type ReconciliationLinkRecord = typeof reconciliationLinks.$inferSelect;
+export type InsertReconciliationLink = typeof reconciliationLinks.$inferInsert;
+export type InsertReconciliationAudit = typeof reconciliationAudit.$inferInsert;
 export type TransactionRecord = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
 export type PatrimonialItemRecord = typeof patrimonialItems.$inferSelect;
