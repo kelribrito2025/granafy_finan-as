@@ -103,7 +103,6 @@ const analysisItems: NavItem[] = [
 
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
-  { label: "Configurações", icon: SettingsIcon },
 ];
 
 const badgeClass = {
@@ -206,7 +205,6 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     onClose();
     if (label === "Visão geral") setLocation("/");
     else if (label === "Contas e categorias") setLocation("/organizacao");
-    else if (label === "Configurações") setLocation("/configuracoes");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };

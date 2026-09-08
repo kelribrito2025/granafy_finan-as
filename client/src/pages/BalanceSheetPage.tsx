@@ -145,7 +145,6 @@ const analysisItems: NavItem[] = [
 ];
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
-  { label: "Configurações", icon: SettingsIcon },
 ];
 
 const groupLabels: Record<BalanceGroup, string> = {
@@ -263,7 +262,6 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (label === "Visão geral") setLocation("/");
     else if (label === "Lançamentos") setLocation("/lancamentos");
     else if (label === "Contas e categorias") setLocation("/organizacao");
-    else if (label === "Configurações") setLocation("/configuracoes");
     else if (label !== "Balanço Patrimonial") toast.info(`${label} ainda não está disponível.`);
   };
   return (

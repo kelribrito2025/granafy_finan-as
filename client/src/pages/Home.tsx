@@ -60,7 +60,6 @@ const analysisItems: NavItem[] = [
 
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
-  { label: "Configurações", icon: SettingsIcon },
 ];
 
 function formatMoney(value: number, compact = false) {
@@ -251,10 +250,6 @@ export default function Home() {
     }
     if (item === "Contas e categorias") {
       setLocation("/organizacao");
-      return;
-    }
-    if (item === "Configurações") {
-      setLocation("/configuracoes");
       return;
     }
     if (item === "Balanço Patrimonial") {

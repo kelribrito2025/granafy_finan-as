@@ -49,7 +49,6 @@ const analysisItems: NavItem[] = [
 ];
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
-  { label: "Configurações", icon: SettingsIcon },
 ];
 
 const TAX_REGIMES = [
@@ -91,10 +90,10 @@ const MONTHS = [
 const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
 const labelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
-function NavGroup({ title, items, active, onSelect }: {
+function NavGroup({ title, items, active = "", onSelect }: {
   title: string;
   items: NavItem[];
-  active: string;
+  active?: string;
   onSelect: (label: string) => void;
 }) {
   return (
@@ -131,16 +130,16 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     else if (label === "Lançamentos") setLocation("/lancamentos");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label === "Contas e categorias") setLocation("/organizacao");
-    else if (label !== "Configurações") toast.info(`${label} ainda não está disponível.`);
+    else toast.info(`${label} ainda não está disponível.`);
   };
   return (
     <>
       {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
       <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
         <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
-        <NavGroup title="Painel" items={panelItems} active="Configurações" onSelect={select} />
-        <NavGroup title="Análise" items={analysisItems} active="Configurações" onSelect={select} />
-        <NavGroup title="Organização" items={organizationItems} active="Configurações" onSelect={select} />
+        <NavGroup title="Painel" items={panelItems} onSelect={select} />
+        <NavGroup title="Análise" items={analysisItems} onSelect={select} />
+        <NavGroup title="Organização" items={organizationItems} onSelect={select} />
         <ConnectedAccounts className="mt-auto" />
       </aside>
     </>
