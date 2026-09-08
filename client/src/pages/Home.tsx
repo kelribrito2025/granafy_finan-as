@@ -15,7 +15,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
-import { activePreferences, maskedMoney, valuesHidden, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
+import { activePreferences, maskedMoney, valuesHidden, formatMoney as formatMoneyWithPreferences, formatDate, today } from "@/lib/appFormat";
 import { buildCashCurve } from "@/lib/cashCurve";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
@@ -26,6 +26,8 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { ChartDot } from "@/components/ChartDot";
+import { TransactionModal } from "@/components/TransactionModal";
+import type { TransactionInput } from "@/lib/transactionTypes";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
@@ -85,6 +87,41 @@ export default function Home() {
   // vale um timer só para virar a saudação com o relógio na tela.
   const greeting = greetingFor(new Date());
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  /*
+   * O modal de lançamento aberto daqui.
+   *
+   * Quem clica em "Novo lançamento" na visão geral quer lançar, não trocar de
+   * tela. As opções da organização só são buscadas quando o modal abre: postas
+   * no lote da página, atrasariam o painel inteiro por causa de um formulário
+   * que talvez ninguém abra.
+   */
+  const [novoLancamento, setNovoLancamento] = useState(false);
+  const utils = trpc.useUtils();
+  const organizationQuery = trpc.organization.options.useQuery(undefined, { enabled: novoLancamento });
+  const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
+  const createMutation = trpc.transactions.create.useMutation();
+
+  const salvarLancamento = async (input: TransactionInput) => {
+    try {
+      const result = await createMutation.mutateAsync(input);
+      await Promise.all([
+        utils.transactions.dashboard.invalidate(),
+        utils.transactions.list.invalidate(),
+        utils.organization.overview.invalidate(),
+        utils.organization.accountBalances.invalidate(),
+        utils.payables.invalidate(),
+        utils.cashflow.invalidate(),
+        utils.dre.invalidate(),
+      ]);
+      toast.success(result.monthCount > 1
+        ? `${result.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
+        : "Lançamento salvo no banco");
+      setNovoLancamento(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+    }
+  };
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsAnchor = useRef<HTMLDivElement>(null);
   useDismissOnOutside(notificationsOpen, notificationsAnchor, useCallback(() => setNotificationsOpen(false), []));
@@ -210,7 +247,7 @@ export default function Home() {
 
             <button
               type="button"
-              onClick={() => setLocation("/lancamentos")}
+              onClick={() => setNovoLancamento(true)}
               className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
             >
               <PlusIcon size={15} />
@@ -392,6 +429,16 @@ export default function Home() {
         </section>
       </div>
 
+      {novoLancamento && (
+        <TransactionModal
+          defaultDate={today()}
+          pending={createMutation.isPending}
+          options={organizationOptions}
+          onManageOrganization={() => setLocation("/organizacao")}
+          onClose={() => setNovoLancamento(false)}
+          onSave={salvarLancamento}
+        />
+      )}
     </main>
   );
 }

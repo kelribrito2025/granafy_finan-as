@@ -235,6 +235,26 @@ export function SettingsIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Carteira. Desenhada à mão porque o conjunto Iconly usado aqui não tem uma —
+ * e "Contas e categorias" com a engrenagem virava sinônimo de Configurações,
+ * que é outro item, em outro menu.
+ *
+ * Traço de 1.5 na grade de 24, que é a espessura visual dos contornos
+ * preenchidos dos ícones vizinhos depois do `scale(2)` do IconShell.
+ */
+export function WalletIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.75 8.5A3.75 3.75 0 0 1 6.5 4.75h11A3.75 3.75 0 0 1 21.25 8.5v7a3.75 3.75 0 0 1-3.75 3.75h-11A3.75 3.75 0 0 1 2.75 15.5v-7Z" />
+        <path d="M21.25 10.6h-3.35a1.9 1.9 0 1 0 0 3.8h3.35" />
+      </g>
+      <circle cx="18" cy="12.5" r="0.85" fill="currentColor" />
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Upload (ID 39036), master canvas 48 px.
 export function UploadIcon(props: IconlyIconProps) {
   return (

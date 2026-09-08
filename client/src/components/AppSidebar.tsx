@@ -7,8 +7,8 @@ import {
   CloseIcon,
   DashboardIcon,
   DocumentIcon,
-  SettingsIcon,
   TrendUpIcon,
+  WalletIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { usePreferences } from "@/contexts/PreferencesContext";
@@ -54,7 +54,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   },
   {
     title: "Organização",
-    items: [{ label: "Contas e categorias", icon: SettingsIcon, path: "/organizacao" }],
+    items: [{ label: "Contas e categorias", icon: WalletIcon, path: "/organizacao" }],
   },
 ];
 
@@ -140,7 +140,7 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
         </span>
       )}
       {tooltips && (
-        <span className="pointer-events-none absolute left-14 top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity delay-[400ms] duration-[120ms] group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-14 top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity duration-[90ms] group-hover:opacity-100">
           {label}
           <span className="absolute -left-1 top-1/2 -mt-1 h-2 w-2 rotate-45 bg-[#0B1F14]" />
         </span>
