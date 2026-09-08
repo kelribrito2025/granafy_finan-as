@@ -20,6 +20,11 @@ import {
   isPasswordResetEmailConfigured,
   sendPasswordResetCode,
 } from "./email";
+import {
+  LOGIN_FAILURE_WINDOW_MS,
+  loginLockedUntil,
+  loginLockMessage,
+} from "./loginThrottle";
 import { isGoogleLoginEnabled } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -116,25 +121,65 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const email = normalizeEmail(input.email);
+        const agora = new Date();
+        const inicioDaJanela = new Date(agora.getTime() - LOGIN_FAILURE_WINDOW_MS);
+
+        /*
+         * O teto vem antes de olhar a senha, e vale para e-mail que não existe
+         * também: se só a conta cadastrada fosse contada, "muitas tentativas"
+         * responderia exatamente a pergunta que quem varre e-mails está
+         * fazendo.
+         */
+        const bloqueadoAte = loginLockedUntil(
+          await db.listRecentLoginFailures(email, inicioDaJanela),
+          agora
+        );
+        if (bloqueadoAte) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: loginLockMessage(bloqueadoAte, agora),
+          });
+        }
+
         const record = await db.getUserRecordByEmail(email);
 
-        if (!record?.passwordHash) {
-          await hashPassword(input.password);
-          throw new TRPCError({
+        /** Falha registrada antes de responder, para a próxima tentativa já contar esta. */
+        const recusar = async () => {
+          /*
+           * LOG TEMPORÁRIO — sai quando o limite por IP entrar.
+           *
+           * O express está sem `trust proxy`, então `req.ip` hoje devolve o
+           * proxy do Manus, não quem tentou entrar. Estas linhas existem só
+           * para ler, uma vez, o que chega em produção e descobrir quantos
+           * proxies existem na frente. Com esse número o `trust proxy` entra
+           * com o valor certo, o limite por IP passa a valer e este bloco sai
+           * daqui. Não grava no banco de propósito, e não escreve o e-mail
+           * nem a senha.
+           */
+          console.warn(
+            "[trust-proxy-diagnostico] req.ip=%s x-forwarded-for=%s",
+            ctx.req.ip,
+            ctx.req.headers["x-forwarded-for"] ?? "(ausente)"
+          );
+          await db.recordLoginFailure(email, inicioDaJanela);
+          return new TRPCError({
             code: "UNAUTHORIZED",
             message: "E-mail ou senha inválidos",
           });
+        };
+
+        if (!record?.passwordHash) {
+          await hashPassword(input.password);
+          throw await recusar();
         }
 
         const validPassword = await verifyPassword(input.password, record.passwordHash);
         if (!validPassword) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "E-mail ou senha inválidos",
-          });
+          throw await recusar();
         }
 
         await Promise.all([
+          db.clearLoginFailures(email),
           db.updateLastSignedIn(record.id),
           db.ensureDefaultTransactionCategories(record.id),
         ]);

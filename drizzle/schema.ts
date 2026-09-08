@@ -35,6 +35,25 @@ export const passwordResetRequests = mysqlTable("passwordResetRequests", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+/*
+ * As tentativas de entrada que falharam, e só elas.
+ *
+ * Guarda o e-mail digitado — não o usuário —, porque contar também o e-mail
+ * que não existe é o que impede o bloqueio de virar detector de conta. Não tem
+ * coluna de IP de propósito: enquanto o limite por IP não valer, guardar
+ * endereço seria acumular dado sem uso. Linha antiga é apagada a cada falha
+ * nova, então a tabela não cresce.
+ */
+export const loginAttempts = mysqlTable("loginAttempts", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  index("login_attempts_email_created_idx").on(table.email, table.createdAt),
+  // A limpeza varre por data, sem e-mail na frente, e precisa do índice próprio.
+  index("login_attempts_created_idx").on(table.createdAt),
+]);
+
 export const financialAccounts = mysqlTable("financialAccounts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),

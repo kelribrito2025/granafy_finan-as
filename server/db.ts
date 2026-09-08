@@ -17,6 +17,7 @@ import {
   type InsertFinancialAccount,
   type InsertPatrimonialItem,
   type InsertUser,
+  loginAttempts,
   passwordResetRequests,
   patrimonialItems,
   statementBalances,
@@ -184,6 +185,41 @@ export async function ensureDefaultTransactionCategories(userId: number) {
   });
 
   return { applied: true, version: DEFAULT_CATEGORY_CATALOG_VERSION };
+}
+
+/** As datas das falhas de entrada desse e-mail dentro da janela. */
+export async function listRecentLoginFailures(email: string, since: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const linhas = await db
+    .select({ createdAt: loginAttempts.createdAt })
+    .from(loginAttempts)
+    .where(and(eq(loginAttempts.email, email), gt(loginAttempts.createdAt, since)));
+  return linhas.map(linha => linha.createdAt);
+}
+
+/**
+ * Registra a falha e limpa o que já não conta mais.
+ *
+ * A limpeza mora aqui porque é o único momento em que a tabela cresce. Sem ela
+ * a tabela guardaria toda tentativa errada desde sempre, que é justamente o
+ * tipo de dado que não deve ficar.
+ */
+export async function recordLoginFailure(email: string, since: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.insert(loginAttempts).values({ email });
+  await db.delete(loginAttempts).where(lt(loginAttempts.createdAt, since));
+}
+
+/** Entrou: as falhas anteriores desse e-mail deixam de pesar. */
+export async function clearLoginFailures(email: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.delete(loginAttempts).where(eq(loginAttempts.email, email));
 }
 
 export async function getRecentPasswordResetRequest(userId: number, since: Date) {

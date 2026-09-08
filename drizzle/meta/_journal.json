@@ -127,6 +127,13 @@
       "when": 1788906262888,
       "tag": "0017_friendly_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1788910136563,
+      "tag": "0018_open_mister_sinister",
+      "breakpoints": true
     }
   ]
 }
