@@ -1540,9 +1540,16 @@ export default function ConciliacaoPage() {
           accountId={accountId}
           firstDayOfMonth={firstDayOfMonth}
           lastDayOfMonth={lastDayOfMonth}
-          onBalanceSaved={() => {
-            void utils.reconciliation.difference.invalidate();
-            void utils.reconciliation.overview.invalidate();
+          /*
+           * `refetch` e não só `invalidate`: o modal está montado com o dado
+           * antigo e o invalidate sozinho o deixava mostrando "—" até alguém
+           * recarregar a página.
+           */
+          onBalanceSaved={async () => {
+            await Promise.all([
+              differenceQuery.refetch(),
+              utils.reconciliation.overview.invalidate(),
+            ]);
           }}
           onClose={() => setDifferenceOpen(false)}
           onResolve={movementId => {
