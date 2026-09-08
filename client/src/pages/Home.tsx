@@ -54,7 +54,7 @@ const panelItems: NavItem[] = [
 ];
 
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon, disabled: true },
+  { label: "DRE", icon: DocumentIcon },
   { label: "Balanço Patrimonial", icon: ChartIcon },
 ];
 
@@ -254,6 +254,10 @@ export default function Home() {
     }
     if (item === "Balanço Patrimonial") {
       setLocation("/balanco-patrimonial");
+      return;
+    }
+    if (item === "DRE") {
+      setLocation("/dre");
       return;
     }
     if (item !== "Visão geral") {

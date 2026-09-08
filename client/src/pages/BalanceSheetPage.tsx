@@ -140,7 +140,7 @@ const panelItems: NavItem[] = [
   { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon, disabled: true },
+  { label: "DRE", icon: DocumentIcon },
   { label: "Balanço Patrimonial", icon: ChartIcon },
 ];
 const organizationItems: NavItem[] = [
@@ -262,6 +262,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (label === "Visão geral") setLocation("/");
     else if (label === "Lançamentos") setLocation("/lancamentos");
     else if (label === "Contas e categorias") setLocation("/organizacao");
+    else if (label === "DRE") setLocation("/dre");
     else if (label !== "Balanço Patrimonial") toast.info(`${label} ainda não está disponível.`);
   };
   return (

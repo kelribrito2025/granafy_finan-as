@@ -97,7 +97,7 @@ const panelItems: NavItem[] = [
 ];
 
 const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon, disabled: true },
+  { label: "DRE", icon: DocumentIcon },
   { label: "Balanço Patrimonial", icon: ChartIcon },
 ];
 
@@ -206,6 +206,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (label === "Visão geral") setLocation("/");
     else if (label === "Contas e categorias") setLocation("/organizacao");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
+    else if (label === "DRE") setLocation("/dre");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };
 

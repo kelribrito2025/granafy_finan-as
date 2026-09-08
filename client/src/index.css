@@ -364,7 +364,9 @@
 .dark .border-\[\#DDE9E1\], .dark .border-\[\#DFE6E1\],
 .dark .border-\[\#E1E8E3\], .dark .border-\[\#E3EAE5\],
 .dark .border-\[\#E8EEEA\], .dark .border-\[\#EDF1EE\],
-.dark .border-\[\#C9D5CD\] { border-color: #2a3d31 !important; }
+.dark .border-\[\#C9D5CD\],
+.dark .border-\[\#E3EBE6\], .dark .border-\[\#F1F4F2\],
+.dark .border-\[\#F8FAF9\] { border-color: #2a3d31 !important; }
 
 .dark .ring-\[\#DCE5DF\], .dark .ring-\[\#DDE8E1\],
 .dark .ring-\[\#DFE6E1\], .dark .ring-\[\#E1E8E3\],
