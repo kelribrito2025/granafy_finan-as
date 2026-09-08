@@ -1,8 +1,8 @@
-export const DEFAULT_CATEGORY_CATALOG_VERSION = 2;
+export const DEFAULT_CATEGORY_CATALOG_VERSION = 3;
 
 export type DefaultTransactionCategory = {
   name: string;
-  type: "entrada" | "saida";
+  type: "entrada" | "saida" | "ambos";
   color: string;
 };
 
@@ -14,6 +14,31 @@ function incomeGroup(color: string, names: string[]): DefaultTransactionCategory
   return names.map(name => ({ name, type: "entrada", color }));
 }
 
+/** Serve nos dois sentidos: receber o empréstimo e devolver o principal. */
+function bothWaysGroup(color: string, names: string[]): DefaultTransactionCategory[] {
+  return names.map(name => ({ name, type: "ambos", color }));
+}
+
+/*
+ * Nem tudo que entra na conta é receita.
+ *
+ * Aporte de sócio vai para o patrimônio e empréstimo vai para o passivo. As
+ * duas raízes existem para que a DRE consiga separá-las do faturamento — sem
+ * elas, o dinheiro entrava como venda e inflava lucro e margem.
+ */
+export const DEFAULT_CAPITAL_CATEGORIES: readonly DefaultTransactionCategory[] = [
+  ...incomeGroup("#0891B2", [
+    "Aportes de Capital",
+    "Aportes de Capital/Aporte de Sócio",
+    "Aportes de Capital/Integralização de Capital Social",
+  ]),
+  ...bothWaysGroup("#635BFF", [
+    "Empréstimos e Financiamentos",
+    "Empréstimos e Financiamentos/Empréstimo Recebido",
+    "Empréstimos e Financiamentos/Amortização de Principal",
+  ]),
+];
+
 export const DEFAULT_INCOME_CATEGORIES: readonly DefaultTransactionCategory[] = incomeGroup("#12B85C", [
   "Receitas Operacionais",
   "Receitas Operacionais/Prestação de Serviços",
@@ -24,6 +49,7 @@ export const DEFAULT_INCOME_CATEGORIES: readonly DefaultTransactionCategory[] = 
 
 export const DEFAULT_TRANSACTION_CATEGORIES: readonly DefaultTransactionCategory[] = [
   ...DEFAULT_INCOME_CATEGORIES,
+  ...DEFAULT_CAPITAL_CATEGORIES,
   ...expenseGroup("#E06C47", [
     "Custos Operacionais",
     "Custos Operacionais/Custo do Serviço Prestado (CSP)",
@@ -107,7 +133,9 @@ export function defaultCategoryUpgradeValues(userId: number, currentVersion: num
   const categories = currentVersion < 1
     ? DEFAULT_TRANSACTION_CATEGORIES
     : currentVersion < 2
-      ? DEFAULT_INCOME_CATEGORIES
-      : [];
+      ? [...DEFAULT_INCOME_CATEGORIES, ...DEFAULT_CAPITAL_CATEGORIES]
+      : currentVersion < 3
+        ? DEFAULT_CAPITAL_CATEGORIES
+        : [];
   return categories.map(category => ({ userId, ...category, isActive: true }));
 }

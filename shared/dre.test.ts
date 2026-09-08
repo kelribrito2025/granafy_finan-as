@@ -49,10 +49,16 @@ describe("dreBucketOf", () => {
     expect(dreBucketOf("depreciacao e amortizacao", "saida")).toBe("depreciacao");
   });
 
-  it("classifica categoria desconhecida pelo tipo do lançamento", () => {
-    expect(dreBucketOf("Consultoria avulsa", "entrada")).toBe("receita_bruta");
-    expect(dreBucketOf("Consultoria avulsa", "saida")).toBe("despesas_operacionais");
-    expect(dreBucketOf("", "saida")).toBe("despesas_operacionais");
+  it("manda aporte e empréstimo para fora do resultado", () => {
+    expect(dreBucketOf("Aportes de Capital/Aporte de Sócio", "entrada")).toBe("fora_do_resultado");
+    expect(dreBucketOf("Empréstimos e Financiamentos/Empréstimo Recebido", "entrada")).toBe("fora_do_resultado");
+    expect(dreBucketOf("Empréstimos e Financiamentos/Amortização de Principal", "saida")).toBe("fora_do_resultado");
+  });
+
+  it("deixa categoria desconhecida sem classificação, em vez de chutar receita", () => {
+    expect(dreBucketOf("Consultoria avulsa", "entrada")).toBe("sem_classificacao");
+    expect(dreBucketOf("Consultoria avulsa", "saida")).toBe("sem_classificacao");
+    expect(dreBucketOf("", "saida")).toBe("sem_classificacao");
   });
 });
 
@@ -249,5 +255,55 @@ describe("breakEvenRevenue", () => {
     expect(breakEvenRevenue({ despesasFixas: 0, margemContribuicao: 68_000, receitaLiquida: 98_000 })).toBeNull();
     expect(breakEvenRevenue({ despesasFixas: -18_000, margemContribuicao: 68_000, receitaLiquida: 0 })).toBeNull();
     expect(breakEvenRevenue({ despesasFixas: -18_000, margemContribuicao: -2_000, receitaLiquida: 98_000 })).toBeNull();
+  });
+});
+
+describe("aportes, empréstimos e categorias sem classificação", () => {
+  it("não conta aporte de sócio como receita nem como lucro", () => {
+    const statement = buildDreStatement([
+      row("Receitas Operacionais/Prestação de Serviços", 10_000),
+      row("Aportes de Capital/Aporte de Sócio", 50_000),
+    ], { regime: "competencia" });
+
+    expect(statement.totals.receitaBruta).toBe(10_000);
+    expect(statement.totals.lucroLiquido).toBe(10_000);
+    expect(statement.totals.foraDoResultado).toBe(50_000);
+  });
+
+  it("não conta empréstimo recebido como receita e nem a amortização como despesa", () => {
+    const statement = buildDreStatement([
+      row("Receitas Operacionais/Prestação de Serviços", 10_000),
+      row("Empréstimos e Financiamentos/Empréstimo Recebido", 30_000),
+      row("Empréstimos e Financiamentos/Amortização de Principal", -5_000),
+    ], { regime: "competencia" });
+
+    expect(statement.totals.receitaBruta).toBe(10_000);
+    expect(statement.totals.despesasOperacionais).toBe(0);
+    expect(statement.totals.lucroLiquido).toBe(10_000);
+    expect(statement.totals.foraDoResultado).toBe(25_000);
+  });
+
+  it("separa o que está fora do plano de contas numa linha visível, fora do lucro", () => {
+    const statement = buildDreStatement([
+      row("Receitas Operacionais/Prestação de Serviços", 10_000),
+      row("Consultoria avulsa", 7_000),
+    ], { regime: "competencia" });
+
+    expect(statement.totals.receitaBruta).toBe(10_000);
+    expect(statement.totals.lucroLiquido).toBe(10_000);
+    expect(statement.totals.semClassificacao).toBe(7_000);
+
+    const linha = statement.lines.find(line => line.key === "sem_classificacao");
+    expect(linha?.label).toBe("Sem classificação na DRE");
+    expect(linha?.value).toBe(7_000);
+  });
+
+  it("não desenha a linha quando todo o plano de contas está mapeado", () => {
+    const statement = buildDreStatement([
+      row("Receitas Operacionais/Prestação de Serviços", 10_000),
+    ], { regime: "competencia" });
+
+    expect(statement.totals.semClassificacao).toBe(0);
+    expect(statement.lines.some(line => line.key === "sem_classificacao")).toBe(false);
   });
 });

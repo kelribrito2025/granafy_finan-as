@@ -27,7 +27,8 @@ export type DreBucket =
   | "financeiro"
   | "impostos_lucro"
   | "nao_operacional"
-  | "fora_do_resultado";
+  | "fora_do_resultado"
+  | "sem_classificacao";
 
 /** Como cada raiz do plano de contas entra na demonstração. */
 const BUCKET_BY_ROOT: Record<string, DreBucket> = {
@@ -49,6 +50,11 @@ const BUCKET_BY_ROOT: Record<string, DreBucket> = {
   "despesas com de ativos imobilizados": "fora_do_resultado",
   "despesas com ativos imobilizados": "fora_do_resultado",
   "distribuicao de lucros": "fora_do_resultado",
+  // Aporte entra no patrimônio e empréstimo entra no passivo. O dinheiro
+  // aparece na conta, mas nenhum dos dois é venda: contá-los como receita
+  // infla faturamento, lucro e margem de uma vez só.
+  "aportes de capital": "fora_do_resultado",
+  "emprestimos e financiamentos": "fora_do_resultado",
 };
 
 /** Raiz do plano de contas usada como base de despesa fixa no ponto de equilíbrio. */
@@ -71,15 +77,14 @@ export function rootOf(category: string) {
 /**
  * Onde a categoria entra na DRE.
  *
- * Categoria fora do plano padrão cai pelo tipo do lançamento: entrada vira
- * receita, saída vira despesa operacional. É a leitura conservadora — o
- * contrário seria sumir com o dinheiro do relatório —, e a linha continua
- * aparecendo com o nome que o usuário deu.
+ * Categoria fora do plano padrão vai para uma linha própria, fora do
+ * resultado. Antes ela caía pelo tipo — entrada virava receita, saída virava
+ * despesa —, e era assim que um aporte de sócio entrava como faturamento sem
+ * ninguém decidir isso. Adivinhar barato custa caro num relatório que vai para
+ * o contador: melhor a linha aparecer pedindo classificação.
  */
-export function dreBucketOf(category: string, type: DreRow["type"]): DreBucket {
-  const mapped = BUCKET_BY_ROOT[normalizeName(rootOf(category))];
-  if (mapped) return mapped;
-  return type === "entrada" ? "receita_bruta" : "despesas_operacionais";
+export function dreBucketOf(category: string, _type: DreRow["type"]): DreBucket {
+  return BUCKET_BY_ROOT[normalizeName(rootOf(category))] ?? "sem_classificacao";
 }
 
 export type DreLineKind = "grupo" | "item" | "subitem" | "subtotal" | "resultado";
@@ -108,8 +113,10 @@ export type DreTotals = {
   lucroLiquido: number;
   /** Só a raiz "Despesas Fixas", para o ponto de equilíbrio. */
   despesasFixas: number;
-  /** Compra de ativo e distribuição de lucro: movem caixa, não o resultado. */
+  /** Compra de ativo, aporte e empréstimo: movem caixa, não o resultado. */
   foraDoResultado: number;
+  /** Categorias fora do plano de contas, à espera de classificação. */
+  semClassificacao: number;
 };
 
 export type DreStatement = { lines: DreLine[]; totals: DreTotals };
@@ -119,6 +126,7 @@ const GROUP_LABELS: Record<string, string> = {
   deducoes: "(−) Deduções e impostos",
   custos: "(−) Custos diretos",
   despesas_operacionais: "(−) Despesas operacionais",
+  sem_classificacao: "Sem classificação na DRE",
 };
 
 function round(value: number) {
@@ -224,6 +232,11 @@ export function buildDreStatement(
   const financeiro = at("financeiro");
   const impostosLucro = at("impostos_lucro");
   const naoOperacional = at("nao_operacional");
+  const semClassificacao = at("sem_classificacao");
+  /*
+   * O que não está classificado fica fora do lucro de propósito. Somar às
+   * cegas devolveria o problema que esta linha existe para mostrar.
+   */
   const lucroLiquido = round(
     ebitda + depreciacao + financeiro + impostosLucro + naoOperacional
   );
@@ -261,6 +274,14 @@ export function buildDreStatement(
   }
   lines.push({ key: "lucro_liquido", label: "Lucro líquido", kind: "resultado", value: lucroLiquido });
 
+  /*
+   * Depois do resultado, e só quando existe: quem tem o plano de contas todo
+   * mapeado não precisa ver uma linha vazia todo mês.
+   */
+  if (semClassificacao !== 0) {
+    pushGroup("sem_classificacao", semClassificacao);
+  }
+
   return {
     lines,
     totals: {
@@ -278,6 +299,7 @@ export function buildDreStatement(
       lucroLiquido,
       despesasFixas: round(despesasFixas),
       foraDoResultado: at("fora_do_resultado"),
+      semClassificacao,
     },
   };
 }
