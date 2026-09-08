@@ -290,6 +290,32 @@ export function SwapIcon(props: IconlyIconProps) {
   );
 }
 
+/* Prédio, para os dados da empresa. */
+export function BuildingIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3.75 20.25V6.25A2.5 2.5 0 0 1 6.25 3.75h5.5a2.5 2.5 0 0 1 2.5 2.5v14" />
+        <path d="M14.25 10.25h3.5a2.5 2.5 0 0 1 2.5 2.5v7.5" />
+        <path d="M2.75 20.25h18.5" />
+        <path d="M7 7.75h3.75M7 11.75h3.75M7 15.75h3.75M17.25 14.25h.01" />
+      </g>
+    </IconShell>
+  );
+}
+
+/* Etiqueta de preço, para a tabela de planos. */
+export function TagIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3.9 11.5V6.15A2.25 2.25 0 0 1 6.15 3.9h5.35c.6 0 1.17.24 1.59.66l6.35 6.35a2.25 2.25 0 0 1 0 3.18l-5.35 5.35a2.25 2.25 0 0 1-3.18 0L4.56 13.09a2.25 2.25 0 0 1-.66-1.59Z" />
+        <circle cx="8.55" cy="8.55" r="1.2" />
+      </g>
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Upload (ID 39036), master canvas 48 px.
 export function UploadIcon(props: IconlyIconProps) {
   return (

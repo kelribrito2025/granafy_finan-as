@@ -1,8 +1,12 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
+  BuildingIcon,
+  CardIcon,
   ChevronRightIcon,
   MenuIcon,
+  SettingsIcon,
+  TagIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -58,12 +62,11 @@ const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
   subscription: "Plano em vigor, uso do ciclo, faturas e forma de pagamento",
 };
 
-/** `filho` recua o item: Assinatura é um submenu de Planos. */
-const ABAS: Array<{ value: SettingsTab; label: string; filho?: boolean }> = [
-  { value: "company", label: "Empresa" },
-  { value: "preferences", label: "Preferências" },
-  { value: "plans", label: "Planos" },
-  { value: "subscription", label: "Assinatura", filho: true },
+const ABAS: Array<{ value: SettingsTab; label: string; icon: IconlyIcon }> = [
+  { value: "company", label: "Empresa", icon: BuildingIcon },
+  { value: "preferences", label: "Preferências", icon: SettingsIcon },
+  { value: "plans", label: "Planos", icon: TagIcon },
+  { value: "subscription", label: "Assinatura", icon: CardIcon },
 ];
 
 function abaDaBusca(busca: string): SettingsTab | null {
@@ -158,7 +161,7 @@ export default function SettingsPage() {
             {/* `self-start` porque numa linha flex o padrão é esticar: sem ele o
                 cartão de duas abas descia até o pé da página. */}
             <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:self-start xl:overflow-visible">
-              {ABAS.map(({ value, label, filho }) => (
+              {ABAS.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
                   type="button"
@@ -170,13 +173,11 @@ export default function SettingsPage() {
                     setLocation(`/configuracoes?aba=${PARAMETRO_POR_ABA[value]}`, { replace: true });
                   }}
                   aria-current={tab === value ? "page" : undefined}
-                  className={`whitespace-nowrap rounded-[12px] py-2.5 pr-3.5 text-left text-[13.5px] transition ${
-                    filho ? "pl-7 xl:pl-8" : "pl-3.5"
-                  } ${tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"}`}
+                  className={`flex items-center gap-2.5 whitespace-nowrap rounded-[12px] px-3.5 py-2.5 text-left text-[13.5px] transition ${
+                    tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
+                  }`}
                 >
-                  {/* O recuo é a hierarquia; o traço deixa ela visível também
-                      no celular, onde as abas viram uma linha rolável. */}
-                  {filho && <span aria-hidden="true" className="mr-2 text-[#C2CDC6]">└</span>}
+                  <Icon size={17} className={tab === value ? "" : "text-[#8A968D]"} />
                   {label}
                 </button>
               ))}
