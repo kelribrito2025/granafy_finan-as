@@ -578,15 +578,24 @@ function LinkModal({ item, candidates, onClose, onConfirm, pending }: {
  * pessoa abre o app do banco, lê o saldo do último dia do mês e digita. Fica
  * marcado como informado, e a alteração entra no histórico.
  */
-function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
+function StatementBalanceForm({ accountId, monthStart, monthEnd, current, currentDate, origin, onSaved }: {
   accountId: number | null;
-  asOf: string;
+  monthStart: string;
+  monthEnd: string;
   current: number | null;
+  currentDate: string | null;
   origin: "arquivo" | "manual" | null;
   onSaved: () => void;
 }) {
   const [aberto, setAberto] = useState(current === null);
   const [valor, setValor] = useState(current === null ? "" : formatCurrencyValue(current));
+  /*
+   * A data é do saldo, e ela importa: o cálculo compara o saldo do banco
+   * naquele dia com o do sistema no mesmo dia. Informar um saldo do dia 7
+   * carimbado como dia 30 compara duas fotos de momentos diferentes e a
+   * diferença sai errada.
+   */
+  const [data, setData] = useState(currentDate ?? monthEnd);
   const salvar = trpc.reconciliation.setStatementBalance.useMutation();
 
   if (accountId === null) return null;
@@ -611,7 +620,7 @@ function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
         const numero = currencyInputToNumber(valor);
         if (!Number.isFinite(numero)) return toast.info("Informe o saldo do extrato.");
         try {
-          await salvar.mutateAsync({ accountId, asOf, balance: numero });
+          await salvar.mutateAsync({ accountId, asOf: data, balance: numero });
           toast.success("Saldo do extrato informado");
           setAberto(false);
           onSaved();
@@ -624,10 +633,23 @@ function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
         {current === null ? "Este extrato não declara saldo" : "Corrigir o saldo do extrato"}
       </span>
       <p className="text-[11.5px] leading-relaxed text-[#28382E]">
-        Sem o saldo do banco em {formatDate(asOf)}, a conciliação não consegue apontar diferença — ela fica cega.
-        Abra o app do banco, veja o saldo desse dia e informe aqui.
+        Sem o saldo do banco, a conciliação não consegue apontar diferença — ela fica cega. Abra o app do banco,
+        escolha o dia e informe o saldo daquele dia.
       </p>
       <div className="flex flex-wrap gap-2">
+        <label className="flex h-11 items-center gap-2 rounded-xl border border-[#C7E8D6] bg-white px-3.5">
+          <span className="text-[11.5px] font-semibold text-[#8A968D]">Saldo em</span>
+          <input
+            type="date"
+            required
+            value={data}
+            min={monthStart}
+            max={monthEnd}
+            onChange={event => setData(event.target.value)}
+            aria-label="Data do saldo do extrato"
+            className="bg-transparent text-[13px] font-semibold outline-none"
+          />
+        </label>
         <span className="flex h-11 min-w-[150px] flex-1 items-center gap-2 rounded-xl border border-[#C7E8D6] bg-white px-3.5">
           <span className="text-[12.5px] font-semibold text-[#8A968D]">R$</span>
           <input
@@ -636,7 +658,7 @@ function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
             value={valor}
             onChange={event => setValor(formatCurrencyInput(event.target.value))}
             placeholder="0,00"
-            aria-label={`Saldo do extrato em ${formatDate(asOf)}`}
+            aria-label="Saldo do extrato"
             className="min-w-0 flex-1 bg-transparent text-[14px] font-bold outline-none"
           />
         </span>
@@ -662,9 +684,10 @@ function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
 }
 
 /** A composição da diferença: quais movimentações o razão não tem. */
-function DifferenceModal({ data, accountId, lastDayOfMonth, onClose, onResolve, onBalanceSaved }: {
+function DifferenceModal({ data, accountId, firstDayOfMonth, lastDayOfMonth, onClose, onResolve, onBalanceSaved }: {
   data: inferRouterOutputs<AppRouter>["reconciliation"]["difference"];
   accountId: number | null;
+  firstDayOfMonth: string;
   lastDayOfMonth: string;
   onClose: () => void;
   onResolve: (movementId: number) => void;
@@ -706,8 +729,10 @@ function DifferenceModal({ data, accountId, lastDayOfMonth, onClose, onResolve, 
 
       <StatementBalanceForm
         accountId={accountId}
-        asOf={lastDayOfMonth}
+        monthStart={firstDayOfMonth}
+        monthEnd={lastDayOfMonth}
         current={data.statement}
+        currentDate={data.statementDate}
         origin={data.statementOrigin}
         onSaved={onBalanceSaved}
       />
@@ -913,7 +938,8 @@ export default function ConciliacaoPage() {
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.reconciliation.overview.useQuery({ ...period, accountId });
   const utils = trpc.useUtils();
-  // O saldo do extrato se refere ao último dia do mês em conferência.
+  // O saldo informado tem que cair dentro do mês em conferência.
+  const firstDayOfMonth = new Date(Date.UTC(period.year, period.month - 1, 1)).toISOString().slice(0, 10);
   const lastDayOfMonth = new Date(Date.UTC(period.year, period.month, 0)).toISOString().slice(0, 10);
 
   const refresh = async () => {
@@ -1512,6 +1538,7 @@ export default function ConciliacaoPage() {
         <DifferenceModal
           data={differenceQuery.data}
           accountId={accountId}
+          firstDayOfMonth={firstDayOfMonth}
           lastDayOfMonth={lastDayOfMonth}
           onBalanceSaved={() => {
             void utils.reconciliation.difference.invalidate();
