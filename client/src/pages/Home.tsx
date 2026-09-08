@@ -348,12 +348,31 @@ export default function Home() {
                       {Array.from({ length: 5 }).map((_, index) => <span key={index} className="block border-t border-dashed border-[#DFE6E1]" />)}
                     </div>
                     <div className="relative z-10 flex h-full items-end gap-2 sm:gap-4">
-                      {months.map((month, index) => (
-                        <div key={`${month.label}-${index}`} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${month.label}: entradas ${formatMoney(month.incoming)}, saídas ${formatMoney(month.outgoing)}`}>
+                      {months.map((month, index) => {
+                        /*
+                         * Nos meses das pontas o balão é ancorado pelo lado de
+                         * dentro: centralizado, ele passaria da borda do cartão
+                         * e sairia meio de fora da tela.
+                         */
+                        const ponta = index >= months.length - 2 ? "fim" : index <= 1 ? "inicio" : "meio";
+                        const posicaoBalao = ponta === "fim" ? "right-0" : ponta === "inicio" ? "left-0" : "left-1/2 -translate-x-1/2";
+                        const posicaoSeta = ponta === "fim" ? "right-3" : ponta === "inicio" ? "left-3" : "left-1/2 -translate-x-1/2";
+                        return (
+                        <div key={`${month.label}-${index}`} className="group relative flex h-full flex-1 items-end gap-[3px] sm:gap-1">
+                          {/* O `title` do navegador demora quase um segundo e sai
+                              fora do desenho da tela. Este balão aparece na hora,
+                              e é o mesmo verde do resto do produto. */}
+                          <span className={`pointer-events-none absolute bottom-full z-20 mb-2 whitespace-nowrap rounded-[10px] bg-[#12B85C] px-2.5 py-2 text-[11.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity duration-[90ms] group-hover:opacity-100 ${posicaoBalao}`}>
+                            <span className="block text-[10px] font-bold uppercase tracking-[.08em] text-white/70">{month.label}</span>
+                            <span className="mt-1 block">Entradas {formatMoney(month.incoming)}</span>
+                            <span className="block">Saídas {formatMoney(month.outgoing)}</span>
+                            <span className={`absolute top-full -mt-1 h-2 w-2 rotate-45 bg-[#12B85C] ${posicaoSeta}`} />
+                          </span>
                           <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%` }} />
                           <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === months.length - 1 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%` }} />
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                   <span aria-hidden="true" />

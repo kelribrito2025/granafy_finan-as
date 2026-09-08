@@ -37,7 +37,8 @@ import { todayIso } from "@/lib/period";
 import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
@@ -200,7 +201,7 @@ function rowSubtitle(transaction: Transaction, status: RowStatus, showDate: bool
   return parts.join(" · ");
 }
 
-function TransactionGridRow({ transaction, status, selected, showDate, pendingStatus, onToggleSelect, onToggleStatus, onCategorize, onEdit, onDuplicate, onDelete, menuOpen, onMenu }: {
+function TransactionGridRow({ transaction, status, selected, showDate, pendingStatus, onToggleSelect, onToggleStatus, onCategorize, onEdit, onDuplicate, onDelete, menuOpen, onMenu, onCloseMenu }: {
   transaction: Transaction;
   status: RowStatus;
   selected: boolean;
@@ -214,9 +215,13 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
   onDelete: () => void;
   menuOpen: boolean;
   onMenu: () => void;
+  onCloseMenu: () => void;
 }) {
   const isTransfer = transaction.type === "transferencia";
   const subtitle = rowSubtitle(transaction, status, showDate);
+  // O menu de ações fecha ao clicar fora e no Esc, como os outros popovers.
+  const menuAnchor = useRef<HTMLDivElement>(null);
+  useDismissOnOutside(menuOpen, menuAnchor, onCloseMenu);
   // Só três fundos: selecionado, atrasado e o resto. Pintar todo pago de verde
   // deixaria a tela inteira verde e o alerta de atraso deixaria de saltar.
   const background = selected
@@ -271,16 +276,18 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
         {status.label}
       </button>
       <span className={`text-right font-bold ${amountClass}`}>{formatMoney(transaction.amount)}</span>
-      <button type="button" aria-label={`Ações de ${transaction.description}`} onClick={onMenu} className="flex h-7 w-7 items-center justify-center justify-self-end rounded-lg text-[#B3BFB7] hover:bg-white">
+      <div ref={menuAnchor} className="relative justify-self-end">
+      <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded={menuOpen} onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4C6355] hover:bg-white">
         <MenuIcon size={16} />
       </button>
       {menuOpen && (
-        <div className="popover-enter absolute right-2 top-11 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
+        <div className="popover-enter absolute right-0 top-9 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
           <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button>
           <button type="button" onClick={onEdit} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button>
           <button type="button" onClick={onDelete} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -451,6 +458,7 @@ export default function LancamentosPage() {
   const [sort, setSort] = useState<TransactionSortState>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
+  const fecharMenuDeAcoes = useCallback(() => setActionOpen(null), []);
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
@@ -827,19 +835,22 @@ export default function LancamentosPage() {
                   <span />
                 </div>
 
+                {/* `min-h` para os três estados caírem no meio do cartão: sem
+                    ela eles ficam colados no cabeçalho da tabela, com a área
+                    toda vazia embaixo. */}
                 {transactionsQuery.isLoading && (
-                  <div className="flex items-center justify-center py-14">
+                  <div className="flex min-h-[420px] items-center justify-center">
                     <GranafyLoader label="Carregando lançamentos..." />
                   </div>
                 )}
                 {transactionsQuery.isError && (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                     <strong className="text-[14px] text-[#B3261E]">Não foi possível carregar os lançamentos</strong>
                     <button type="button" onClick={() => transactionsQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button>
                   </div>
                 )}
                 {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span>
                     <strong className="mt-3 text-[14px]">Nenhum lançamento encontrado</strong>
                     <p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">Ajuste os filtros ou lance o primeiro movimento deste mês.</p>
@@ -868,6 +879,7 @@ export default function LancamentosPage() {
                           pendingStatus={toggleStatusMutation.isPending}
                           menuOpen={actionOpen === transaction.id}
                           onMenu={() => setActionOpen(actionOpen === transaction.id ? null : transaction.id)}
+                          onCloseMenu={fecharMenuDeAcoes}
                           onToggleSelect={() => setSelected(current => current.includes(transaction.id) ? current.filter(id => id !== transaction.id) : [...current, transaction.id])}
                           onToggleStatus={() => markPaid(transaction)}
                           onCategorize={() => { setSelected([transaction.id]); setCategorizeOpen(true); }}
