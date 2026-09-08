@@ -16,6 +16,7 @@ import { AuroraSurface } from "@/components/AuroraSurface";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
 import { activePreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
+import { buildCashCurve } from "@/lib/cashCurve";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -88,16 +89,7 @@ export default function Home() {
   const chartMaximum = useMemo(() => Math.max(0, ...months.flatMap(item => [item.incoming, item.outgoing])), [months]);
   const chartScale = Math.max(1, chartMaximum);
   const chartTicks = useMemo(() => [1, 0.75, 0.5, 0.25, 0].map(portion => chartMaximum * portion), [chartMaximum]);
-  const compactBars = useMemo(() => {
-    let running = 0;
-    const balances = months.map(item => {
-      running += item.balance;
-      return running;
-    });
-    if (balances.every(value => value === 0)) return [];
-    const maximum = Math.max(1, ...balances.map(value => Math.abs(value)));
-    return balances.map(value => Math.max(8, Math.round((Math.abs(value) / maximum) * 100)));
-  }, [months]);
+  const cashCurve = useMemo(() => buildCashCurve(months.map(item => item.balance)), [months]);
   const currentMonthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date()).replace(/^./, letter => letter.toUpperCase());
 
   const handleLogout = async () => {
@@ -228,15 +220,36 @@ export default function Home() {
                 <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">{formatMoney(dashboard?.cashAvailable ?? 0)}</strong>
                 <span className={`text-[13px] font-semibold ${(dashboard?.current.balance ?? 0) >= 0 ? "text-[#7EE2A8]" : "text-[#F4A497]"}`}>{formatMoney(dashboard?.current.balance ?? 0)} no período</span>
               </div>
-              <div className="relative z-10 flex h-16 items-end gap-[5px]" aria-label="Evolução mensal do saldo">
-                {compactBars.map((height, index) => (
-                  <span
-                    key={`${height}-${index}`}
-                    className={`flex-1 rounded-[4px] transition-all duration-300 hover:brightness-125 ${index === compactBars.length - 1 ? "bg-[#7EE2A8]" : index >= 5 ? "bg-[#12B85C]" : "bg-[#1F3D2B]"}`}
-                    style={{ height: `${height}%` }}
-                  />
-                ))}
-                {compactBars.length === 0 && <span className="m-auto text-[11px] font-medium text-[#8FB39E]">Sem histórico de movimentações</span>}
+              <div className="relative z-10 h-16 min-h-0" aria-label="Curva de evolução do saldo acumulado">
+                {cashCurve ? (
+                  <svg
+                    viewBox={`0 0 ${cashCurve.width} ${cashCurve.height}`}
+                    preserveAspectRatio="none"
+                    className="absolute inset-0 h-full w-full overflow-visible"
+                    role="img"
+                    aria-label="Evolução do saldo no período selecionado"
+                  >
+                    <polygon points={cashCurve.areaPoints} fill="#12B85C" opacity="0.22" />
+                    <polyline
+                      points={cashCurve.linePoints}
+                      fill="none"
+                      stroke="#7EE2A8"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <circle
+                      cx={cashCurve.lastPoint.x}
+                      cy={cashCurve.lastPoint.y}
+                      r="4.5"
+                      fill="#FFFFFF"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                ) : (
+                  <span className="flex h-full items-center justify-center text-[11px] font-medium text-[#8FB39E]">Sem histórico de movimentações</span>
+                )}
               </div>
               <div className="relative z-10 mt-auto grid grid-cols-2 gap-5 border-t border-[#1F3D2B] pt-4">
                 <div><span className="block text-[11px] text-[#8FB39E]">Entradas no período</span><strong className="mt-0.5 block text-[17px]">{formatMoney(dashboard?.current.incoming ?? 0)}</strong></div>
