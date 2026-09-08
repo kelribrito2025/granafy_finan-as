@@ -25,37 +25,59 @@ interface ThemeProviderProps {
 }
 
 /*
- * A troca de tema em círculo.
+ * A troca de tema, saindo do cartão escuro.
  *
  * O tema inteiro é CSS na raiz: trocar a classe repinta tudo no mesmo quadro,
  * e o corte seco de branco para preto é desagradável. A View Transitions API
- * fotografa a tela antes e depois; a animação abaixo só recorta a foto nova
- * num círculo que cresce a partir do cartão escuro — o mesmo cartão que já
- * estava escuro antes da troca, então o modo escuro parece sair de dentro
- * dele.
+ * fotografa a tela antes e depois; o recorte abaixo revela a foto nova a
+ * partir do retângulo do cartão que já estava escuro — mesmas bordas
+ * arredondadas — até passar das beiradas da tela.
+ *
+ * O recorte é declarado em CSS, com as duas pontas em variáveis, e não pela
+ * API de animação do JavaScript. Chamando `element.animate()` depois de
+ * `transition.ready` o navegador chega a pintar um quadro com a foto nova
+ * inteira antes de a animação começar — é o "pisca" que aparecia antes de
+ * o retângulo crescer.
  *
  * Onde a API não existe (Firefox e Safari antigos), ou quando o sistema pede
  * menos movimento, o `setTheme` normal acontece e a tela troca de uma vez.
  */
-const REVEAL_MS = 620;
+
+/** Quanto o retângulo passa de cada beirada, para os cantos saírem da tela. */
+const OVERSHOOT = 48;
 
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => void) => { ready: Promise<void>; finished: Promise<void> };
 };
 
-/** O centro do cartão escuro da página, ou o centro da tela se não houver um. */
-function revealOrigin() {
+/**
+ * As duas pontas do recorte: o retângulo do cartão escuro e a tela inteira.
+ *
+ * Sem cartão na página — nem toda tela tem um — sobra um retângulo do tamanho
+ * de um cartão no meio, que dá o mesmo movimento sem depender do conteúdo.
+ */
+function themeClipBounds() {
   const card = document.querySelector<HTMLElement>("[data-theme-origin]");
   const rect = card?.getBoundingClientRect();
-  if (!rect || rect.width === 0 || rect.height === 0) {
-    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-  }
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-}
+  const view = { w: window.innerWidth, h: window.innerHeight };
 
-/** Raio que alcança o canto mais distante: menos que isso deixa canto sem pintar. */
-function reachRadius(x: number, y: number) {
-  return Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  let box = rect && rect.width > 0 && rect.height > 0
+    ? { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom }
+    : null;
+  if (!box) {
+    const w = Math.min(392, view.w * 0.6);
+    const h = Math.min(326, view.h * 0.4);
+    const left = (view.w - w) / 2;
+    const top = (view.h - h) / 2;
+    box = { top, left, right: left + w, bottom: top + h };
+  }
+
+  const radius = card ? Number.parseFloat(getComputedStyle(card).borderTopLeftRadius) || 20 : 20;
+  const round = `round ${radius}px`;
+  return {
+    card: `inset(${box.top}px ${view.w - box.right}px ${view.h - box.bottom}px ${box.left}px ${round})`,
+    full: `inset(${-OVERSHOOT}px ${round})`,
+  };
 }
 
 export function ThemeProvider({
@@ -93,16 +115,18 @@ export function ThemeProvider({
       return;
     }
 
-    const { x, y } = revealOrigin();
-    const raio = reachRadius(x, y);
-    const escurecendo = next === "dark";
+    const { card, full } = themeClipBounds();
     const root = document.documentElement;
+    const escurecendo = next === "dark";
 
     /*
-     * Ao voltar para o claro o círculo encolhe de volta para o cartão, e para
-     * isso a foto antiga precisa ficar por cima — o padrão é o contrário.
+     * Escurecendo, o retângulo cresce e revela a foto nova. Clareando, ele
+     * encolhe de volta para o cartão levando a foto antiga embora — e para
+     * isso ela precisa ficar por cima, que é o contrário do padrão.
      */
-    root.classList.toggle("tema-recolhendo", !escurecendo);
+    root.style.setProperty("--tema-de", escurecendo ? card : full);
+    root.style.setProperty("--tema-para", escurecendo ? full : card);
+    root.classList.add(escurecendo ? "tema-escurecendo" : "tema-clareando");
 
     // O flushSync é o ponto do truque: sem ele o React pinta o tema novo
     // depois que a API já tirou as duas fotos, e as duas saem iguais.
@@ -110,23 +134,13 @@ export function ThemeProvider({
       flushSync(() => setThemeState(next));
     });
 
-    transition.ready
-      .then(() => {
-        const circulos = [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`];
-        root.animate(
-          { clipPath: escurecendo ? circulos : circulos.slice().reverse() },
-          {
-            duration: REVEAL_MS,
-            easing: "cubic-bezier(.4, 0, .2, 1)",
-            pseudoElement: escurecendo ? "::view-transition-new(root)" : "::view-transition-old(root)",
-          },
-        );
-      })
-      .catch(() => {});
-
     transition.finished
       .catch(() => {})
-      .then(() => root.classList.remove("tema-recolhendo"));
+      .then(() => {
+        root.classList.remove("tema-escurecendo", "tema-clareando");
+        root.style.removeProperty("--tema-de");
+        root.style.removeProperty("--tema-para");
+      });
   }, []);
 
   const toggleTheme = useCallback(() => {

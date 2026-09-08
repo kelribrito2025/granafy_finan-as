@@ -18,6 +18,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
@@ -827,8 +828,8 @@ export default function LancamentosPage() {
                 </div>
 
                 {transactionsQuery.isLoading && (
-                  <div className="flex items-center justify-center gap-3 py-16 text-[12.5px] text-[#718077]">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando lançamentos...
+                  <div className="flex items-center justify-center py-14">
+                    <GranafyLoader label="Carregando lançamentos..." />
                   </div>
                 )}
                 {transactionsQuery.isError && (

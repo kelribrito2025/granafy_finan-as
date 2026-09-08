@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
@@ -461,7 +462,7 @@ export default function DrePage() {
           )}
 
           {loading && !error && (
-            <div className="rounded-[20px] bg-white p-6 text-[13.5px] text-[#8A968D] ring-1 ring-[#E1E8E3]">Calculando a demonstração…</div>
+            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Calculando a demonstração…" /></div>
           )}
 
           {view === "mes" && statement && (

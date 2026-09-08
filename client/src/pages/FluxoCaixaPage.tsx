@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartDot } from "@/components/ChartDot";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
@@ -415,7 +416,7 @@ export default function FluxoCaixaPage() {
             </div>
           )}
           {loading && !error && (
-            <div className="rounded-[20px] bg-white p-6 text-[13.5px] text-[#4C6355] ring-1 ring-[#E1E8E3]">Calculando o fluxo…</div>
+            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Calculando o fluxo…" /></div>
           )}
 
           {view !== "mes" && daily && (

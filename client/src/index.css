@@ -204,6 +204,29 @@
     animation: modal-in 220ms var(--ease-out) both;
   }
 
+  /* A espera do GranaFy: o anel gira e as quatro barras sobem defasadas em
+     130ms — é o atraso que faz a onda; juntas, as quatro só piscam.
+     A animação é `scaleY`, nunca `height`: escala roda na GPU, altura
+     recalcula layout 60 vezes por segundo numa tela que já está ocupada.
+     As cores ficam em classes, e não em atributos do SVG, porque o modo
+     escuro precisa trocá-las e um `stroke=` no markup ganha da folha. */
+  @keyframes gf-spin { to { transform: rotate(360deg); } }
+  .gf-spin { animation: gf-spin 1.1s linear infinite; transform-origin: 50% 50%; }
+
+  @keyframes gf-barrinha { 0%, 100% { transform: scaleY(.28); } 50% { transform: scaleY(1); } }
+  .gf-barrinha-1 { animation: gf-barrinha 1.1s ease-in-out infinite; transform-origin: 50% 100%; }
+  .gf-barrinha-2 { animation: gf-barrinha 1.1s ease-in-out .13s infinite; transform-origin: 50% 100%; }
+  .gf-barrinha-3 { animation: gf-barrinha 1.1s ease-in-out .26s infinite; transform-origin: 50% 100%; }
+  .gf-barrinha-4 { animation: gf-barrinha 1.1s ease-in-out .39s infinite; transform-origin: 50% 100%; }
+
+  .gf-loader-trilha { stroke: #D8E2DB; }
+  .gf-loader-arco { stroke: #0B1F14; }
+  .gf-loader-barra-clara { background: #9BE3BC; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gf-spin, [class^="gf-barrinha"] { animation: none; }
+  }
+
   .popover-enter {
     transform-origin: top right;
     animation: popover-in 180ms var(--ease-out) both;
@@ -399,12 +422,16 @@
 }
 
 /*
- * Troca de tema em círculo (ThemeContext).
+ * Troca de tema saindo do cartão escuro (ThemeContext).
  *
- * A View Transitions API faz um cross-fade por conta própria; aqui ele é
- * desligado porque quem anima é o `clipPath` do círculo. Sem o `animation:
- * none` as duas coisas rodam juntas e o círculo aparece lavado por cima de um
- * fade.
+ * A View Transitions API faz um cross-fade por conta própria; ele é desligado
+ * porque quem anima é o recorte. Sem o `animation: none` as duas coisas rodam
+ * juntas e o retângulo aparece lavado por cima de um fade.
+ *
+ * As duas pontas do recorte chegam em `--tema-de` e `--tema-para`, postas na
+ * raiz pelo ThemeContext antes de a transição começar. Declarar a animação
+ * aqui, e não por `element.animate()` depois de `ready`, é o que evita o
+ * quadro em que a tela nova aparece inteira antes de o retângulo crescer.
  */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -412,6 +439,23 @@
   mix-blend-mode: normal;
 }
 
-/* Voltando ao claro o círculo encolhe, então a foto antiga é a que fica por cima. */
-html.tema-recolhendo::view-transition-old(root) { z-index: 1; }
-html.tema-recolhendo::view-transition-new(root) { z-index: 0; }
+@keyframes tema-recorte {
+  from { clip-path: var(--tema-de); }
+  to { clip-path: var(--tema-para); }
+}
+
+html.tema-escurecendo::view-transition-new(root) {
+  animation: tema-recorte 620ms cubic-bezier(.4, 0, .2, 1) both;
+}
+
+/* Clareando, quem se move é a foto antiga encolhendo — então ela vai por cima. */
+html.tema-clareando::view-transition-old(root) {
+  z-index: 1;
+  animation: tema-recorte 620ms cubic-bezier(.4, 0, .2, 1) both;
+}
+html.tema-clareando::view-transition-new(root) { z-index: 0; }
+
+/* O loader sobre fundo escuro: a trilha some no fundo e o arco escuro vira branco. */
+.dark .gf-loader-trilha { stroke: #1F3D2B; }
+.dark .gf-loader-arco { stroke: #FFFFFF; }
+.dark .gf-loader-barra-clara { background: #1F3D2B; }

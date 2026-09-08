@@ -14,6 +14,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { buildCategoryTree, type CategoryNode, type FlatCategory } from "@/lib/categoryTree";
 import { RULE_MATCH_LABELS, RULE_MATCH_TYPES, type RuleMatchType } from "@shared/categoryRules";
 import { formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
@@ -679,7 +680,7 @@ export default function OrganizationPage() {
             ))}
           </section>
 
-          {loading && <section className="flex min-h-[420px] flex-1 items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando organização...</section>}
+          {loading && <section className="flex min-h-[420px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando contas e categorias..." /></section>}
           {failed && <section className="flex min-h-[420px] flex-1 flex-col items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><strong className="text-[#B3261E]">Não foi possível carregar</strong><button type="button" onClick={() => overviewQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button></section>}
 
           {!loading && !failed && section === "accounts" && (

@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -651,7 +652,7 @@ function HistoryModal({ item, entries, loading, onClose }: {
   return (
     <ModalShell title="Histórico" subtitle={item.description} onClose={onClose}>
       {loading ? (
-        <p className="py-6 text-center text-[13px] text-[#4C6355]">Carregando…</p>
+        <div className="flex justify-center py-6"><GranafyLoader size="sm" label="Carregando…" /></div>
       ) : entries.length === 0 ? (
         <p className="rounded-xl bg-[#F8FAF9] px-4 py-6 text-center text-[13px] text-[#4C6355]">
           Nada registrado ainda para esta movimentação.
@@ -1049,7 +1050,7 @@ export default function ConciliacaoPage() {
             </div>
           )}
           {query.isPending && !query.error && (
-            <div className="rounded-[20px] bg-white p-6 text-[13.5px] text-[#4C6355] ring-1 ring-[#E1E8E3]">Carregando o extrato…</div>
+            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando o extrato…" /></div>
           )}
 
           {data && (

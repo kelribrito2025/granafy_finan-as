@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   CheckIcon,
@@ -432,7 +433,7 @@ export default function PagarReceberPage() {
             </div>
           )}
           {query.isPending && !query.error && (
-            <div className="rounded-[20px] bg-white p-6 text-[13.5px] text-[#4C6355] ring-1 ring-[#E1E8E3]">Carregando títulos…</div>
+            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando títulos…" /></div>
           )}
 
           {data && (

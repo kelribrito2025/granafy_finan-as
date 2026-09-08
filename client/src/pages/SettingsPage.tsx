@@ -6,6 +6,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { GranafyLoader } from "@/components/GranafyLoader";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import {
@@ -199,7 +200,7 @@ function CompanyForm({ initial, loading, pending, onSave }: {
   }, [form, initial]);
 
   if (loading || !form) {
-    return <div className="flex min-h-[300px] items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando cadastro...</div>;
+    return <div className="flex min-h-[300px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando cadastro..." /></div>;
   }
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -380,7 +381,7 @@ function PreferencesForm({ initial, loading, pending, onSave }: {
   }, [form, initial]);
 
   if (loading || !form) {
-    return <div className="flex min-h-[300px] items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando preferências...</div>;
+    return <div className="flex min-h-[300px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando preferências..." /></div>;
   }
 
   const sample = (currency: Currency) =>
