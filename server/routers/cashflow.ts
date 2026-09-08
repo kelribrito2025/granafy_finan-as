@@ -1,3 +1,4 @@
+import { roundCurrency } from "@shared/currency";
 import { z } from "zod";
 import {
   buildDailyFlow,
@@ -76,9 +77,13 @@ function openingBalance(
   date: string
 ) {
   const initial = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
-  return records
-    .filter(record => record.status === "Pago" && record.type !== "transferencia" && record.transactionDate < date)
-    .reduce((sum, record) => sum + Number(record.amount), initial);
+  // O saldo de abertura é a semente de toda a projeção do mês: a deriva daqui
+  // entra em cada dia da série e sai no CSV multiplicada.
+  return roundCurrency(
+    records
+      .filter(record => record.status === "Pago" && record.type !== "transferencia" && record.transactionDate < date)
+      .reduce((sum, record) => sum + Number(record.amount), initial)
+  );
 }
 
 async function loadLedger(userId: number) {
@@ -202,7 +207,7 @@ export const cashflowRouter = router({
 
       const realized = columns.filter(column => !column.projected && column.outgoing > 0);
       const averageOutflow = realized.length > 0
-        ? realized.reduce((sum, column) => sum + column.outgoing, 0) / realized.length
+        ? roundCurrency(realized.reduce((sum, column) => sum + column.outgoing, 0) / realized.length)
         : 0;
       const cashToday = openingBalance(records, accounts, new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10));
 
@@ -213,8 +218,8 @@ export const cashflowRouter = router({
         to: monthLabel(last.year, last.month),
         columns,
         totals: {
-          incoming: Math.round(columns.reduce((sum, column) => sum + column.incoming, 0) * 100) / 100,
-          outgoing: Math.round(columns.reduce((sum, column) => sum + column.outgoing, 0) * 100) / 100,
+          incoming: roundCurrency(columns.reduce((sum, column) => sum + column.incoming, 0)),
+          outgoing: roundCurrency(columns.reduce((sum, column) => sum + column.outgoing, 0)),
           opening: columns[0]?.opening ?? 0,
           closing: columns[columns.length - 1]?.closing ?? 0,
         },

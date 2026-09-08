@@ -1,3 +1,5 @@
+import { roundCurrency } from "@shared/currency";
+
 import type {
   FinancialAccountRecord,
   PatrimonialItemRecord,
@@ -39,9 +41,11 @@ export type BalanceSheetSummary = {
   debtRatio: number | null;
 };
 
-export function roundCurrency(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
+/*
+ * A função mora em `shared/currency.ts` agora, para o cliente e a DRE usarem a
+ * mesma. Continua exportada daqui porque este módulo já era o endereço dela.
+ */
+export { roundCurrency };
 
 export function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00.000Z`);

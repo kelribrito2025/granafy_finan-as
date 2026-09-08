@@ -8,6 +8,8 @@
  * de verdade e a projeção não precisa inventar tendência nenhuma.
  */
 
+import { roundCurrency } from "./currency";
+
 export type FlowRow = {
   transactionDate: string;
   /** Assinado: entrada positiva, saída negativa. */
@@ -28,12 +30,6 @@ export type FlowBucket = {
   balance: number;
   realized: boolean;
 };
-
-function round(value: number) {
-  const rounded = Math.round(value * 100) / 100;
-  // Sem isto, somar uma lista vazia de saídas devolve -0 e a tela escreve "− R$ 0,00".
-  return rounded === 0 ? 0 : rounded;
-}
 
 /** Transferência entre contas próprias não muda o caixa total. */
 function movesCash(row: FlowRow) {
@@ -114,9 +110,9 @@ export function buildDailyFlow(
     days.push({
       date: day,
       label: `${day.slice(8, 10)}/${day.slice(5, 7)}`,
-      incoming: round(incoming),
-      outgoing: round(outgoing),
-      balance: round(balance),
+      incoming: roundCurrency(incoming),
+      outgoing: roundCurrency(outgoing),
+      balance: roundCurrency(balance),
       realized: day <= options.todayIso,
     });
   }
@@ -130,7 +126,7 @@ export function buildDailyFlow(
   for (const row of inWindow) netByDay.set(row.transactionDate, (netByDay.get(row.transactionDate) ?? 0) + row.amount);
   let tightest: { date: string; amount: number } | null = null;
   netByDay.forEach((amount, date) => {
-    if (amount < 0 && (tightest === null || amount < tightest.amount)) tightest = { date, amount: round(amount) };
+    if (amount < 0 && (tightest === null || amount < tightest.amount)) tightest = { date, amount: roundCurrency(amount) };
   });
   const lowest = days.reduce<{ date: string; balance: number } | null>(
     (worst, bucket) => (worst === null || bucket.balance < worst.balance ? { date: bucket.date, balance: bucket.balance } : worst),
@@ -138,15 +134,15 @@ export function buildDailyFlow(
   );
 
   return {
-    opening: round(options.opening),
-    closing: round(balance),
+    opening: roundCurrency(options.opening),
+    closing: roundCurrency(balance),
     days,
     totals: {
-      incoming: round(inWindow.filter(row => row.amount > 0).reduce((sum, row) => sum + row.amount, 0)),
-      outgoing: round(-inWindow.filter(row => row.amount < 0).reduce((sum, row) => sum + row.amount, 0)),
+      incoming: roundCurrency(inWindow.filter(row => row.amount > 0).reduce((sum, row) => sum + row.amount, 0)),
+      outgoing: roundCurrency(-inWindow.filter(row => row.amount < 0).reduce((sum, row) => sum + row.amount, 0)),
     },
     lowest,
-    biggestIncome: biggest ? { date: biggest.transactionDate, description: biggest.description, amount: round(biggest.amount) } : null,
+    biggestIncome: biggest ? { date: biggest.transactionDate, description: biggest.description, amount: roundCurrency(biggest.amount) } : null,
     tightestDay: tightest,
   };
 }
@@ -161,8 +157,8 @@ export function toWeeks(daily: DailyFlow, start: string): FlowBucket[] {
     const first = addDaysIso(start, offset * 7);
     const existing = weeks.get(first);
     if (existing) {
-      existing.incoming = round(existing.incoming + day.incoming);
-      existing.outgoing = round(existing.outgoing + day.outgoing);
+      existing.incoming = roundCurrency(existing.incoming + day.incoming);
+      existing.outgoing = roundCurrency(existing.outgoing + day.outgoing);
       existing.balance = day.balance;
       existing.realized = existing.realized && day.realized;
     } else {
@@ -209,7 +205,7 @@ function byRoot(rows: readonly FlowRow[], sign: 1 | -1) {
     totals.set(root, (totals.get(root) ?? 0) + Math.abs(row.amount));
   }
   return Array.from(totals.entries())
-    .map(([label, value]) => ({ label, value: round(value) }))
+    .map(([label, value]) => ({ label, value: roundCurrency(value) }))
     .sort((left, right) => right.value - left.value);
 }
 
@@ -231,16 +227,16 @@ export function buildMonthlyFlow(
     const inMonth = rows.filter(row => movesCash(row) && row.transactionDate >= start && row.transactionDate < end);
     const incoming = inMonth.filter(row => row.amount > 0).reduce((sum, row) => sum + row.amount, 0);
     const outgoing = -inMonth.filter(row => row.amount < 0).reduce((sum, row) => sum + row.amount, 0);
-    const result = round(incoming - outgoing);
-    const closing = round(opening + result);
+    const result = roundCurrency(incoming - outgoing);
+    const closing = roundCurrency(opening + result);
     const column: MonthlyColumn = {
       year,
       month,
       label: SHORT_MONTHS[month - 1],
       projected: start > options.todayIso,
-      opening: round(opening),
-      incoming: round(incoming),
-      outgoing: round(outgoing),
+      opening: roundCurrency(opening),
+      incoming: roundCurrency(incoming),
+      outgoing: roundCurrency(outgoing),
       result,
       closing,
       incomingByRoot: byRoot(inMonth, 1),
@@ -259,5 +255,5 @@ export function buildMonthlyFlow(
  */
 export function runwayMonths(cash: number, monthlyOutflow: number) {
   if (monthlyOutflow <= 0 || cash <= 0) return null;
-  return round(cash / monthlyOutflow);
+  return roundCurrency(cash / monthlyOutflow);
 }

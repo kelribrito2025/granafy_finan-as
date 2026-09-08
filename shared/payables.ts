@@ -7,6 +7,8 @@
  * pendente é a pagar.
  */
 
+import { roundCurrency } from "./currency";
+
 export type TitleStatus = "atrasado" | "vence_hoje" | "em_aberto" | "liquidado";
 
 export type TitleRow = {
@@ -133,7 +135,7 @@ export function buildPayablesView(rows: readonly TitleRow[], todayIso: string): 
   const overdue = open.filter(title => title.titleStatus === "atrasado");
   const dueToday = open.filter(title => title.titleStatus === "vence_hoje");
 
-  const sum = (titles: readonly Title[]) => titles.reduce((total, title) => total + title.amount, 0);
+  const sum = (titles: readonly Title[]) => roundCurrency(titles.reduce((total, title) => total + title.amount, 0));
   const receivable = sum(receivables);
   const payable = sum(payables);
 

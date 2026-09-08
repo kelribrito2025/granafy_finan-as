@@ -8,6 +8,8 @@
  * exigiria recadastrar as 51 categorias que já estão em uso.
  */
 
+import { roundCurrency } from "./currency";
+
 export type DreRegime = "competencia" | "caixa";
 
 export type DreRow = {
@@ -153,12 +155,6 @@ const GROUP_LABELS: Record<string, string> = {
   sem_classificacao: "Sem classificação na DRE",
 };
 
-function round(value: number) {
-  const rounded = Math.round(value * 100) / 100;
-  // Sem isto, somar uma lista vazia de saídas devolve -0 e a tela escreve "− R$ 0,00".
-  return rounded === 0 ? 0 : rounded;
-}
-
 function keepsRow(row: DreRow, regime: DreRegime) {
   if (row.type === "transferencia") return false;
   return regime === "competencia" || row.status === "Pago";
@@ -207,7 +203,7 @@ function rootSubitems(bucket: DreBucket, tree: Tree | undefined): DreLine[] {
       key: `${bucket}/${root}`,
       label: root,
       kind: "subitem" as const,
-      value: round(node.total),
+      value: roundCurrency(node.total),
     }));
 }
 
@@ -218,10 +214,10 @@ function groupLines(bucket: DreBucket, tree: Tree | undefined): DreLine[] {
   const lines: DreLine[] = [];
 
   for (const [root, node] of roots) {
-    lines.push({ key: `${bucket}/${root}`, label: root, kind: "item", value: round(node.total) });
+    lines.push({ key: `${bucket}/${root}`, label: root, kind: "item", value: roundCurrency(node.total) });
     const leaves = Array.from(node.leaves.entries()).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
     for (const [leaf, value] of leaves) {
-      lines.push({ key: `${bucket}/${root}/${leaf}`, label: leaf, kind: "subitem", value: round(value) });
+      lines.push({ key: `${bucket}/${root}/${leaf}`, label: leaf, kind: "subitem", value: roundCurrency(value) });
     }
   }
 
@@ -241,18 +237,18 @@ export function buildDreStatement(
   options: { regime: DreRegime; assetDepreciation?: number } = { regime: "competencia" }
 ): DreStatement {
   const { buckets, totals, despesasFixas } = collect(rows, options.regime);
-  const assetDepreciation = round(Math.max(0, options.assetDepreciation ?? 0));
-  const at = (bucket: DreBucket) => round(totals.get(bucket) ?? 0);
+  const assetDepreciation = roundCurrency(Math.max(0, options.assetDepreciation ?? 0));
+  const at = (bucket: DreBucket) => roundCurrency(totals.get(bucket) ?? 0);
 
   const receitaBruta = at("receita_bruta");
   const deducoes = at("deducoes");
-  const receitaLiquida = round(receitaBruta + deducoes);
+  const receitaLiquida = roundCurrency(receitaBruta + deducoes);
   const custos = at("custos");
-  const margemContribuicao = round(receitaLiquida + custos);
+  const margemContribuicao = roundCurrency(receitaLiquida + custos);
   const despesasOperacionais = at("despesas_operacionais");
-  const ebitda = round(margemContribuicao + despesasOperacionais);
+  const ebitda = roundCurrency(margemContribuicao + despesasOperacionais);
   const depreciacaoLancada = at("depreciacao");
-  const depreciacao = round(depreciacaoLancada - assetDepreciation);
+  const depreciacao = roundCurrency(depreciacaoLancada - assetDepreciation);
   const financeiro = at("financeiro");
   const impostosLucro = at("impostos_lucro");
   const naoOperacional = at("nao_operacional");
@@ -261,7 +257,7 @@ export function buildDreStatement(
    * O que não está classificado fica fora do lucro de propósito. Somar às
    * cegas devolveria o problema que esta linha existe para mostrar.
    */
-  const lucroLiquido = round(
+  const lucroLiquido = roundCurrency(
     ebitda + depreciacao + financeiro + impostosLucro + naoOperacional
   );
 
@@ -321,7 +317,7 @@ export function buildDreStatement(
       impostosLucro,
       naoOperacional,
       lucroLiquido,
-      despesasFixas: round(despesasFixas),
+      despesasFixas: roundCurrency(despesasFixas),
       foraDoResultado: at("fora_do_resultado"),
       semClassificacao,
     },
@@ -331,7 +327,7 @@ export function buildDreStatement(
 /** Margem sobre a receita líquida. Sem receita não existe margem — devolve null. */
 export function marginOf(profit: number, netRevenue: number) {
   if (netRevenue <= 0) return null;
-  return round((profit / netRevenue) * 100);
+  return roundCurrency((profit / netRevenue) * 100);
 }
 
 /**
@@ -348,7 +344,7 @@ export function variationOf(current: number, previous: number) {
   const delta = flipped
     ? current - previous
     : Math.abs(current) - Math.abs(previous);
-  return round((delta / Math.abs(previous)) * 100);
+  return roundCurrency((delta / Math.abs(previous)) * 100);
 }
 
 /**
@@ -373,5 +369,5 @@ export function breakEvenRevenue(totals: Pick<DreTotals, "despesasFixas" | "marg
   if (fixed === 0 || totals.receitaLiquida <= 0) return null;
   const ratio = totals.margemContribuicao / totals.receitaLiquida;
   if (ratio <= 0) return null;
-  return round(fixed / ratio);
+  return roundCurrency(fixed / ratio);
 }

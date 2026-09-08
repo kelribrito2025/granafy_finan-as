@@ -1,3 +1,4 @@
+import { roundCurrency } from "@shared/currency";
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -225,9 +226,11 @@ async function buildTransferLegs(userId: number, input: TransactionValuesInput) 
 
 function summarize(records: TransactionRecord[]) {
   const cashFlow = records.filter(isCashFlow);
-  const incoming = cashFlow.reduce((sum, record) => sum + Math.max(0, Number(record.amount)), 0);
-  const outgoing = cashFlow.reduce((sum, record) => sum + Math.abs(Math.min(0, Number(record.amount))), 0);
-  return { incoming, outgoing, balance: incoming - outgoing };
+  const incoming = roundCurrency(cashFlow.reduce((sum, record) => sum + Math.max(0, Number(record.amount)), 0));
+  const outgoing = roundCurrency(cashFlow.reduce((sum, record) => sum + Math.abs(Math.min(0, Number(record.amount))), 0));
+  // O saldo sai dos dois já arredondados: arredondar a diferença dos valores
+  // crus deixaria o CSV com uma coluna que não fecha com as outras duas.
+  return { incoming, outgoing, balance: roundCurrency(incoming - outgoing) };
 }
 
 /** 8 MB de arquivo. Em base64 o corpo da requisição fica em ~10,7 MB. */
@@ -325,7 +328,7 @@ export const transactionsRouter = router({
       db.listFinancialAccounts(ctx.user.id),
     ]);
     const initialBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
-    const previousBalance = initialBalance + previousTotal;
+    const previousBalance = roundCurrency(initialBalance + previousTotal);
 
     return {
       items: records.map(toTransaction),
@@ -349,9 +352,11 @@ export const transactionsRouter = router({
     const end = endMonth === 13 ? `${year + 1}-01-01` : `${year}-${String(endMonth).padStart(2, "0")}-01`;
     const current = records.filter(record => record.transactionDate >= start && record.transactionDate < end);
     const currentSummary = summarize(current);
-    const paidBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
-      .filter(record => record.status === "Pago")
-      .reduce((sum, record) => sum + Number(record.amount), 0);
+    const paidBalance = roundCurrency(
+      accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
+        .filter(record => record.status === "Pago")
+        .reduce((sum, record) => sum + Number(record.amount), 0)
+    );
     const open = records.filter(record =>
       isOpenInWindow(record, { start, end, todayIso: todayString })
     );
@@ -390,19 +395,19 @@ export const transactionsRouter = router({
       current: currentSummary,
       pendingReceivable: {
         count: pendingReceivable.length,
-        amount: pendingReceivable.reduce((sum, record) => sum + Number(record.amount), 0),
+        amount: roundCurrency(pendingReceivable.reduce((sum, record) => sum + Number(record.amount), 0)),
       },
       pendingPayable: {
         count: pendingPayable.length,
-        amount: pendingPayable.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0),
+        amount: roundCurrency(pendingPayable.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0)),
       },
       overdue: {
         count: overdue.length,
-        amount: overdue.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0),
+        amount: roundCurrency(overdue.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0)),
       },
       dueToday: {
         count: dueToday.length,
-        amount: dueToday.reduce((sum, record) => sum + Number(record.amount), 0),
+        amount: roundCurrency(dueToday.reduce((sum, record) => sum + Number(record.amount), 0)),
       },
       margin,
       months,
