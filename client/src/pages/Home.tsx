@@ -220,7 +220,7 @@ export default function Home() {
                 <strong className="text-[36px] leading-none tracking-[-0.03em] sm:text-[42px]">{formatMoney(dashboard?.cashAvailable ?? 0)}</strong>
                 <span className={`text-[13px] font-semibold ${(dashboard?.current.balance ?? 0) >= 0 ? "text-[#7EE2A8]" : "text-[#F4A497]"}`}>{formatMoney(dashboard?.current.balance ?? 0)} no período</span>
               </div>
-              <div className="relative z-10 h-16 min-h-0" aria-label="Curva de evolução do saldo acumulado">
+              <div className="relative z-10 min-h-[96px] flex-1" aria-label="Curva de evolução do saldo acumulado">
                 {cashCurve ? (
                   <svg
                     viewBox={`0 0 ${cashCurve.width} ${cashCurve.height}`}
