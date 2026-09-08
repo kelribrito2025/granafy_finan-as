@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   breakEvenRevenue,
   buildDreStatement,
+  countsInResult,
   dreBucketOf,
   leafOf,
   marginOf,
@@ -321,5 +322,28 @@ describe("aportes, empréstimos e categorias sem classificação", () => {
 
     expect(statement.totals.semClassificacao).toBe(0);
     expect(statement.lines.some(line => line.key === "sem_classificacao")).toBe(false);
+  });
+});
+
+describe("countsInResult", () => {
+  it("aceita as raízes que a DRE soma no resultado", () => {
+    expect(countsInResult("Receitas Operacionais")).toBe(true);
+    expect(countsInResult("Receitas Operacionais/Prestação de Serviços")).toBe(true);
+    expect(countsInResult("Custos Operacionais/Matéria-Prima e Insumos")).toBe(true);
+    expect(countsInResult("Despesas Financeiras")).toBe(true);
+    expect(countsInResult("Impostos sobre Vendas")).toBe(true);
+  });
+
+  it("recusa o que move o caixa sem passar pelo resultado", () => {
+    expect(countsInResult("Aportes de Capital")).toBe(false);
+    expect(countsInResult("Aportes de Capital/Aporte de Sócio")).toBe(false);
+    expect(countsInResult("Empréstimos e Financiamentos")).toBe(false);
+    expect(countsInResult("Distribuição de Lucros")).toBe(false);
+    expect(countsInResult("Despesas com de ativos imobilizados/Compra de Móveis")).toBe(false);
+  });
+
+  it("recusa categoria fora do plano padrão, que ainda espera classificação", () => {
+    expect(countsInResult("Despesa bancária / Tarifas PIX")).toBe(false);
+    expect(countsInResult("Qualquer coisa inventada")).toBe(false);
   });
 });

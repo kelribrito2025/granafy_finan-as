@@ -98,6 +98,19 @@ export function dreBucketOf(category: string, _type: DreRow["type"]): DreBucket 
   return BUCKET_BY_ROOT[normalizeName(rootOf(category))] ?? "sem_classificacao";
 }
 
+/**
+ * A categoria entra no resultado do período?
+ *
+ * Serve para escolher padrão de tela: um formulário nunca deveria sugerir
+ * sozinho uma categoria que some da DRE. Aporte, empréstimo e compra de
+ * imobilizado movem o caixa sem passar pelo resultado; categoria fora do plano
+ * padrão espera classificação. Nenhuma das duas é palpite seguro.
+ */
+export function countsInResult(category: string) {
+  const bucket = dreBucketOf(category, "entrada");
+  return bucket !== "fora_do_resultado" && bucket !== "sem_classificacao";
+}
+
 export type DreLineKind = "grupo" | "item" | "subitem" | "subtotal" | "resultado";
 
 export type DreLine = {
