@@ -719,9 +719,11 @@ function DifferenceModal({ data, accountId, firstDayOfMonth, lastDayOfMonth, onC
           <span className="text-[#4C6355]">Saldo conciliado no GranaFy</span>
           <span className="font-bold">{formatMoney(data.system)}</span>
         </div>
-        <div className="flex justify-between rounded-[14px] bg-[#FDECEA] px-4 py-3 text-[13px]">
-          <span className="text-[#8E1F16]">Diferença</span>
-          <span className="font-bold text-[#8E1F16]">
+        {/* Diferença zero é a coisa certa acontecendo. Pintar de vermelho o mês
+            que fechou faz a tela gritar erro justamente quando não há nenhum. */}
+        <div className={`flex justify-between rounded-[14px] px-4 py-3 text-[13px] ${data.difference === 0 ? "bg-[#DFF6EA]" : "bg-[#FDECEA]"}`}>
+          <span className={data.difference === 0 ? "text-[#0A7A42]" : "text-[#8E1F16]"}>Diferença</span>
+          <span className={`font-bold ${data.difference === 0 ? "text-[#0A7A42]" : "text-[#8E1F16]"}`}>
             {data.difference === null ? "—" : formatMoney(Math.abs(data.difference))}
           </span>
         </div>
