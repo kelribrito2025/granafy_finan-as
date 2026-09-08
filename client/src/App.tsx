@@ -12,7 +12,7 @@ import NotFound from "@/pages/NotFound";
 import OrganizationPage from "@/pages/OrganizationPage";
 import PagarReceberPage from "@/pages/PagarReceberPage";
 import SettingsPage from "@/pages/SettingsPage";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { GranafySymbol } from "./components/GranafyLogo";
@@ -36,6 +36,14 @@ function AuthLoading() {
 function ProtectedPage({ children }: { children: ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
+  /*
+   * Quem já esteve logado nesta aba e deixou de estar acabou de sair da conta,
+   * e sair da conta termina na tela de entrada. Sem esta marca o "Sair" feito
+   * a partir do painel caía na regra de visita abaixo e jogava a pessoa no
+   * site institucional.
+   */
+  const esteveLogado = useRef(false);
+  if (isAuthenticated) esteveLogado.current = true;
 
   useEffect(() => {
     if (loading || isAuthenticated) return;
@@ -44,7 +52,7 @@ function ProtectedPage({ children }: { children: ReactNode }) {
      * para o site, que é onde a explicação do produto está. Qualquer outra
      * página protegida continua indo direto para a entrada.
      */
-    if (window.location.pathname === "/") {
+    if (window.location.pathname === "/" && !esteveLogado.current) {
       window.location.replace("/site");
       return;
     }

@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { ChartDot } from "@/components/ChartDot";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
@@ -235,6 +236,7 @@ export default function Home() {
               </div>
               <div className="relative z-10 min-h-[96px] flex-1" aria-label="Curva de evolução do saldo acumulado">
                 {cashCurve ? (
+                  <>
                   <svg
                     viewBox={`0 0 ${cashCurve.width} ${cashCurve.height}`}
                     preserveAspectRatio="none"
@@ -252,14 +254,16 @@ export default function Home() {
                       strokeLinejoin="round"
                       vectorEffect="non-scaling-stroke"
                     />
-                    <circle
-                      cx={cashCurve.lastPoint.x}
-                      cy={cashCurve.lastPoint.y}
-                      r="4.5"
-                      fill="#FFFFFF"
-                      vectorEffect="non-scaling-stroke"
-                    />
                   </svg>
+                  <ChartDot
+                    x={cashCurve.lastPoint.x}
+                    y={cashCurve.lastPoint.y}
+                    width={cashCurve.width}
+                    height={cashCurve.height}
+                    size={9}
+                    color="#FFFFFF"
+                  />
+                  </>
                 ) : (
                   <span className="flex h-full items-center justify-center text-[11px] font-medium text-[#8FB39E]">Sem histórico de movimentações</span>
                 )}

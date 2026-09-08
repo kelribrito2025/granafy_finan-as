@@ -53,6 +53,31 @@
     .cta-topo { padding:0 14px !important; }
   }
 
+  /* Os links do menu apontam para âncoras; sem a margem o cabeçalho fixo
+     cobre o título da seção que a pessoa acabou de pedir. */
+  html { scroll-behavior:smooth; }
+  [id] { scroll-margin-top:88px; }
+
+  /* O indicador de que a página continua. A primeira tela ocupa 90% da altura,
+     então quase nada da seção seguinte aparece para denunciar que há mais. */
+  .rolar {
+    display:flex; flex-direction:column; align-items:center; gap:9px;
+    padding:16px 0 30px; color:#0A7A42; text-decoration:none;
+  }
+  .rolar:hover { text-decoration:none; }
+  .rolar span { font-size:12.5px; font-weight:600; letter-spacing:.03em; }
+  .rolar-bolinha { animation:rolar-desce 1.9s cubic-bezier(.4,0,.2,1) infinite; }
+  @keyframes rolar-desce {
+    0%   { transform:translateY(0);   opacity:0; }
+    20%  { opacity:1; }
+    75%  { transform:translateY(9px); opacity:0; }
+    100% { transform:translateY(9px); opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    .rolar-bolinha { animation:none; }
+  }
+
   .aurora {
     background: radial-gradient(135% 115% at 88% -12%, rgba(18,184,92,.58) 0%, rgba(18,184,92,.18) 44%, rgba(18,184,92,0) 70%), radial-gradient(120% 100% at 4% 106%, rgba(13,148,136,.34) 0%, rgba(13,148,136,0) 62%), radial-gradient(85% 60% at 66% 34%, rgba(126,226,168,.16) 0%, rgba(126,226,168,0) 62%), linear-gradient(158deg, #0D2A1B 0%, #08190F 58%, #06120B 100%);
     background-color:#06120B;
@@ -87,8 +112,8 @@
     </div>
   </div>
 
-  <div style="background:#F1FBF6; border-bottom:1px solid #DCEDE4">
-    <div style="max-width:1200px; margin:0 auto; padding:72px 24px 0; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:48px; align-items:center">
+  <div style="background:#F1FBF6; border-bottom:1px solid #DCEDE4; min-height:calc(90vh - 71px); min-height:calc(90svh - 71px); display:flex; flex-direction:column">
+    <div style="max-width:1200px; margin:0 auto; padding:72px 24px 0; width:100%; flex:1; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:48px; align-items:center">
       <div style="display:flex; flex-direction:column; gap:22px; min-width:0">
         <h1 style="margin:0; font-size:clamp(34px, 5vw, 52px); font-weight:700; letter-spacing:-.035em; line-height:1.08; text-wrap:pretty">O financeiro da sua empresa fechado antes do café da tarde.</h1>
         <p style="margin:0; font-size:clamp(15px, 1.6vw, 18px); line-height:1.6; color:#28382E; max-width:520px; text-wrap:pretty">Saldo consolidado, contas a pagar e receber, conciliação e DRE — no mesmo lugar, a partir do extrato que você importa. Sem planilha, sem digitar lançamento por lançamento.</p>
@@ -250,10 +275,18 @@
         </div>
       </div>
     </div>
+
+    <a href="#o-problema" class="rolar" aria-label="Ver o restante da página">
+      <span>Role para ver mais</span>
+      <svg width="24" height="38" viewBox="0 0 24 38" fill="none" aria-hidden="true">
+        <rect x="1.3" y="1.3" width="21.4" height="35.4" rx="10.7" stroke="currentColor" stroke-width="2.2"></rect>
+        <circle class="rolar-bolinha" cx="12" cy="10.5" r="2.8" fill="currentColor"></circle>
+      </svg>
+    </a>
   </div>
 
 
-  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%">
+  <div id="o-problema" style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%">
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap:24px">
       <div style="display:flex; flex-direction:column; gap:10px; max-width:520px">
         <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">O problema</span>

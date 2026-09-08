@@ -18,6 +18,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { ChartDot } from "@/components/ChartDot";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences, valuesHidden } from "@/lib/appFormat";
@@ -709,8 +710,8 @@ function EvolutionChart({ points }: { points: EvolutionPoint[] }) {
             <polyline points={line} fill="none" stroke="#12B85C" strokeWidth="3" vectorEffect="non-scaling-stroke" />
           </>
         )}
-        <circle cx={last.x} cy={last.y} r="5" fill="#7EE2A8" />
       </svg>
+      <ChartDot x={last.x} y={last.y} width={chart.width} height={chart.height} size={10} color="#7EE2A8" />
     </div>
   );
 }

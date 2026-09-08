@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { ChartDot } from "@/components/ChartDot";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
@@ -94,8 +95,15 @@ function BalanceCurve({ data }: { data: DailyData }) {
               <line x1={at(lastRealized).x} y1="0" x2={at(lastRealized).x} y2="180" stroke="#E3EBE6" strokeWidth="2" />
             </>
           )}
-          <circle cx={at(points.length - 1).x} cy={at(points.length - 1).y} r="5" fill="#12B85C" />
         </svg>
+        <ChartDot
+          x={at(points.length - 1).x}
+          y={at(points.length - 1).y}
+          width={600}
+          height={180}
+          size={10}
+          color="#12B85C"
+        />
       </div>
       <div className="flex text-[11.5px] font-semibold uppercase tracking-[.06em] text-[#4C6355]">
         {[0, 0.25, 0.5, 0.75, 1].map(fraction => {
