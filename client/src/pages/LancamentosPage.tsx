@@ -521,6 +521,13 @@ export default function LancamentosPage() {
     });
   }, [accountFilter, categoryFilter, search, statusFilter, transactions, typeFilter]);
 
+  /** Se algum filtro está de pé — muda o nome do CSV e a mensagem de vazio. */
+  const filtrosAtivos = Boolean(search.trim())
+    || typeFilter !== "todos"
+    || statusFilter !== "todos"
+    || accountFilter !== "todos"
+    || categoryFilter !== "todos";
+
 
   const allSelected = filtered.length > 0 && filtered.every(item => selected.includes(item.id));
   const someSelected = !allSelected && filtered.some(item => selected.includes(item.id));
@@ -675,15 +682,37 @@ export default function LancamentosPage() {
     }
   };
 
+  /*
+   * O CSV é o que está na tela, não o mês inteiro.
+   *
+   * Exportava `transactions`, a resposta crua do servidor: quem filtrasse por
+   * "Pendente" e exportasse levava também os pagos, sem nada avisando. E como
+   * o arquivo vai para o contador, ninguém do outro lado tinha como perceber.
+   *
+   * Sai de `groupedTransactions` porque é exatamente o que foi desenhado —
+   * filtros e ordenação de uma vez, sem repetir a regra num segundo lugar e
+   * arriscar que os dois se afastem com o tempo.
+   */
   const exportTransactions = () => {
-    if (transactions.length === 0) return toast.info("Não há lançamentos para exportar neste mês.");
+    const linhas = groupedTransactions.flatMap(group => group.items);
+    if (linhas.length === 0) {
+      return toast.info(
+        filtrosAtivos
+          ? "Nenhum lançamento corresponde aos filtros. Limpe os filtros para exportar o mês."
+          : "Não há lançamentos para exportar neste mês."
+      );
+    }
     const header = ["Data", "Tipo", "Descrição", "Contato", "Categoria", "Valor", "Conta", "Status", "Recorrente"];
-    const rows = transactions.map(item => [item.transactionDate, item.type, item.description, item.contact, item.category, item.amount.toFixed(2), item.account, item.status, item.recurring ? "Sim" : "Não"]);
+    const rows = linhas.map(item => [item.transactionDate, item.type, item.description, item.contact, item.category, item.amount.toFixed(2), item.account, item.status, item.recurring ? "Sim" : "Não"]);
     const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\n");
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `lancamentos-${period.year}-${String(period.month).padStart(2, "0")}.csv`;
+    // O nome avisa que é recorte. Um arquivo chamado "lancamentos-2026-09"
+    // com metade do mês dentro é o tipo de coisa que só aparece na conciliação
+    // do contador, semanas depois.
+    const sufixo = filtrosAtivos ? "-filtrado" : "";
+    anchor.download = `lancamentos-${period.year}-${String(period.month).padStart(2, "0")}${sufixo}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
