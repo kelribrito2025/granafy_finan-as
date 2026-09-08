@@ -29,7 +29,7 @@ import { todayIso } from "@/lib/period";
 import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
@@ -179,9 +179,9 @@ const STATUS_TONE: Record<RowStatus["tone"], string> = {
  */
 function KpiCard({ label, value, valueClass, hint, hintClass, highlight = false }: {
   label: string;
-  value: string;
+  value: ReactNode;
   valueClass?: string;
-  hint: string;
+  hint: ReactNode;
   hintClass?: string;
   highlight?: boolean;
 }) {

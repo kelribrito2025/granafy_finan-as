@@ -35,7 +35,7 @@ function BrandPanel() {
       <div className="pointer-events-none absolute -bottom-44 -left-32 h-[380px] w-[380px] rounded-full bg-[#7EE2A8]/10 blur-3xl" />
 
       <div className="relative z-10">
-        <GranafyLogo size={52} nameSize={30} tone="onDark" subtitle="Powered by Bigteck" />
+        <GranafyLogo size={46} nameSize={25} tone="onDark" subtitle="Powered by Bigteck" />
       </div>
 
       <div className="relative z-10 my-auto max-w-[540px] py-12">
@@ -172,6 +172,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
   const isSignup = mode === "signup";
 
@@ -217,7 +218,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       if (isSignup) {
         await signupMutation.mutateAsync({ name, email, password, acceptedTerms: true });
       } else {
-        await loginMutation.mutateAsync({ email, password });
+        await loginMutation.mutateAsync({ email, password, remember });
       }
       await refresh();
       setLocation("/", { replace: true });
@@ -233,7 +234,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
         <ThemeToggle showLabel={false} className="absolute right-5 top-6 z-20 sm:right-10 sm:top-9 lg:right-12 xl:right-16" />
         <div className="flex items-center justify-between lg:hidden">
-          <GranafyLogo size={40} nameSize={22} subtitle="Powered by Bigteck" className="lg:hidden" />
+          <GranafyLogo size={38} nameSize={20} subtitle="Powered by Bigteck" className="lg:hidden" />
         </div>
 
         <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
@@ -358,6 +359,29 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               </label>
 
               {isSignup && <PasswordStrengthBar value={password} />}
+
+              {!isSignup && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={remember}
+                    onClick={() => setRemember(value => !value)}
+                    className="flex items-center gap-2.5 text-left"
+                  >
+                    <span className={`flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-md transition ${
+                      remember ? "bg-[#12B85C] text-white" : "border-[1.5px] border-[#C9D5CD]"
+                    }`}>
+                      {remember && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" aria-hidden="true">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="text-[13px] text-[#28382E]">Lembrar-me neste dispositivo</span>
+                  </button>
+                </div>
+              )}
 
               {isSignup && (
                 <label className="block">

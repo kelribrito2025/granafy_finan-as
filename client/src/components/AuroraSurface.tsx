@@ -14,10 +14,16 @@ export const AURORA_BACKGROUND = [
   "linear-gradient(158deg, #0D2A1B 0%, #08190F 58%, #06120B 100%)",
 ].join(", ");
 
-/** Superfície escura com o gradiente aurora; o conteúdo vai por cima. */
+/**
+ * Superfície escura com o gradiente aurora; o conteúdo vai por cima.
+ *
+ * O `data-theme-origin` é o ponto de onde o modo escuro se abre em círculo: é
+ * o único bloco que já é escuro no tema claro, então a troca parece nascer
+ * dele em vez de piscar a tela inteira.
+ */
 export function AuroraSurface({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={`relative isolate overflow-hidden bg-[#06120B] text-white ${className}`}>
+    <div data-theme-origin="" className={`relative isolate overflow-hidden bg-[#06120B] text-white ${className}`}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: AURORA_BACKGROUND }} />
       <div className="relative z-10 flex h-full flex-col">{children}</div>
     </div>

@@ -11,7 +11,7 @@ import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
@@ -39,12 +39,12 @@ function LowestBalanceCard({ lowest }: { lowest: { date: string; balance: number
 }
 
 function signedMoney(value: number) {
-  return value < 0 ? `− ${formatMoney(Math.abs(value))}` : `+ ${formatMoney(value)}`;
+  return value < 0 ? <>− {formatMoney(Math.abs(value))}</> : <>+ {formatMoney(value)}</>;
 }
 
 /** Dia sem entrada (ou sem saída) mostra travessão: "+ R$ 0,00" é ruído. */
 function amountOrDash(value: number, sign: "+" | "−") {
-  return value === 0 ? "—" : `${sign} ${formatMoney(value)}`;
+  return value === 0 ? "—" : <>{sign} {formatMoney(value)}</>;
 }
 
 /**
@@ -181,7 +181,7 @@ function AlertCard({ tone, title, detail, value }: {
   tone: "positive" | "negative";
   title: string;
   detail: string;
-  value: string;
+  value: ReactNode;
 }) {
   const positive = tone === "positive";
   return (
@@ -283,7 +283,7 @@ function MonthlyTable({ data }: { data: MonthlyData }) {
                     {vazio
                       ? "—"
                       : saida
-                        ? `− ${formatMoney(value)}`
+                        ? <>− {formatMoney(value)}</>
                         : row.key === "resultado"
                           ? signedMoney(value)
                           : formatMoney(value)}
@@ -457,7 +457,7 @@ export default function FluxoCaixaPage() {
                       tone="positive"
                       title="Maior entrada do mês"
                       detail={`${daily.biggestIncome.description} · ${formatDate(daily.biggestIncome.date)}`}
-                      value={`+ ${formatMoney(daily.biggestIncome.amount)}`}
+                      value={<>+ {formatMoney(daily.biggestIncome.amount)}</>}
                     />
                   )}
                   {daily.tightestDay && (
@@ -465,7 +465,7 @@ export default function FluxoCaixaPage() {
                       tone="negative"
                       title="Dia mais apertado"
                       detail={`${formatDate(daily.tightestDay.date)} · maior saída líquida do mês`}
-                      value={`− ${formatMoney(Math.abs(daily.tightestDay.amount))}`}
+                      value={<>− {formatMoney(Math.abs(daily.tightestDay.amount))}</>}
                     />
                   )}
                 </section>
@@ -513,7 +513,7 @@ export default function FluxoCaixaPage() {
                   <span className="text-[12.5px] text-[#4C6355]">
                     {monthly.runway === null
                       ? "sem saída registrada para calcular"
-                      : `sem novas entradas · queima de ${formatMoney(monthly.averageOutflow)}/mês`}
+                      : <>sem novas entradas · queima de {formatMoney(monthly.averageOutflow)}/mês</>}
                   </span>
                 </article>
               </section>

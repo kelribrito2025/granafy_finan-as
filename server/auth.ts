@@ -122,11 +122,23 @@ function sessionCookieOptions(req: Request) {
   };
 }
 
-export async function setLocalSession(req: Request, res: Response, userId: number) {
+/**
+ * Grava a sessão.
+ *
+ * Sem "lembrar-me" o cookie não recebe validade: ele morre quando o navegador
+ * fecha. É o que a caixinha promete — num computador emprestado, fechar a
+ * janela tem que ser suficiente para sair.
+ */
+export async function setLocalSession(
+  req: Request,
+  res: Response,
+  userId: number,
+  remember = true
+) {
   const token = await createSessionToken(userId);
   res.cookie(COOKIE_NAME, token, {
     ...sessionCookieOptions(req),
-    maxAge: SESSION_TTL_SECONDS * 1000,
+    ...(remember ? { maxAge: SESSION_TTL_SECONDS * 1000 } : {}),
   });
 }
 

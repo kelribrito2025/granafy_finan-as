@@ -110,7 +110,10 @@ export const appRouter = router({
       }),
 
     login: publicProcedure
-      .input(credentialsSchema)
+      .input(credentialsSchema.extend({
+        /** Sem isto o cookie dura só enquanto o navegador estiver aberto. */
+        remember: z.boolean().default(true),
+      }))
       .mutation(async ({ ctx, input }) => {
         const email = normalizeEmail(input.email);
         const record = await db.getUserRecordByEmail(email);
@@ -135,7 +138,7 @@ export const appRouter = router({
           db.updateLastSignedIn(record.id),
           db.ensureDefaultTransactionCategories(record.id),
         ]);
-        await setLocalSession(ctx.req, ctx.res, record.id);
+        await setLocalSession(ctx.req, ctx.res, record.id, input.remember);
         return db.toPublicUser({ ...record, lastSignedIn: new Date() });
       }),
 

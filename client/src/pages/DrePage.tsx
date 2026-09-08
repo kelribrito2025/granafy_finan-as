@@ -8,12 +8,12 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
-import { formatDate, formatMoney } from "@/lib/appFormat";
+import { formatDate, formatMoney, formatMoneyText } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import { marginOf, variationHelpsProfit, type DreLineKind } from "@shared/dre";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
@@ -32,8 +32,8 @@ const MONTH_LABELS = [
 
 function KpiCard({ label, value, hint, hintClass, highlight = false, valueClass }: {
   label: string;
-  value: string;
-  hint: string;
+  value: ReactNode;
+  hint: ReactNode;
   hintClass?: string;
   highlight?: boolean;
   valueClass?: string;
@@ -110,8 +110,14 @@ function moneyToneOf(value: number, kind: DreLineKind) {
 
 /** Valor da linha com o sinal explícito que a demonstração usa. */
 function signedMoney(value: number) {
-  if (value < 0) return `− ${formatMoney(Math.abs(value))}`;
+  if (value < 0) return <>− {formatMoney(Math.abs(value))}</>;
   return formatMoney(value);
+}
+
+/** A mesma coisa em texto puro: o `title` da barra não aceita elemento. */
+function signedMoneyText(value: number) {
+  if (value < 0) return `− ${formatMoneyText(Math.abs(value))}`;
+  return formatMoneyText(value);
 }
 
 function MonthStatement({ data }: { data: StatementData }) {
@@ -141,7 +147,7 @@ function MonthStatement({ data }: { data: StatementData }) {
                     ? "text-[#0A7A42]"
                     : "text-[#B3261E]"
               }`}
-              title={`${data.previousLabel}: ${signedMoney(line.previous)}`}
+              title={`${data.previousLabel}: ${signedMoneyText(line.previous)}`}
             >
               {formatPercent(line.variation)}
             </span>
@@ -267,7 +273,7 @@ function ProfitChart({ data }: { data: SeriesData }) {
           return (
             <div key={`${column.year}-${column.month}`} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
               <div
-                title={`${column.label}: ${signedMoney(value)}`}
+                title={`${column.label}: ${signedMoneyText(value)}`}
                 className={`w-full rounded-t-md ${tone}`}
                 style={{ height: `${Math.max(2, (Math.abs(value) / peak) * 100)}%` }}
               />

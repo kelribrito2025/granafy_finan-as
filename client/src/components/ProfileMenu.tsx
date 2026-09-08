@@ -6,7 +6,8 @@ import {
 } from "@/components/IconlyIcons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { useLocation } from "wouter";
 
 /** Lucide `user`: uma pessoa, como o modelo do avatar pede. */
@@ -106,19 +107,7 @@ export function ProfileMenu() {
   const company = companyQuery.data;
   const companyName = company?.tradeName || company?.legalName || "Empresa sem nome";
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: MouseEvent) => {
-      if (anchor.current && !anchor.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismissOnOutside(open, anchor, useCallback(() => setOpen(false), []));
 
   return (
     <>
@@ -140,7 +129,7 @@ export function ProfileMenu() {
         </button>
 
         {open && (
-          <div className="popover-enter absolute right-0 top-[52px] z-40 w-[312px] rounded-[18px] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,20,.16)] ring-1 ring-[#E1E8E3]">
+          <div className="popover-enter absolute right-0 top-[52px] z-40 w-[280px] rounded-[18px] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,20,.16)] ring-1 ring-[#E1E8E3]">
             <div className="flex items-center gap-3 p-2.5">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#DFF6EA] text-[#0A7A42]">
                 <PersonIcon size={20} />

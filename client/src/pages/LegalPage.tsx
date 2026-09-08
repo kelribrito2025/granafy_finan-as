@@ -20,23 +20,40 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
 
   return (
     <main className="min-h-screen w-full bg-white text-[#28382E]">
-      <header className="sticky top-0 z-30 border-b border-[#E3EBE6] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-4 px-5 py-4 sm:px-8">
-          <Link href="/login" aria-label="GranaFy"><GranafyLogo size={34} /></Link>
-          <nav className="ml-auto flex items-center gap-2">
-            <Link
-              href={termos ? "/privacidade" : "/termos"}
-              className="rounded-[12px] px-3.5 py-2.5 text-[13px] font-semibold text-[#4C6355] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42]"
-            >
-              {termos ? "Política de privacidade" : "Termos de uso"}
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-[12px] bg-[#12B85C] px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E]"
-            >
+      {/*
+        O mesmo cabeçalho da landing: quem chega aqui por um link do site não
+        deveria sentir que trocou de produto no meio do caminho.
+      */}
+      <header className="sticky top-0 z-40 border-b border-[#E3EBE6] bg-white/[.92] backdrop-blur-[10px]">
+        <div className="mx-auto flex w-full max-w-[1200px] items-center gap-7 px-6 py-3.5">
+          <a href="/site" className="flex items-center gap-2.5" aria-label="GranaFy">
+            <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
+              <svg width="21" height="21" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                <circle cx="32" cy="32" r="23" stroke="#FFFFFF" strokeWidth="10" opacity=".38" />
+                <path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" strokeWidth="10" strokeLinecap="round" />
+              </svg>
+            </span>
+            <span className="text-[18px] font-bold tracking-[-.02em] text-[#0B1F14]">
+              Grana<span className="text-[#0A7A42]">Fy</span>
+            </span>
+          </a>
+
+          <nav className="hidden items-center gap-[22px] sm:flex">
+            {[["Recursos", "recursos"], ["Como funciona", "como-funciona"], ["Planos", "planos"]].map(([rotulo, ancora]) => (
+              <a key={ancora} href={`/site#${ancora}`} className="text-[14px] text-[#4C6355] transition hover:text-[#0A7A42]">
+                {rotulo}
+              </a>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-3">
+            <Link href="/login" className="flex h-[42px] items-center rounded-[12px] px-4 text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F1FBF6]">
               Entrar
             </Link>
-          </nav>
+            <Link href="/cadastro" className="flex h-[42px] items-center rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
+              Testar 14 dias grátis
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -48,9 +65,18 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
           </h1>
           <p className="text-[13.5px] leading-relaxed text-[#4C6355]">
             {COMPANY.legalName} · CNPJ {COMPANY.taxId}
-            <br />
-            Atualizado em {COMPANY.updatedAt}
           </p>
+          <div className="mt-1 flex flex-wrap items-center gap-4">
+            <span className="text-[13.5px] text-[#4C6355]">
+              <strong className="font-semibold text-[#28382E]">Última atualização:</strong> {COMPANY.updatedAt}
+            </span>
+            <Link
+              href={termos ? "/privacidade" : "/termos"}
+              className="flex items-center gap-2 rounded-[12px] border border-[#C7E8D6] bg-[#F1FBF6] px-3.5 py-2 text-[13px] font-bold text-[#0A7A42] transition hover:bg-[#DFF6EA]"
+            >
+              {termos ? "Ver a Política de Privacidade" : "Ver os Termos de Uso"} →
+            </Link>
+          </div>
         </div>
 
         <div className="flex flex-col gap-10 pt-8 lg:flex-row lg:gap-12">
