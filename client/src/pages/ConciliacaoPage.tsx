@@ -16,6 +16,8 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Overview = inferRouterOutputs<AppRouter>["reconciliation"]["overview"];
 type Item = Overview["items"][number];
@@ -767,6 +769,9 @@ function GroupModal({ items, total, candidates, loading, onClose, onConfirm, pen
 }
 
 export default function ConciliacaoPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
   const [accountId, setAccountId] = useState<number | null>(null);
@@ -1034,6 +1039,7 @@ export default function ConciliacaoPage() {
                 </button>
               )
             )}
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

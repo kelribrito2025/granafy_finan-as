@@ -32,6 +32,8 @@ import { trpc } from "@/lib/trpc";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 
 type TransactionType = "entrada" | "saida" | "transferencia";
@@ -891,6 +893,9 @@ function CategorizeModal({ selectedCount, selectedTypes, options, pending, onClo
 
 
 export default function LancamentosPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [monthCursor, setMonthCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
@@ -1158,6 +1163,7 @@ export default function LancamentosPage() {
             </Tooltip>
             <button type="button" title="Imprimir" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={`${toolButton} hidden sm:flex`}><DocumentIcon size={17} /></button>
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

@@ -16,6 +16,8 @@ import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type DreOutputs = inferRouterOutputs<AppRouter>["dre"];
 type StatementData = DreOutputs["statement"];
@@ -317,6 +319,9 @@ function MarginsCard({ data }: { data: SeriesData }) {
 }
 
 export default function DrePage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
   const [regime, setRegime] = useState<Regime>("competencia");
@@ -445,6 +450,7 @@ export default function DrePage() {
               <DocumentIcon size={15} />
               {closeMonth.isPending ? "Fechando…" : "Fechar o mês"}
             </button>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

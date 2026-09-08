@@ -14,6 +14,8 @@ import type { AppRouter } from "../../../server/routers";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type View = "dia" | "semana" | "mes";
 type Outputs = inferRouterOutputs<AppRouter>["cashflow"];
@@ -297,6 +299,9 @@ function MonthlyTable({ data }: { data: MonthlyData }) {
 }
 
 export default function FluxoCaixaPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
   const [view, setView] = useState<View>("dia");
@@ -392,6 +397,7 @@ export default function FluxoCaixaPage() {
             </div>
 
             <button type="button" aria-label="Exportar fluxo" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

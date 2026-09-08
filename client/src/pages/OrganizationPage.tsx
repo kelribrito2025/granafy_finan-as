@@ -24,6 +24,8 @@ import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from 
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Account = {
   id: number;
@@ -457,6 +459,9 @@ function ImportPlanModal({ pending, onClose, onSave }: {
 }
 
 export default function OrganizationPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -662,6 +667,7 @@ export default function OrganizationPage() {
               <PlusIcon size={15} />{primaryLabel}
             </button>
 
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

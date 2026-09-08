@@ -19,6 +19,8 @@ import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Arrangement = "lista" | "colunas";
 type Tab = "tudo" | "receber" | "pagar" | "atrasados";
@@ -290,6 +292,9 @@ function TotalsBar({ receivable, payable, balance }: { receivable: number; payab
 }
 
 export default function PagarReceberPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
   const [arrangement, setArrangement] = useState<Arrangement>("lista");
@@ -417,6 +422,7 @@ export default function PagarReceberPage() {
               <PlusIcon size={15} />
               Nova conta
             </button>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

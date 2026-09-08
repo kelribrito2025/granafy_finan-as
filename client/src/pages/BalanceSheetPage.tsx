@@ -20,7 +20,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
-import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
+import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences, valuesHidden } from "@/lib/appFormat";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -57,6 +57,8 @@ import {
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type BalanceGroup =
   | "ativo_circulante"
@@ -168,6 +170,8 @@ function formatMoney(value: number) {
 }
 
 function formatDecimal(value: number) {
+  // Número sem símbolo, mas ainda é dinheiro: some junto no modo discreto.
+  if (valuesHidden()) return "••••••";
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -833,6 +837,9 @@ function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, cap
 }
 
 export default function BalanceSheetPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1127,6 +1134,7 @@ export default function BalanceSheetPage() {
             </div>
             <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
             <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

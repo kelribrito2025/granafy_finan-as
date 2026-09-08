@@ -17,6 +17,7 @@ import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { GranafySymbol } from "./components/GranafyLogo";
 import { PreferencesProvider } from "./contexts/PreferencesContext";
+import { PrivacyProvider } from "./contexts/PrivacyContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
@@ -46,7 +47,7 @@ function ProtectedPage({ children }: { children: ReactNode }) {
     return <AuthLoading />;
   }
 
-  return <PreferencesProvider>{children}</PreferencesProvider>;
+  return <PreferencesProvider><PrivacyProvider>{children}</PrivacyProvider></PreferencesProvider>;
 }
 
 function Router() {

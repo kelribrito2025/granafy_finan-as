@@ -1,4 +1,5 @@
 import {
+  CURRENCY_LABELS,
   DEFAULT_PREFERENCES,
   formatDateWith,
   formatMoneyWith,
@@ -25,8 +26,30 @@ export function activePreferences() {
   return active;
 }
 
+/*
+ * Modo discreto: o olhinho do topo esconde todo valor da tela.
+ *
+ * A troca acontece aqui, no único lugar por onde o dinheiro passa antes de
+ * virar texto. Esconder na tela, componente por componente, deixaria sempre um
+ * canto exibindo o saldo — que é justamente o que quem liga isso não quer.
+ */
+let hidden = false;
+
+export function setValuesHidden(value: boolean) {
+  hidden = value;
+}
+
+export function valuesHidden() {
+  return hidden;
+}
+
+/** A máscara mantém o símbolo da moeda: some o número, não o significado. */
+export function maskedMoney() {
+  return `${CURRENCY_LABELS[active.currency].symbol} ••••••`;
+}
+
 export function formatMoney(value: number) {
-  return formatMoneyWith(active, value);
+  return hidden ? maskedMoney() : formatMoneyWith(active, value);
 }
 
 export function formatDate(isoDate: string) {

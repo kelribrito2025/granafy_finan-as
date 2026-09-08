@@ -32,26 +32,35 @@ export function GranafySymbol({ size = 36, tone = "auto", className = "" }: {
 }
 
 /** "GranaFy" com o "Fy" no verde da marca, como no arquivo oficial. */
-export function GranafyWordmark({ tone = "auto", className = "" }: { tone?: LogoTone; className?: string }) {
+export function GranafyWordmark({ tone = "auto", className = "", style }: {
+  tone?: LogoTone;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
-    <span className={`font-bold tracking-[-0.035em] ${tone === "onDark" ? "text-white" : "text-[#0B1F14]"} ${className}`}>
+    <span style={style} className={`font-bold tracking-[-0.035em] ${tone === "onDark" ? "text-white" : "text-[#0B1F14]"} ${className}`}>
       Grana<span className={tone === "onDark" ? "text-[#7EE2A8]" : "text-[#12B85C]"}>Fy</span>
     </span>
   );
 }
 
 /** Assinatura completa: símbolo, nome e, opcionalmente, a empresa embaixo. */
-export function GranafyLogo({ size = 36, tone = "auto", subtitle, className = "" }: {
+export function GranafyLogo({ size = 36, tone = "auto", subtitle, nameSize, className = "" }: {
   size?: number;
   tone?: LogoTone;
   subtitle?: string;
+  /** Tamanho do nome. Sem isto ele acompanha o símbolo, na proporção do manual. */
+  nameSize?: number;
   className?: string;
 }) {
+  // O nome cresce junto com o símbolo: 17px para o símbolo de 36 é a proporção
+  // do arquivo oficial, e travá-lo fazia a assinatura grande parecer desmontada.
+  const wordmarkSize = nameSize ?? Math.round((size * 17) / 36);
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <GranafySymbol size={size} tone={tone} className="shrink-0" />
       <div className="min-w-0">
-        <GranafyWordmark tone={tone} className="block truncate text-[17px] leading-none" />
+        <GranafyWordmark tone={tone} className="block truncate leading-none" style={{ fontSize: wordmarkSize }} />
         {subtitle && (
           <span className={`mt-1 block truncate text-[11px] ${tone === "onDark" ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>
             {subtitle}

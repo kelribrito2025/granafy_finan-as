@@ -24,6 +24,8 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type SettingsTab = "company" | "preferences";
 
@@ -67,6 +69,9 @@ const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FA
 const labelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
 export default function SettingsPage() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -100,6 +105,7 @@ export default function SettingsPage() {
                 {tab === "company" ? "Dados cadastrais e endereço da empresa" : "Como o sistema mostra períodos, valores e datas"}
               </p>
             </div>
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 

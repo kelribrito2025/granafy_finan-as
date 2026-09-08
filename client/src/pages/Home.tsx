@@ -15,7 +15,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
-import { activePreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
+import { activePreferences, maskedMoney, valuesHidden, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { buildCashCurve } from "@/lib/cashCurve";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
@@ -24,6 +24,8 @@ import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { HideValuesButton } from "@/components/HideValuesButton";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 
 const PERIOD_LABELS: Record<DefaultPeriod, string> = {
@@ -36,6 +38,9 @@ function formatMoney(value: number, compact = false) {
   // A versão compacta ("R$ 62,1 mil") é dos eixos do gráfico e não passa pelas
   // preferências: a moeda escolhida entra pelo símbolo, o resto é escala.
   if (!compact) return formatMoneyWithPreferences(value);
+  // O eixo do gráfico também some no modo discreto: um eixo com escala real
+  // entrega a ordem de grandeza que o resto da tela está escondendo.
+  if (valuesHidden()) return maskedMoney();
   const { currency } = activePreferences();
   return new Intl.NumberFormat(CURRENCY_LOCALES[currency], {
     style: "currency",
@@ -52,6 +57,9 @@ const badgeClass = {
 };
 
 export default function Home() {
+  // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
+  // assinatura a página não redesenha quando o olhinho é ligado.
+  usePrivacy();
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [activeNav, setActiveNav] = useState("Visão geral");
@@ -204,6 +212,7 @@ export default function Home() {
               <span className="sm:hidden">Novo</span>
             </button>
 
+            <HideValuesButton />
             <ProfileMenu />
           </header>
 
