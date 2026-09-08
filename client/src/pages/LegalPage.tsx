@@ -24,7 +24,10 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
         O mesmo cabeçalho da landing: quem chega aqui por um link do site não
         deveria sentir que trocou de produto no meio do caminho.
       */}
-      <header className="sticky top-0 z-40 border-b border-[#E3EBE6] bg-white/[.92] backdrop-blur-[10px]">
+      {/* O `bg-white/[.92]` gera um nome de classe próprio, fora da tabela de
+          equivalências do modo escuro no index.css — sem o `dark:` abaixo a barra
+          fica branca enquanto o texto vira claro, e o logo some. */}
+      <header className="sticky top-0 z-40 border-b border-[#E3EBE6] bg-white/[.92] backdrop-blur-[10px] dark:bg-[#14241B]/[.92]">
         <div className="mx-auto flex w-full max-w-[1200px] items-center gap-7 px-6 py-3.5">
           <a href="/site" className="flex items-center gap-2.5" aria-label="GranaFy">
             <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
@@ -68,17 +71,9 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
           <p className="text-[13.5px] leading-relaxed text-[#4C6355]">
             {COMPANY.legalName} · CNPJ {COMPANY.taxId}
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-4">
-            <span className="text-[13.5px] text-[#4C6355]">
-              <strong className="font-semibold text-[#28382E]">Última atualização:</strong> {COMPANY.updatedAt}
-            </span>
-            <Link
-              href={termos ? "/privacidade" : "/termos"}
-              className="flex items-center gap-2 rounded-[12px] border border-[#C7E8D6] bg-[#F1FBF6] px-3.5 py-2 text-[13px] font-bold text-[#0A7A42] transition hover:bg-[#DFF6EA]"
-            >
-              {termos ? "Ver a Política de Privacidade" : "Ver os Termos de Uso"} →
-            </Link>
-          </div>
+          <span className="mt-1 text-[13.5px] text-[#4C6355]">
+            <strong className="font-semibold text-[#28382E]">Última atualização:</strong> {COMPANY.updatedAt}
+          </span>
         </div>
 
         <div className="flex flex-col gap-10 pt-8 lg:flex-row lg:gap-12">
