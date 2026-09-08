@@ -38,9 +38,17 @@ function ProtectedPage({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      setLocation("/login", { replace: true });
+    if (loading || isAuthenticated) return;
+    /*
+     * Quem chega em "/" sem estar logado é visita, não usuário perdido: vai
+     * para o site, que é onde a explicação do produto está. Qualquer outra
+     * página protegida continua indo direto para a entrada.
+     */
+    if (window.location.pathname === "/") {
+      window.location.replace("/site");
+      return;
     }
+    setLocation("/login", { replace: true });
   }, [isAuthenticated, loading, setLocation]);
 
   if (loading || !isAuthenticated) {

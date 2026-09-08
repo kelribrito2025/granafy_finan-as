@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerGoogleAuthRoutes } from "../googleAuth";
+import path from "node:path";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,18 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerGoogleAuthRoutes(app);
+
+  /*
+   * A landing é HTML estático, e "/site/" precisa cair no index.html nos dois
+   * ambientes: o express.static resolve o índice do diretório sozinho, o
+   * middleware do Vite não. Esta rota deixa os dois iguais.
+   */
+  app.get(["/site", "/site/"], (_req, res) => {
+    const raiz = process.env.NODE_ENV === "development"
+      ? path.resolve(import.meta.dirname, "../..", "client", "public")
+      : path.resolve(import.meta.dirname, "public");
+    res.sendFile(path.join(raiz, "site", "index.html"));
+  });
   // tRPC API
   app.use(
     "/api/trpc",

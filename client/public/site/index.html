@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GranaFy — gestão financeira para a sua empresa</title>
+<meta name="description" content="Saldo consolidado, contas a pagar e receber, conciliação e DRE no mesmo lugar, a partir do extrato que você importa.">
+<meta property="og:title" content="GranaFy — o financeiro da sua empresa fechado antes do café da tarde">
+<meta property="og:description" content="Saldo consolidado, contas a pagar e receber, conciliação e DRE no mesmo lugar.">
+<meta property="og:type" content="website">
+<style>
+  *, *::before, *::after { box-sizing:border-box; }
+  body { margin:0; background:#FFFFFF; font-family:Roboto,"Helvetica Neue",Arial,sans-serif; color:#0B1F14; }
+  a { color:#0A7A42; text-decoration:none; }
+  a:hover { color:#0B1F14; text-decoration:underline; }
+  svg { display:block; }
+  .cta { cursor:pointer; transition:background .14s, border-color .14s; }
+  .cta:hover { background:#0F9E4E; }
+  .ghost { cursor:pointer; transition:background .14s; }
+  .ghost:hover { background:#F1FBF6; }
+  .link { cursor:pointer; transition:color .14s; }
+  .link:hover { color:#0A7A42; }
+  .fx { position:absolute; opacity:0; pointer-events:none; }
+  .fpanel { display:none; }
+  .fitem { display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:12px; font-size:14.5px; font-weight:600; color:#28382E; cursor:pointer; transition:background .14s, color .14s; }
+  .fitem:hover { background:#F1FBF6; }
+  .fitem svg { flex-shrink:0; }
+  #fx1:checked ~ .fwrap .fitem-1, #fx2:checked ~ .fwrap .fitem-2, #fx3:checked ~ .fwrap .fitem-3,
+  #fx4:checked ~ .fwrap .fitem-4, #fx5:checked ~ .fwrap .fitem-5, #fx6:checked ~ .fwrap .fitem-6 {
+    background:#0B1F14; color:#FFFFFF;
+  }
+  #fx1:checked ~ .fwrap .fpanel-1, #fx2:checked ~ .fwrap .fpanel-2, #fx3:checked ~ .fwrap .fpanel-3,
+  #fx4:checked ~ .fwrap .fpanel-4, #fx5:checked ~ .fwrap .fpanel-5, #fx6:checked ~ .fwrap .fpanel-6 {
+    display:flex;
+  }
+
+  a { text-decoration:none; color:inherit; }
+</style>
+</head>
+<body>
+<div style="display:flex; flex-direction:column; width:100%; overflow-x:hidden">
+
+  <div style="position:sticky; top:0; z-index:40; background:rgba(255,255,255,.92); backdrop-filter:blur(10px); border-bottom:1px solid #E3EBE6">
+    <div style="max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:28px">
+      <div style="display:flex; align-items:center; gap:10px">
+        <span style="width:34px; height:34px; border-radius:11px; background:#12B85C; display:flex; align-items:center; justify-content:center; flex-shrink:0">
+          <svg width="21" height="21" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="23" stroke="#FFFFFF" stroke-width="10" opacity=".38"></circle><path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path></svg>
+        </span>
+        <span style="font-size:18px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:#0A7A42">Fy</span></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:22px; flex-wrap:wrap">
+        <span class="link" style="font-size:14px; color:#4C6355">Recursos</span>
+        <span class="link" style="font-size:14px; color:#4C6355">Como funciona</span>
+        <span class="link" style="font-size:14px; color:#4C6355">Planos</span>
+      </div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:12px">
+        <a href="/login" class="ghost" style="height:42px; padding:0 16px; border-radius:12px; display:flex; align-items:center; font-size:14px; font-weight:600; color:#28382E">Entrar</a>
+        <a href="/cadastro" class="cta" style="height:42px; padding:0 18px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:14px; font-weight:700">Testar 14 dias grátis</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#F1FBF6; border-bottom:1px solid #DCEDE4">
+    <div style="max-width:1200px; margin:0 auto; padding:72px 24px 0; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:48px; align-items:center">
+      <div style="display:flex; flex-direction:column; gap:22px; min-width:0">
+        <h1 style="margin:0; font-size:clamp(34px, 5vw, 52px); font-weight:700; letter-spacing:-.035em; line-height:1.08; text-wrap:pretty">O financeiro da sua empresa fechado antes do café da tarde.</h1>
+        <p style="margin:0; font-size:clamp(15px, 1.6vw, 18px); line-height:1.6; color:#28382E; max-width:520px; text-wrap:pretty">Saldo consolidado, contas a pagar e receber, conciliação e DRE — no mesmo lugar, a partir do extrato que você importa. Sem planilha, sem digitar lançamento por lançamento.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:12px">
+          <span class="cta" style="height:52px; padding:0 24px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700">
+            Começar teste grátis
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+          </span>
+          <span class="ghost" style="height:52px; padding:0 22px; border-radius:12px; background:#FFFFFF; border:1px solid #C7E8D6; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600; color:#28382E">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            Ver demonstração de 3 min
+          </span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:18px; padding-top:6px">
+          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>14 dias sem cartão</span>
+          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Migração da planilha inclusa</span>
+          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Cancele quando quiser</span>
+        </div>
+      </div>
+
+      <div style="min-width:0; padding-bottom:72px; position:relative">
+        <div style="background:#EFF4F1; border:1px solid #DCEDE4; border-radius:20px; padding:12px; display:flex; gap:12px; box-shadow:0 28px 70px rgba(11,31,20,.16)">
+          <div style="width:128px; flex-shrink:0; background:#FFFFFF; border-radius:16px; padding:12px 8px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; align-items:center; gap:7px; padding:0 4px">
+              <span style="width:22px; height:22px; border-radius:7px; background:#12B85C; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="14" height="14" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="23" stroke="#FFFFFF" stroke-width="11" opacity=".38"></circle><path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"></path></svg></span>
+              <div style="display:flex; flex-direction:column; min-width:0">
+                <span style="font-size:11px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:#0A7A42">Fy</span></span>
+                <span style="font-size:8.5px; color:#8A968D; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Bigteck LTDA</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:8px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#B3BFB7; padding:0 8px 5px">Painel</span>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; background:#12B85C; color:#FFFFFF; font-size:10.5px; font-weight:700"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>Visão geral</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:#28382E; font-size:10.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><polyline points="16 7 22 7 22 13"></polyline></svg>Fluxo de caixa</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:#28382E; font-size:10.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path></svg>Lançamentos</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:#28382E; font-size:10.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3L4 7l4 4"></path><path d="M4 7h16"></path><path d="M16 21l4-4-4-4"></path><path d="M20 17H4"></path></svg>A pagar/receber</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:#28382E; font-size:10.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>Conciliação</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:8px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#B3BFB7; padding:0 8px 5px">Análise</span>
+              <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:8px; color:#28382E; font-size:10.5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H7a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V6z"></path><path d="M14 2v4h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>DRE</div>
+            </div>
+            <div style="margin-top:auto; background:#F1FBF6; border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:4px">
+              <span style="font-size:8px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">Resultado do mês</span>
+              <span style="font-size:13px; font-weight:700; color:#0A7A42">+ R$ 41.660</span>
+            </div>
+          </div>
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:10px">
+            <div style="display:flex; align-items:center; gap:8px">
+              <div style="display:flex; flex-direction:column; gap:1px; min-width:0">
+                <span style="font-size:14px; font-weight:700; letter-spacing:-.02em">Bom dia, Graziele</span>
+                <span style="font-size:9.5px; color:#8A968D; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Setembro 2026 · atualizado às 09:15</span>
+              </div>
+              <span style="margin-left:auto; display:flex; align-items:stretch; background:#FFFFFF; border-radius:9px; padding:2px; flex-shrink:0">
+                <span style="padding:5px 9px; border-radius:7px; background:#12B85C; color:#FFFFFF; font-size:9.5px; font-weight:700">Mês</span>
+                <span style="padding:5px 9px; border-radius:7px; color:#4C6355; font-size:9.5px">Ano</span>
+              </span>
+              <span style="width:26px; height:26px; border-radius:9px; background:#FFFFFF; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#28382E" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 01-3.4 0"></path></svg></span>
+              <span style="height:26px; padding:0 10px; border-radius:9px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:9.5px; font-weight:700; white-space:nowrap; flex-shrink:0">+ Lançamento</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:stretch">
+              <div style="width:43%; flex-shrink:0; background:#0B1F14; border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:6px; color:#FFFFFF">
+                <span style="font-size:8.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:#8FB39E">Caixa disponível</span>
+                <span style="font-size:clamp(19px, 2.3vw, 24px); font-weight:700; letter-spacing:-.03em; line-height:1">R$ 128.430</span>
+                <span style="font-size:9.5px; font-weight:600; color:#7EE2A8">+ R$ 11.240 no mês</span>
+                <div style="margin-top:auto; display:flex; align-items:flex-end; gap:3px; height:44px">
+                  <div style="flex:1; height:38%; border-radius:3px; background:#1F3D2B"></div><div style="flex:1; height:48%; border-radius:3px; background:#1F3D2B"></div><div style="flex:1; height:42%; border-radius:3px; background:#12B85C"></div><div style="flex:1; height:58%; border-radius:3px; background:#12B85C"></div><div style="flex:1; height:52%; border-radius:3px; background:#12B85C"></div><div style="flex:1; height:72%; border-radius:3px; background:#12B85C"></div><div style="flex:1; height:64%; border-radius:3px; background:#7EE2A8"></div><div style="flex:1; height:100%; border-radius:3px; background:#7EE2A8"></div>
+                </div>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; gap:8px">
+                <div style="flex:1; background:#FFFFFF; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; align-items:center; gap:7px">
+                    <span style="width:20px; height:20px; border-radius:7px; background:#DFF6EA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.6"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></span>
+                    <span style="font-size:9.5px; font-weight:600; color:#4C6355">A receber</span>
+                  </div>
+                  <span style="font-size:15px; font-weight:700; letter-spacing:-.02em; color:#0A7A42">R$ 42.180</span>
+                  <span style="font-size:9px; color:#4C6355; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">12 títulos · 3 hoje</span>
+                </div>
+                <div style="flex:1; background:#FFFFFF; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; align-items:center; gap:7px">
+                    <span style="width:20px; height:20px; border-radius:7px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.6"><path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path></svg></span>
+                    <span style="font-size:9.5px; font-weight:600; color:#4C6355">A pagar</span>
+                  </div>
+                  <span style="font-size:15px; font-weight:700; letter-spacing:-.02em; color:#B3261E">R$ 27.640</span>
+                  <span style="font-size:9px; color:#8E1F16; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">2 em atraso</span>
+                </div>
+                </div>
+                <div style="display:flex; gap:8px">
+                <div style="flex:1; background:#FFFFFF; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; align-items:center; gap:7px">
+                    <span style="width:20px; height:20px; border-radius:7px; background:#F1F4F2; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4C6355" stroke-width="2.6"><path d="M19 5L5 19"></path><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg></span>
+                    <span style="font-size:9.5px; font-weight:600; color:#4C6355">Margem líquida</span>
+                  </div>
+                  <span style="font-size:15px; font-weight:700; letter-spacing:-.02em; color:#0B1F14">31,9%</span>
+                  <span style="font-size:9px; color:#0A7A42; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">+1,8 p.p. vs. agosto</span>
+                </div>
+                <div style="flex:1; background:#FFFFFF; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; align-items:center; gap:7px">
+                    <span style="width:20px; height:20px; border-radius:7px; background:#DFF6EA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.6"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><polyline points="16 7 22 7 22 13"></polyline></svg></span>
+                    <span style="font-size:9.5px; font-weight:600; color:#4C6355">Projeção 30d</span>
+                  </div>
+                  <span style="font-size:15px; font-weight:700; letter-spacing:-.02em; color:#0B1F14">R$ 142.970</span>
+                  <span style="font-size:9px; color:#4C6355; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">se tudo for pago</span>
+                </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:stretch">
+              <div style="flex:1; min-width:0; background:#FFFFFF; border-radius:16px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span style="font-size:10.5px; font-weight:700">Últimos lançamentos</span>
+                  <span style="margin-left:auto; font-size:9px; font-weight:600; color:#0A7A42; white-space:nowrap">Ver extrato</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #F1F4F2">
+                  <span style="width:19px; height:19px; border-radius:6px; background:#DFF6EA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.8"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></span>
+                  <span style="font-size:10px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Recargas Pix · 142 transações</span>
+                  <span style="font-size:10px; font-weight:700; color:#0A7A42; white-space:nowrap">+ 9.480</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #F1F4F2">
+                  <span style="width:19px; height:19px; border-radius:6px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.8"><path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path></svg></span>
+                  <span style="font-size:10px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Twilio · fatura agosto</span>
+                  <span style="font-size:10px; font-weight:700; color:#B3261E; white-space:nowrap">− 3.180</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #F1F4F2">
+                  <span style="width:19px; height:19px; border-radius:6px; background:#DFF6EA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.8"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></span>
+                  <span style="font-size:10px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Plano API · Loja Oneclick</span>
+                  <span style="font-size:10px; font-weight:700; color:#0A7A42; white-space:nowrap">+ 2.400</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px; padding:7px 0; ">
+                  <span style="width:19px; height:19px; border-radius:6px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.8"><path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path></svg></span>
+                  <span style="font-size:10px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Taxa do gateway · setembro</span>
+                  <span style="font-size:10px; font-weight:700; color:#B3261E; white-space:nowrap">− 1.147</span>
+                </div>
+              </div>
+              <div style="width:38%; flex-shrink:0; display:flex; flex-direction:column; gap:10px">
+                <div style="background:#FFFFFF; border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:8px">
+                  <span style="font-size:10.5px; font-weight:700">Receita por canal</span>
+                  <div style="display:flex; flex-direction:column; gap:4px">
+                    <div style="display:flex; font-size:9.5px"><span style="font-weight:600">Números avulsos</span><span style="margin-left:auto; font-weight:700">48.210</span></div>
+                    <div style="height:5px; border-radius:3px; background:#EDF2EE; overflow:hidden"><div style="width:47%; height:100%; background:#12B85C"></div></div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px">
+                    <div style="display:flex; font-size:9.5px"><span style="font-weight:600">API developers</span><span style="margin-left:auto; font-weight:700">31.400</span></div>
+                    <div style="height:5px; border-radius:3px; background:#EDF2EE; overflow:hidden"><div style="width:30%; height:100%; background:#12B85C"></div></div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px">
+                    <div style="display:flex; font-size:9.5px"><span style="font-weight:600">Planos mensais</span><span style="margin-left:auto; font-weight:700">17.930</span></div>
+                    <div style="height:5px; border-radius:3px; background:#EDF2EE; overflow:hidden"><div style="width:17%; height:100%; background:#12B85C"></div></div>
+                  </div>
+                </div>
+                <div style="background:#FDECEA; border-radius:16px; padding:11px 12px; display:flex; align-items:center; gap:8px">
+                  <span style="font-size:9.5px; font-weight:700; color:#8E1F16; flex:1; min-width:0">2 contas em atraso</span>
+                  <span style="font-size:10.5px; font-weight:700; color:#8E1F16; white-space:nowrap">R$ 4.180</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap:24px">
+      <div style="display:flex; flex-direction:column; gap:10px; max-width:520px">
+        <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">O problema</span>
+        <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">Você não tem falta de dados. Tem falta de resposta.</h2>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <div style="display:flex; align-items:flex-start; gap:14px">
+          <span style="width:26px; height:26px; border-radius:8px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.6"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+          <p style="margin:0; font-size:15px; line-height:1.6; color:#28382E">O extrato está no banco, a nota no e-mail e o controle numa planilha que só uma pessoa entende.</p>
+        </div>
+        <div style="display:flex; align-items:flex-start; gap:14px">
+          <span style="width:26px; height:26px; border-radius:8px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.6"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+          <p style="margin:0; font-size:15px; line-height:1.6; color:#28382E">O fechamento do mês leva dias e ainda sobra diferença de centavos que ninguém explica.</p>
+        </div>
+        <div style="display:flex; align-items:flex-start; gap:14px">
+          <span style="width:26px; height:26px; border-radius:8px; background:#FDECEA; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2.6"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+          <p style="margin:0; font-size:15px; line-height:1.6; color:#28382E">Quando o contador pede o DRE, você descobre que metade dos lançamentos está sem categoria.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:64px 24px 0; width:100%; display:flex; flex-direction:column; gap:24px">
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:620px">
+      <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">Recursos</span>
+      <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">Tudo o que o financeiro de uma PME precisa, e nada além.</h2>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap:20px">
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><polyline points="16 7 22 7 22 13"></polyline></svg></span>
+        <span style="font-size:17px; font-weight:700">Fluxo de caixa realizado e projetado</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Curva dia a dia com o que já entrou e o que está confirmado. Você vê o menor saldo do mês antes dele acontecer.</p>
+      </div>
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg></span>
+        <span style="font-size:17px; font-weight:700">Conciliação que sugere sozinha</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Você importa o extrato e o GranaFy propõe o par de cada movimento, com o motivo e o grau de confiança. Você confirma em lote.</p>
+      </div>
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M8 3L4 7l4 4"></path><path d="M4 7h16"></path><path d="M16 21l4-4-4-4"></path><path d="M20 17H4"></path></svg></span>
+        <span style="font-size:17px; font-weight:700">A pagar e receber numa lista</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">As duas pontas juntas, agrupadas por vencimento, com o que está atrasado em primeiro lugar.</p>
+      </div>
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M15 2H7a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V6z"></path><path d="M14 2v4h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg></span>
+        <span style="font-size:17px; font-weight:700">DRE pronto, não exportado</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Receita líquida, margem de contribuição, EBITDA e lucro — com % da receita e comparativo com o mês anterior.</p>
+      </div>
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"></path></svg></span>
+        <span style="font-size:17px; font-weight:700">Patrimônio e bens</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Cadastre equipamentos, veículos e imóveis com depreciação. O balanço acompanha sem trabalho extra.</p>
+      </div>
+      <div style="background:#F8FAF9; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; border:1px solid #EDF2EE">
+        <span style="width:38px; height:38px; border-radius:12px; background:#DFF6EA; display:flex; align-items:center; justify-content:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><path d="M3 21V7l9-4 9 4v14"></path><path d="M9 21v-8h6v8"></path></svg></span>
+        <span style="font-size:17px; font-weight:700">Várias empresas, um login</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Troque de CNPJ em dois cliques, com permissões próprias para sócios e contador.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%; display:flex; flex-direction:column; gap:28px">
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:640px">
+      <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">As telas do GranaFy</span>
+      <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">Escolha à esquerda, veja a tela à direita.</h2>
+    </div>
+    <input type="radio" name="granafy-feat" id="fx1" class="fx" checked>
+    <input type="radio" name="granafy-feat" id="fx2" class="fx">
+    <input type="radio" name="granafy-feat" id="fx3" class="fx">
+    <input type="radio" name="granafy-feat" id="fx4" class="fx">
+    <input type="radio" name="granafy-feat" id="fx5" class="fx">
+    <input type="radio" name="granafy-feat" id="fx6" class="fx">
+    <div class="fwrap" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap:24px; align-items:start">
+      <div style="display:flex; flex-direction:column; gap:4px; max-width:300px">
+              <label for="fx1" class="fitem fitem-1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><polyline points="16 7 22 7 22 13"></polyline></svg><span>Fluxo de caixa</span></label>
+              <label for="fx2" class="fitem fitem-2"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3L4 7l4 4"></path><path d="M4 7h16"></path><path d="M16 21l4-4-4-4"></path><path d="M20 17H4"></path></svg><span>A pagar e receber</span></label>
+              <label for="fx3" class="fitem fitem-3"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg><span>Conciliação bancária</span></label>
+              <label for="fx4" class="fitem fitem-4"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path></svg><span>Lançamentos</span></label>
+              <label for="fx5" class="fitem fitem-5"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H7a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V6z"></path><path d="M14 2v4h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg><span>DRE e balanço</span></label>
+              <label for="fx6" class="fitem fitem-6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"></path></svg><span>Patrimônio e bens</span></label>
+      </div>
+      <div style="min-width:0; grid-column:span 2">
+          <div class="fpanel fpanel-1" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">Saldo dia a dia</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">setembro · realizado e projetado</span>
+              </div>
+              <div style="position:relative; height:150px; border-bottom:1px solid #E3EBE6; border-left:1px solid #E3EBE6">
+                <svg viewBox="0 0 400 150" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%">
+                  <polygon points="0,122 50,116 100,126 150,102 200,108 200,150 0,150" fill="#12B85C" opacity=".16"></polygon>
+                  <polyline points="0,122 50,116 100,126 150,102 200,108" fill="none" stroke="#12B85C" stroke-width="3"></polyline>
+                  <polyline points="200,108 250,86 300,92 350,58 400,36" fill="none" stroke="#9BE3BC" stroke-width="3" stroke-dasharray="7 6"></polyline>
+                  <line x1="200" y1="0" x2="200" y2="150" stroke="#E3EBE6" stroke-width="2"></line>
+                </svg>
+              </div>
+              <div style="display:flex; gap:16px">
+                <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:10.5px; color:#4C6355">Hoje</span><span style="font-size:14px; font-weight:700">R$ 128.430</span></div>
+                <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:10.5px; color:#4C6355">Em 30/09</span><span style="font-size:14px; font-weight:700; color:#0A7A42">R$ 142.970</span></div>
+                <div style="display:flex; flex-direction:column; gap:2px"><span style="font-size:10.5px; color:#4C6355">Menor saldo</span><span style="font-size:14px; font-weight:700">R$ 112.700</span></div>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">Fluxo de caixa</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">Veja o aperto do dia 22 antes de ele chegar.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">A curva junta o que já entrou com o que está confirmado. Você navega dia, semana ou mês e sabe qual é o menor saldo do período.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+          <div class="fpanel fpanel-2" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">A pagar e receber</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">19 títulos abertos</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Assinaturas Pix · lote · hoje</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; white-space:nowrap">+ R$ 8.740</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Twilio · API SMS · atrasado 3d</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 3.180</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Repasse do gateway · 08/09</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; white-space:nowrap">+ R$ 9.480</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Folha · equipe suporte · 10/09</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 18.300</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; ">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Assinaturas mensais · 14/09</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; white-space:nowrap">+ R$ 17.930</span>
+              </div>
+              <div style="display:flex; gap:8px; padding-top:4px">
+                <span style="flex:1; padding:9px 10px; border-radius:10px; background:#F1FBF6; display:flex; flex-direction:column; gap:2px"><span style="font-size:10px; color:#4C6355">A receber</span><span style="font-size:13px; font-weight:700; color:#0A7A42">R$ 42.180</span></span>
+                <span style="flex:1; padding:9px 10px; border-radius:10px; background:#FDECEA; display:flex; flex-direction:column; gap:2px"><span style="font-size:10px; color:#8E1F16">A pagar</span><span style="font-size:13px; font-weight:700; color:#B3261E">R$ 27.640</span></span>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">A pagar e receber</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">As duas pontas na mesma lista, atraso no topo.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">Sem alternar entre telas: entradas e saídas agrupadas por vencimento, com o total do mês e o saldo previsto no pé.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+          <div class="fpanel fpanel-3" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">Conciliação</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">31 pendentes · 24 sugestões</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:#F1FBF6">
+                <span style="font-size:11.5px; font-weight:700; color:#0A7A42; flex:1; min-width:0">24 sugestões com valor e data idênticos</span>
+                <span style="font-size:10.5px; font-weight:700; color:#FFFFFF; background:#12B85C; padding:5px 10px; border-radius:8px; white-space:nowrap">Confirmar</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                  <span style="font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">PIX RECEBIDO LOTE 4471</span>
+                  <span style="font-size:10.5px; color:#4C6355">mesmo valor e data · 98%</span>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+                <span style="flex:1; min-width:0; font-size:12px; color:#0B1F14; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Recargas Pix · 142 transações</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; padding:10px 0">
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                  <span style="font-size:12px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">TAR PACOTE SERVICOS</span>
+                  <span style="font-size:10.5px; color:#8E1F16">sem par no sistema</span>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9D4CD" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+                <span style="flex:1; min-width:0; font-size:11.5px; color:#8E1F16">classifique para fechar o saldo</span>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">Conciliação bancária</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">O extrato importado já chega pareado com os seus lançamentos.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">Cada sugestão diz o motivo — mesmo valor, data próxima, regra aplicada — e o grau de confiança. Você confirma em lote e a diferença de saldo é explicada item a item.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+          <div class="fpanel fpanel-4" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">Lançamentos</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">318 em setembro</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">05/09 · Recargas Pix · Receita de vendas</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; white-space:nowrap">+ R$ 9.480</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">05/09 · Twilio · Custos de plataforma</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 3.180</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">04/09 · Google Ads · Marketing</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 2.400</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">03/09 · Taxa do gateway · Taxas</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 1.147</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; ">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">02/09 · Folha · Pessoal</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 18.300</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3, 1fr); border-radius:10px; background:#F8FAF9; overflow:hidden">
+                <span style="padding:9px; text-align:center; font-size:11px; color:#4C6355">Entradas<br><b style="font-size:12.5px; color:#0A7A42">103.560</b></span>
+                <span style="padding:9px; text-align:center; font-size:11px; color:#4C6355; border-left:1px solid #E3EBE6">Saídas<br><b style="font-size:12.5px; color:#B3261E">61.900</b></span>
+                <span style="padding:9px; text-align:center; font-size:11px; color:#4C6355; border-left:1px solid #E3EBE6">Saldo<br><b style="font-size:12.5px; color:#0A7A42">41.660</b></span>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">Lançamentos</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">Um extrato só, com filtro e seleção em lote.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">Agrupado por dia, com navegador de mês, importação de OFX e a barra de saldo anterior, entradas, saídas e saldo final.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+          <div class="fpanel fpanel-5" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">DRE · setembro</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">regime de competência</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Receita bruta</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 112.880</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">(−) Deduções e impostos</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 9.320</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Receita líquida</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 103.560</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">(−) Custos diretos</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 28.410</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; ">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">EBITDA</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 41.660</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:10px; padding:11px 12px; border-radius:12px; background:#F1FBF6">
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; flex:1">Lucro líquido</span>
+                <span style="font-size:16px; font-weight:700; color:#0A7A42">R$ 36.040</span>
+                <span style="font-size:11px; font-weight:600; color:#0A7A42">31,9%</span>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">DRE e balanço</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">O fechamento contábil sai do próprio extrato.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">Da receita bruta ao lucro líquido, com % da receita e comparativo mês a mês. O balanço acompanha ativo, passivo e patrimônio líquido.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+          <div class="fpanel fpanel-6" style="gap:24px; flex-wrap:wrap; align-items:flex-start; background:#F8FAF9; border:1px solid #EDF2EE; border-radius:20px; padding:24px">
+            <div style="flex:1; min-width:0; background:#FFFFFF; border:1px solid #E3EBE6; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 26px rgba(11,31,20,.06)">
+              <div style="display:flex; align-items:baseline; gap:8px">
+                <span style="font-size:12.5px; font-weight:700">Patrimônio</span>
+                <span style="margin-left:auto; font-size:11px; color:#4C6355; white-space:nowrap">14 bens cadastrados</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Notebooks · 8 unidades</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 42.400</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Servidores e rede</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 28.900</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #F1F4F2">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">Veículo · utilitário</span>
+                <span style="font-size:12.5px; font-weight:700; color:#0B1F14; white-space:nowrap">R$ 86.000</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0; ">
+                <span style="font-size:12.5px; color:#28382E; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">(−) Depreciação acumulada</span>
+                <span style="font-size:12.5px; font-weight:700; color:#B3261E; white-space:nowrap">− R$ 23.740</span>
+              </div>
+              <div style="display:flex; align-items:baseline; gap:10px; padding:11px 12px; border-radius:12px; background:#F1FBF6">
+                <span style="font-size:12.5px; font-weight:700; color:#0A7A42; flex:1">Patrimônio líquido</span>
+                <span style="font-size:16px; font-weight:700; color:#0A7A42">R$ 133.560</span>
+              </div>
+            </div>
+            <div style="width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:12px">
+              <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#0A7A42">Patrimônio e bens</span>
+              <span style="font-size:clamp(19px, 2.2vw, 23px); font-weight:700; letter-spacing:-.025em; line-height:1.2; text-wrap:pretty">Cadastre o bem uma vez; a depreciação corre sozinha.</span>
+              <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355; text-wrap:pretty">Equipamentos, veículos e imóveis com valor de compra, vida útil e baixa. A evolução do patrimônio líquido aparece mês a mês.</p>
+              <span class="link" style="display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#0A7A42; cursor:pointer">Ver esta tela<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%; display:flex; flex-direction:column; gap:28px">
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:620px">
+      <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">Como funciona</span>
+      <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">Do cadastro ao primeiro fechamento em uma tarde.</h2>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap:20px">
+      <div style="display:flex; flex-direction:column; gap:12px; padding-top:20px; border-top:2px solid #12B85C">
+        <span style="font-size:13px; font-weight:700; color:#0A7A42">01</span>
+        <span style="font-size:17px; font-weight:700">Importe o extrato</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Importe o extrato em OFX ou CSV do seu banco. O histórico que você enviar entra de uma vez.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px; padding-top:20px; border-top:2px solid #12B85C">
+        <span style="font-size:13px; font-weight:700; color:#0A7A42">02</span>
+        <span style="font-size:17px; font-weight:700">Ajuste as categorias</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Começamos com um plano de contas pronto e criamos regras a partir das suas primeiras confirmações.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px; padding-top:20px; border-top:2px solid #12B85C">
+        <span style="font-size:13px; font-weight:700; color:#0A7A42">03</span>
+        <span style="font-size:17px; font-weight:700">Feche o mês</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Conciliação em lote, diferença explicada item a item e o DRE assinado no fim — sem exportar nada.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:80px; background:linear-gradient(105deg, rgba(4,17,12,.86) 0%, rgba(4,17,12,.58) 42%, rgba(4,17,12,.12) 72%, rgba(4,17,12,0) 100%), conic-gradient(from 186deg at 112% 8%, #04110C 0deg, #0F8F49 62deg, #6BF0A8 104deg, #12B85C 148deg, #0A4A2B 208deg, #04110C 260deg, #04110C 360deg); color:#FFFFFF">
+    <div style="max-width:1200px; margin:0 auto; padding:72px 24px; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap:44px; align-items:center">
+      <div style="display:flex; flex-direction:column; gap:18px; min-width:0">
+        <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#7EE2A8">Segurança</span>
+        <h2 style="margin:0; font-size:clamp(24px, 3vw, 32px); font-weight:700; letter-spacing:-.03em; line-height:1.18; text-wrap:pretty">Leitura, nunca movimentação.</h2>
+        <p style="margin:0; font-size:15px; line-height:1.65; color:#C5DACE; max-width:480px; text-wrap:pretty">O GranaFy trabalha com o arquivo de extrato que você envia. Não se conecta ao seu banco, não emite pagamento, não movimenta saldo e nunca pede a sua senha bancária.</p>
+        <div style="display:flex; flex-direction:column; gap:12px; padding-top:6px">
+          <span style="display:flex; align-items:center; gap:11px; font-size:14px; color:#EAF4EE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EE2A8" stroke-width="2.4"><path d="M20 6L9 17l-5-5"></path></svg>Conformidade com a LGPD</span>
+          <span style="display:flex; align-items:center; gap:11px; font-size:14px; color:#EAF4EE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EE2A8" stroke-width="2.4"><path d="M20 6L9 17l-5-5"></path></svg>Criptografia em trânsito e em repouso</span>
+          <span style="display:flex; align-items:center; gap:11px; font-size:14px; color:#EAF4EE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EE2A8" stroke-width="2.4"><path d="M20 6L9 17l-5-5"></path></svg>Autenticação em dois fatores e registro de auditoria</span>
+          <span style="display:flex; align-items:center; gap:11px; font-size:14px; color:#EAF4EE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7EE2A8" stroke-width="2.4"><path d="M20 6L9 17l-5-5"></path></svg>Exportação completa dos seus dados a qualquer momento</span>
+        </div>
+      </div>
+      <div style="min-width:0; display:flex; justify-content:center">
+        <div style="width:100%; max-width:360px; background:#0A2117; border:1px solid #1F3D2B; border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:16px">
+          <span style="width:46px; height:46px; border-radius:14px; background:rgba(18,184,92,.22); display:flex; align-items:center; justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7EE2A8" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg></span>
+          <span style="font-size:15px; font-weight:700">O que o GranaFy faz com o extrato</span>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <div style="display:flex; align-items:center; gap:11px; padding-bottom:11px; border-bottom:1px solid #1F3D2B">
+              <span style="font-size:13px; color:#C5DACE; flex:1">Ler o arquivo que você envia</span>
+              <span style="width:38px; height:22px; border-radius:11px; background:#12B85C; padding:3px; display:flex; justify-content:flex-end"><span style="width:16px; height:16px; border-radius:50%; background:#FFFFFF"></span></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; padding-bottom:11px; border-bottom:1px solid #1F3D2B">
+              <span style="font-size:13px; color:#C5DACE; flex:1">Iniciar pagamentos</span>
+              <span style="width:38px; height:22px; border-radius:11px; background:#1F3D2B; padding:3px; display:flex; justify-content:flex-start"><span style="width:16px; height:16px; border-radius:50%; background:#4C6355"></span></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px">
+              <span style="font-size:13px; color:#C5DACE; flex:1">Acessar a sua conta no banco</span>
+              <span style="width:38px; height:22px; border-radius:11px; background:#1F3D2B; padding:3px; display:flex; justify-content:flex-start"><span style="width:16px; height:16px; border-radius:50%; background:#4C6355"></span></span>
+            </div>
+          </div>
+          <span style="font-size:11.5px; color:#8FB39E; line-height:1.5">Os dois últimos são impossíveis por desenho: o GranaFy não tem acesso ao seu banco.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap:24px">
+    <div style="background:#F1FBF6; border-radius:20px; padding:28px; display:flex; flex-direction:column; gap:16px">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="#12B85C"><path d="M7 7h4v10H7a4 4 0 01-4-4V7zm10 0h4v10h-4a4 4 0 01-4-4V7z"></path></svg>
+      <p style="margin:0; font-size:16px; line-height:1.6; color:#0B1F14; text-wrap:pretty">Antes eu descobria o resultado do mês no dia 15 do mês seguinte. Hoje eu abro o painel de manhã e já sei se posso comprar estoque.</p>
+      <div style="margin-top:auto; display:flex; align-items:center; gap:12px; padding-top:8px">
+        <span style="width:38px; height:38px; border-radius:50%; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0">GV</span>
+        <div style="display:flex; flex-direction:column">
+          <span style="font-size:13.5px; font-weight:700">Graziele Vieira</span>
+          <span style="font-size:12px; color:#4C6355">sócia · Bigteck LTDA</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:24px; align-content:center">
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <span style="font-size:clamp(26px, 3.4vw, 34px); font-weight:700; letter-spacing:-.03em; color:#0A7A42">3 min</span>
+        <span style="font-size:13px; color:#4C6355; line-height:1.5">para conciliar um mês inteiro em lote</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <span style="font-size:clamp(26px, 3.4vw, 34px); font-weight:700; letter-spacing:-.03em; color:#0A7A42">92%</span>
+        <span style="font-size:13px; color:#4C6355; line-height:1.5">dos lançamentos categorizados sozinhos após o primeiro mês</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <span style="font-size:clamp(26px, 3.4vw, 34px); font-weight:700; letter-spacing:-.03em; color:#0A7A42">12 meses</span>
+        <span style="font-size:13px; color:#4C6355; line-height:1.5">de histórico importados de uma vez</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <span style="font-size:clamp(26px, 3.4vw, 34px); font-weight:700; letter-spacing:-.03em; color:#0A7A42">R$ 0</span>
+        <span style="font-size:13px; color:#4C6355; line-height:1.5">para migrar a sua planilha atual</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%; display:flex; flex-direction:column; gap:28px">
+    <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px">
+      <div style="display:flex; flex-direction:column; gap:10px; max-width:560px; min-width:0">
+        <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">Planos</span>
+        <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">Preço por empresa, não por lançamento.</h2>
+      </div>
+      <span style="margin-left:auto; display:flex; align-items:stretch; background:#F1F4F2; border-radius:11px; padding:3px">
+        <span style="padding:9px 16px; border-radius:9px; background:#FFFFFF; color:#0A7A42; font-size:13px; font-weight:700">Mensal</span>
+        <span style="padding:9px 16px; border-radius:9px; color:#4C6355; font-size:13px">Anual · 2 meses grátis</span>
+      </span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap:20px; align-items:start">
+      <div style="background:#FFFFFF; border:1px solid #E3EBE6; border-radius:20px; padding:28px; display:flex; flex-direction:column; gap:18px">
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <span style="font-size:16px; font-weight:700">Essencial</span>
+          <span style="font-size:13px; color:#4C6355">para quem está saindo da planilha</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px">
+          <span style="font-size:15px; font-weight:700; color:#4C6355">R$</span>
+          <span style="font-size:38px; font-weight:700; letter-spacing:-.03em">89</span>
+          <span style="font-size:13px; color:#4C6355">/mês</span>
+        </div>
+        <a href="/cadastro" class="ghost" style="height:46px; border-radius:12px; border:1px solid #C7E8D6; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#0A7A42">Testar grátis</a>
+        <div style="display:flex; flex-direction:column; gap:11px; padding-top:4px; border-top:1px solid #F1F4F2">
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>1 empresa e 2 contas cadastradas</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Fluxo de caixa e lançamentos</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>A pagar e receber</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>2 usuários</span>
+        </div>
+      </div>
+
+      <div style="background:#FFFFFF; border:1.5px solid #12B85C; border-radius:20px; padding:28px; display:flex; flex-direction:column; gap:18px; box-shadow:0 18px 44px rgba(11,31,20,.10)">
+        <div style="display:flex; align-items:flex-start; gap:12px">
+          <div style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:0">
+            <span style="font-size:16px; font-weight:700">Controle</span>
+            <span style="font-size:13px; color:#4C6355">o plano de quem fecha o mês</span>
+          </div>
+          <span style="font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:#DFF6EA; color:#0A7A42; padding:4px 9px; border-radius:6px; flex-shrink:0">Mais usado</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px">
+          <span style="font-size:15px; font-weight:700; color:#4C6355">R$</span>
+          <span style="font-size:38px; font-weight:700; letter-spacing:-.03em">189</span>
+          <span style="font-size:13px; color:#4C6355">/mês</span>
+        </div>
+        <a href="/cadastro" class="cta" style="height:46px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700">Testar 14 dias grátis</a>
+        <div style="display:flex; flex-direction:column; gap:11px; padding-top:4px; border-top:1px solid #F1F4F2">
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Tudo do Essencial, mais:</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Conciliação com sugestões e regras</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>DRE, balanço e patrimônio</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Contas ilimitadas · 5 usuários</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Acesso do contador sem custo</span>
+        </div>
+      </div>
+
+      <div style="background:#FFFFFF; border:1px solid #E3EBE6; border-radius:20px; padding:28px; display:flex; flex-direction:column; gap:18px">
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <span style="font-size:16px; font-weight:700">Grupo</span>
+          <span style="font-size:13px; color:#4C6355">para holdings e múltiplos CNPJ</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:6px">
+          <span style="font-size:15px; font-weight:700; color:#4C6355">R$</span>
+          <span style="font-size:38px; font-weight:700; letter-spacing:-.03em">389</span>
+          <span style="font-size:13px; color:#4C6355">/mês</span>
+        </div>
+        <span class="ghost" style="height:46px; border-radius:12px; border:1px solid #C7E8D6; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#0A7A42">Falar com o time</span>
+        <div style="display:flex; flex-direction:column; gap:11px; padding-top:4px; border-top:1px solid #F1F4F2">
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Tudo do Controle, mais:</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Até 5 empresas no mesmo login</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Relatórios consolidados do grupo</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Usuários ilimitados e API</span>
+          <span style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:#28382E"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6" style="margin-top:3px; flex-shrink:0"><path d="M20 6L9 17l-5-5"></path></svg>Onboarding assistido</span>
+        </div>
+      </div>
+    </div>
+    <span style="font-size:12.5px; color:#4C6355">Todos os planos incluem os 14 dias de teste, sem cartão. Preços em reais, por empresa, com nota fiscal.</span>
+  </div>
+
+  <div style="max-width:1200px; margin:0 auto; padding:80px 24px 0; width:100%; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap:40px; align-items:start">
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:420px">
+      <span style="font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#0A7A42">Dúvidas</span>
+      <h2 style="margin:0; font-size:clamp(26px, 3.2vw, 34px); font-weight:700; letter-spacing:-.03em; line-height:1.15; text-wrap:pretty">O que perguntam antes de começar.</h2>
+      <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Falta alguma? Fale com a gente em <a href="mailto:oi@granafy.com.br">oi@granafy.com.br</a>.</p>
+    </div>
+    <div style="display:flex; flex-direction:column">
+      <div style="display:flex; flex-direction:column; gap:8px; padding:20px 0; border-top:1px solid #E3EBE6">
+        <span style="font-size:15px; font-weight:700">Preciso trocar de contador?</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Não. O seu contador entra com acesso próprio, de leitura ou de edição, e baixa o DRE e o balanço direto do painel.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding:20px 0; border-top:1px solid #E3EBE6">
+        <span style="font-size:15px; font-weight:700">Preciso conectar o meu banco?</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Não. O GranaFy trabalha com o extrato em OFX ou CSV que você baixa do internet banking — nenhuma credencial bancária é pedida.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding:20px 0; border-top:1px solid #E3EBE6">
+        <span style="font-size:15px; font-weight:700">O GranaFy emite nota fiscal ou boleto?</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Ainda não. Ele organiza o que entra e sai; a emissão continua no seu sistema atual, e os títulos podem ser importados.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding:20px 0; border-top:1px solid #E3EBE6">
+        <span style="font-size:15px; font-weight:700">Como faço para sair de vez da planilha?</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Envie o arquivo no cadastro. A gente converte as suas categorias e o histórico sem custo, e você confere antes de valer.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding:20px 0; border-top:1px solid #E3EBE6; border-bottom:1px solid #E3EBE6">
+        <span style="font-size:15px; font-weight:700">Meus dados ficam presos se eu cancelar?</span>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#4C6355">Nunca. Exportação completa em CSV e PDF a qualquer momento, inclusive depois do cancelamento.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:80px; background:linear-gradient(105deg, rgba(4,17,12,.86) 0%, rgba(4,17,12,.58) 42%, rgba(4,17,12,.12) 72%, rgba(4,17,12,0) 100%), conic-gradient(from 186deg at 112% 8%, #04110C 0deg, #0F8F49 62deg, #6BF0A8 104deg, #12B85C 148deg, #0A4A2B 208deg, #04110C 260deg, #04110C 360deg); color:#FFFFFF">
+    <div style="max-width:1200px; margin:0 auto; padding:72px 24px; display:flex; flex-direction:column; align-items:center; gap:22px; text-align:center">
+      <h2 style="margin:0; font-size:clamp(28px, 4vw, 42px); font-weight:700; letter-spacing:-.035em; line-height:1.12; max-width:720px; text-wrap:pretty">Feche setembro sabendo exatamente quanto sobrou.</h2>
+      <p style="margin:0; font-size:16px; line-height:1.6; color:#C5DACE; max-width:520px; text-wrap:pretty">Importe o extrato do mês e veja o seu caixa consolidado em minutos.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center">
+        <span style="height:52px; padding:0 26px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700; cursor:pointer">
+          Começar teste grátis
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+        </span>
+        <span style="height:52px; padding:0 24px; border-radius:12px; border:1px solid #1F3D2B; display:flex; align-items:center; font-size:15px; font-weight:600; color:#EAF4EE; cursor:pointer">Agendar demonstração</span>
+      </div>
+      <span style="font-size:13px; color:#C5DACE">14 dias · sem cartão · migração da planilha inclusa</span>
+    </div>
+  </div>
+
+  <div style="background:#0B1F14; color:#FFFFFF">
+    <div style="max-width:1200px; margin:0 auto; padding:56px 24px 28px; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap:32px">
+      <div style="display:flex; flex-direction:column; gap:12px; min-width:0">
+        <div style="display:flex; align-items:center; gap:10px">
+          <span style="width:32px; height:32px; border-radius:11px; background:#12B85C; display:flex; align-items:center; justify-content:center; flex-shrink:0">
+            <svg width="20" height="20" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="23" stroke="#FFFFFF" stroke-width="10" opacity=".38"></circle><path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path></svg>
+          </span>
+          <span style="font-size:17px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:#7EE2A8">Fy</span></span>
+        </div>
+        <p style="margin:0; font-size:13px; line-height:1.6; color:#8FB39E; max-width:240px">Gestão financeira para pequenas e médias empresas brasileiras.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#7EE2A8">Produto</span>
+        <span style="font-size:13.5px; color:#C5DACE">Fluxo de caixa</span>
+        <span style="font-size:13.5px; color:#C5DACE">Conciliação</span>
+        <span style="font-size:13.5px; color:#C5DACE">DRE e balanço</span>
+        <span style="font-size:13.5px; color:#C5DACE">Patrimônio</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#7EE2A8">Empresa</span>
+        <span style="font-size:13.5px; color:#C5DACE">Planos</span>
+        <span style="font-size:13.5px; color:#C5DACE">Segurança</span>
+        <span style="font-size:13.5px; color:#C5DACE">Contato</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <span style="font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#7EE2A8">Fale com a gente</span>
+        <span style="font-size:13.5px; color:#C5DACE">oi@granafy.com.br</span>
+        <span style="font-size:13.5px; color:#C5DACE">WhatsApp comercial</span>
+        <span style="font-size:13.5px; color:#C5DACE">Central de ajuda</span>
+      </div>
+    </div>
+    <div style="max-width:1200px; margin:0 auto; padding:20px 24px 40px; border-top:1px solid #1F3D2B; display:flex; flex-wrap:wrap; gap:16px; align-items:center">
+      <span style="font-size:12.5px; color:#8FB39E">© 2026 GranaFy Tecnologia LTDA · CNPJ 48.221.905/0001-72</span>
+      <a href="/termos" style="margin-left:auto; font-size:12.5px; color:#C5DACE">Termos de uso</a>
+      <a href="/privacidade" style="font-size:12.5px; color:#C5DACE">Privacidade</a>
+      <a href="/privacidade#s10" style="font-size:12.5px; color:#C5DACE">Seus direitos (LGPD)</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
