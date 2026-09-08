@@ -15,6 +15,13 @@ type TransactionType = "entrada" | "saida";
 const MAX_IMPORT_FILE_BYTES = 25_000_000;
 const PREVIEW_PAGE_SIZE = 100;
 
+/** As colunas da prévia que aceitam ordenação, no nome do campo da linha. */
+type SortKey = "transactionDate" | "description" | "type" | "categoryName" | "amount";
+type SortState = { key: SortKey; direction: "asc" | "desc" } | null;
+
+/* "Pão" antes de "Pagamento" só com collator: em pt-BR o acento não é letra nova. */
+const COLLATOR = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
+
 type PreviewRow = {
   sourceIndex: number;
   transactionDate: string;
@@ -45,6 +52,46 @@ function decodeFile(buffer: ArrayBuffer) {
   return utf8.includes("�") ? new TextDecoder("windows-1252").decode(buffer) : utf8;
 }
 
+/**
+ * Cabeçalho que ordena a prévia.
+ *
+ * O clique cicla crescente → decrescente → ordem do arquivo. O terceiro estado
+ * existe porque num extrato a ordem original é informação: é a sequência em que
+ * o banco lançou, e é por ela que a pessoa confere contra o papel.
+ */
+function SortableHeader({ column, label, sort, onSort, className }: {
+  column: SortKey;
+  label: string;
+  sort: SortState;
+  onSort: (column: SortKey) => void;
+  className: string;
+}) {
+  const active = sort?.key === column;
+  const alignRight = className.includes("text-right");
+  return (
+    <th className={className} aria-sort={active ? (sort!.direction === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`flex w-full items-center gap-1 text-[10px] uppercase tracking-[.04em] transition hover:text-[#0A7A42] ${alignRight ? "justify-end" : ""} ${active ? "font-bold text-[#0A7A42]" : "text-[#8A968D]"}`}
+      >
+        {label}
+        {/* A seta some quando a coluna não ordena — três setas cinzas ao mesmo
+            tempo escondem justamente qual delas está valendo. */}
+        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true" className={active ? "" : "opacity-0"}>
+          <path
+            d={active && sort!.direction === "desc" ? "M2.5 4.5 6 8l3.5-3.5" : "M2.5 7.5 6 4l3.5 3.5"}
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </th>
+  );
+}
+
 export default function ImportTransactionsModal({ onClose, onImported, onManageOrganization }: ImportTransactionsModalProps) {
   const optionsQuery = trpc.organization.options.useQuery();
   const previewMutation = trpc.imports.preview.useMutation();
@@ -59,6 +106,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   // a conciliação usa depois para comparar com o saldo do sistema.
   const [statementBalance, setStatementBalance] = useState<{ balance: number; asOf: string } | null>(null);
   const [previewPage, setPreviewPage] = useState(0);
+  const [sort, setSort] = useState<SortState>(null);
   const [step, setStep] = useState<"setup" | "preview">("setup");
   const [result, setResult] = useState<{ importedCount: number; duplicateCount: number } | null>(null);
   const options = optionsQuery.data ?? { accounts: [], categories: [] };
@@ -66,7 +114,42 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const selectedTotal = selectedRows.reduce((sum, row) => sum + row.amount, 0);
   const allSelected = selectedRows.length > 0 && rows.filter(row => !row.duplicate).every(row => row.selected);
   const previewPageCount = Math.max(1, Math.ceil(rows.length / PREVIEW_PAGE_SIZE));
-  const previewRows = rows.slice(previewPage * PREVIEW_PAGE_SIZE, (previewPage + 1) * PREVIEW_PAGE_SIZE);
+
+  /*
+   * A ordenação reordena índices, não as linhas.
+   *
+   * Toda edição da prévia — categoria, natureza, descrição, seleção — escreve
+   * em `rows` pela posição. Se a tabela ordenasse uma cópia das linhas, a
+   * posição da linha desenhada deixaria de ser a posição real e a troca de
+   * categoria cairia em outro lançamento, sem aviso nenhum.
+   */
+  const sortedIndexes = useMemo(() => {
+    const indexes = rows.map((_, index) => index);
+    if (!sort) return indexes;
+    const factor = sort.direction === "asc" ? 1 : -1;
+    return indexes.sort((left, right) => {
+      const a = rows[left];
+      const b = rows[right];
+      const compared = sort.key === "amount"
+        ? a.amount - b.amount
+        : COLLATOR.compare(a[sort.key], b[sort.key]);
+      // Empate volta para a ordem do arquivo: 420 tarifas do mesmo dia com o
+      // mesmo valor não podem se embaralhar a cada clique.
+      return compared === 0 ? left - right : compared * factor;
+    });
+  }, [rows, sort]);
+
+  const previewIndexes = sortedIndexes.slice(previewPage * PREVIEW_PAGE_SIZE, (previewPage + 1) * PREVIEW_PAGE_SIZE);
+
+  const toggleSort = (column: SortKey) => {
+    // Volta para a primeira página: ordenar e continuar na página 5 mostra o
+    // meio de uma lista que a pessoa acabou de reorganizar.
+    setPreviewPage(0);
+    setSort(current => {
+      if (current?.key !== column) return { key: column, direction: "asc" };
+      return current.direction === "asc" ? { key: column, direction: "desc" } : null;
+    });
+  };
   const incomeCategories = useMemo(() => options.categories.filter(category => category.type === "entrada" || category.type === "ambos"), [options.categories]);
   const expenseCategories = useMemo(() => options.categories.filter(category => category.type === "saida" || category.type === "ambos"), [options.categories]);
 
@@ -269,8 +352,17 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full min-w-[920px] border-collapse text-left">
-                <thead className="sticky top-0 z-10 bg-white"><tr className="border-b border-[#E8EEEA] text-[10px] uppercase tracking-[.04em] text-[#8A968D]"><th className="w-12 px-5 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setRows(current => current.map(row => row.duplicate ? row : { ...row, selected: !allSelected }))} className="h-4 w-4 accent-[#12B85C]" /></th><th className="w-24 py-3">Data</th><th className="min-w-[220px] py-3">Descrição</th><th className="w-28 py-3">Natureza</th><th className="w-48 py-3">Categoria</th><th className="w-28 py-3 text-right">Valor</th><th className="w-24 px-5 py-3 text-center">Situação</th></tr></thead>
-                <tbody>{previewRows.map((row, pageRowIndex) => { const index = previewPage * PREVIEW_PAGE_SIZE + pageRowIndex; return <tr key={`${row.fingerprint}-${index}`} className={`border-b border-[#EDF1EE] text-[11.5px] ${row.duplicate ? "bg-[#FFF9EB] opacity-70" : row.selected ? "bg-[#F8FCFA]" : ""}`}>
+                <thead className="sticky top-0 z-10 bg-white"><tr className="border-b border-[#E8EEEA] text-[10px] uppercase tracking-[.04em] text-[#8A968D]"><th className="w-12 px-5 py-3"><input aria-label="Selecionar todos" type="checkbox" checked={allSelected} onChange={() => setRows(current => current.map(row => row.duplicate ? row : { ...row, selected: !allSelected }))} className="h-4 w-4 accent-[#12B85C]" /></th>
+                  <SortableHeader column="transactionDate" label="Data" sort={sort} onSort={toggleSort} className="w-24 py-3" />
+                  <SortableHeader column="description" label="Descrição" sort={sort} onSort={toggleSort} className="min-w-[220px] py-3" />
+                  <SortableHeader column="type" label="Natureza" sort={sort} onSort={toggleSort} className="w-28 py-3" />
+                  <SortableHeader column="categoryName" label="Categoria" sort={sort} onSort={toggleSort} className="w-48 py-3" />
+                  <SortableHeader column="amount" label="Valor" sort={sort} onSort={toggleSort} className="w-28 py-3 text-right" />
+                  {/* Situação não ordena: só tem dois valores e o filtro visual
+                      já separa duplicata de novo pela cor da linha. */}
+                  <th className="w-24 px-5 py-3 text-center">Situação</th>
+                </tr></thead>
+                <tbody>{previewIndexes.map(index => { const row = rows[index]; return <tr key={`${row.fingerprint}-${index}`} className={`border-b border-[#EDF1EE] text-[11.5px] ${row.duplicate ? "bg-[#FFF9EB] opacity-70" : row.selected ? "bg-[#F8FCFA]" : ""}`}>
                   <td className="px-5 py-2.5"><input aria-label={`Selecionar linha ${row.sourceIndex}`} disabled={row.duplicate} type="checkbox" checked={row.selected} onChange={() => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: !item.selected } : item))} className="h-4 w-4 accent-[#12B85C]" /></td>
                   <td className="py-2.5"><input aria-label={`Data da linha ${row.sourceIndex}`} type="date" value={row.transactionDate} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transactionDate: event.target.value } : item))} className="w-[116px] bg-transparent text-[11px] outline-none disabled:cursor-not-allowed" /></td>
                   <td className="py-2.5 pr-3"><div className="flex items-center gap-2"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${row.type === "saida" ? "bg-[#FDECEA] text-[#B3261E]" : "bg-[#DFF6EA] text-[#0A7A42]"}`}>{row.type === "saida" ? <ArrowDownIcon size={14} /> : <ArrowUpIcon size={14} />}</span><input aria-label={`Descrição da linha ${row.sourceIndex}`} value={row.description} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item))} className="min-w-0 flex-1 bg-transparent font-semibold outline-none disabled:cursor-not-allowed" /></div></td>
