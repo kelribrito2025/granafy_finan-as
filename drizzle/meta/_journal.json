@@ -78,6 +78,13 @@
       "when": 1788823392463,
       "tag": "0010_fair_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1788826434425,
+      "tag": "0011_eager_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

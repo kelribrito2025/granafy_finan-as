@@ -78,6 +78,28 @@ export const costCenters = mysqlTable("costCenters", {
   index("cost_centers_user_active_idx").on(table.userId, table.isActive),
 ]);
 
+/**
+ * Regras de classificação automática. Aplicadas quando o lançamento chega sem
+ * categoria — na importação de OFX/CSV e no cadastro manual.
+ */
+export const categoryRules = mysqlTable("categoryRules", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  matchType: mysqlEnum("matchType", ["descricao", "contato", "conta"]).notNull(),
+  matchValue: varchar("matchValue", { length: 180 }).notNull(),
+  categoryId: int("categoryId"),
+  category: varchar("category", { length: 120 }).default("").notNull(),
+  costCenterId: int("costCenterId"),
+  costCenter: varchar("costCenter", { length: 120 }).default("").notNull(),
+  /** Menor number ganha. Empate resolve pelo id. */
+  priority: int("priority").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  index("category_rules_user_priority_idx").on(table.userId, table.isActive, table.priority),
+]);
+
 export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
@@ -237,6 +259,8 @@ export type TransactionCategoryRecord = typeof transactionCategories.$inferSelec
 export type InsertTransactionCategory = typeof transactionCategories.$inferInsert;
 export type CostCenterRecord = typeof costCenters.$inferSelect;
 export type InsertCostCenter = typeof costCenters.$inferInsert;
+export type CategoryRuleRecord = typeof categoryRules.$inferSelect;
+export type InsertCategoryRule = typeof categoryRules.$inferInsert;
 export type TransactionImportBatchRecord = typeof transactionImportBatches.$inferSelect;
 export type TransactionRecord = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;

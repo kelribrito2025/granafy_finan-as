@@ -4,7 +4,9 @@ import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
   balanceSheetSnapshots,
+  categoryRules,
   costCenters,
+  type InsertCategoryRule,
   financialAccounts,
   type InsertCostCenter,
   type InsertBalanceSheetSnapshot,
@@ -680,6 +682,86 @@ export async function getRecurrenceGroup(userId: number, recurrenceGroupId: stri
       eq(financialTransactions.recurrenceGroupId, recurrenceGroupId)
     ))
     .orderBy(financialTransactions.transactionDate, financialTransactions.id);
+}
+
+export async function listCategoryRules(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(categoryRules)
+    .where(eq(categoryRules.userId, userId))
+    .orderBy(desc(categoryRules.isActive), categoryRules.priority, categoryRules.id);
+}
+
+export async function getCategoryRule(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(categoryRules).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id))).limit(1);
+  return rows[0];
+}
+
+export async function createCategoryRule(userId: number, values: Omit<InsertCategoryRule, "userId">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const result = await db.insert(categoryRules).values({ userId, ...values });
+  return getCategoryRule(userId, Number(result[0].insertId));
+}
+
+export async function updateCategoryRule(userId: number, id: number, values: Partial<Omit<InsertCategoryRule, "userId">>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(categoryRules).set(values).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id)));
+  return getCategoryRule(userId, id);
+}
+
+export async function deleteCategoryRule(userId: number, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.delete(categoryRules).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id)));
+  return { success: true } as const;
+}
+
+/** Quantas vezes cada conta recebeu importação, e a data da última. */
+export async function getAccountImportSummary(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({
+      accountId: transactionImportBatches.accountId,
+      lastImportedAt: sql<Date>`MAX(${transactionImportBatches.createdAt})`,
+      batchCount: sql<number>`COUNT(*)`,
+      format: sql<string>`MAX(${transactionImportBatches.format})`,
+    })
+    .from(transactionImportBatches)
+    .where(eq(transactionImportBatches.userId, userId))
+    .groupBy(transactionImportBatches.accountId);
+
+  return new Map(rows.map(row => [Number(row.accountId), {
+    lastImportedAt: row.lastImportedAt ? new Date(row.lastImportedAt) : null,
+    batchCount: Number(row.batchCount),
+    format: String(row.format ?? ""),
+  }]));
+}
+
+/** Quantos lançamentos cada conta teve dentro do intervalo. */
+export async function getAccountTransactionCounts(userId: number, startDate: string, endDate: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db
+    .select({
+      accountId: financialTransactions.accountId,
+      total: sql<number>`COUNT(*)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      isNotNull(financialTransactions.accountId),
+      gte(financialTransactions.transactionDate, startDate),
+      lt(financialTransactions.transactionDate, endDate)
+    ))
+    .groupBy(financialTransactions.accountId);
+  return new Map(rows.map(row => [Number(row.accountId), Number(row.total)]));
 }
 
 export async function getTransactionsByFingerprints(userId: number, fingerprints: string[]) {

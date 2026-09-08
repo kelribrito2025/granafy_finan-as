@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { RULE_MATCH_TYPES } from "@shared/categoryRules";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
@@ -19,6 +20,21 @@ const categoryValuesSchema = z.object({
 const costCenterValuesSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome").max(120),
   color: colorSchema,
+});
+const ruleValuesSchema = z.object({
+  matchType: z.enum(RULE_MATCH_TYPES),
+  matchValue: z.string().trim().min(2, "Informe o texto a procurar").max(180),
+  categoryId: z.number().int().positive().nullable().default(null),
+  costCenterId: z.number().int().positive().nullable().default(null),
+  priority: z.number().int().min(0).max(999).default(0),
+}).superRefine((value, ctx) => {
+  if (!value.categoryId && !value.costCenterId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["categoryId"],
+      message: "A regra precisa definir ao menos uma categoria ou um centro de custo",
+    });
+  }
 });
 
 function conflictError(entity: string) {
@@ -46,6 +62,23 @@ export function isDuplicateDatabaseError(error: unknown) {
     current = candidate.cause;
   }
   return false;
+}
+
+/** Resolve os nomes de categoria e centro de custo antes de gravar a regra. */
+async function resolveRuleTargets(userId: number, input: z.infer<typeof ruleValuesSchema>) {
+  let category = "";
+  if (input.categoryId) {
+    const found = await db.getTransactionCategory(userId, input.categoryId);
+    if (!found?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Categoria não encontrada ou inativa" });
+    category = found.name;
+  }
+  let costCenter = "";
+  if (input.costCenterId) {
+    const found = await db.getCostCenter(userId, input.costCenterId);
+    if (!found?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Centro de custo não encontrado ou inativo" });
+    costCenter = found.name;
+  }
+  return { ...input, category, costCenter };
 }
 
 function rethrowOrganizationError(error: unknown, entity: string): never {
@@ -210,6 +243,89 @@ export const organizationRouter = router({
     }
     return { success: true } as const;
   }),
+
+  rules: protectedProcedure.query(async ({ ctx }) => {
+    const rules = await db.listCategoryRules(ctx.user.id);
+    return rules.map(rule => ({ ...rule, categoryId: rule.categoryId, costCenterId: rule.costCenterId }));
+  }),
+
+  createRule: protectedProcedure.input(ruleValuesSchema).mutation(async ({ ctx, input }) => {
+    const resolved = await resolveRuleTargets(ctx.user.id, input);
+    return db.createCategoryRule(ctx.user.id, { ...resolved, isActive: true });
+  }),
+
+  updateRule: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }).and(ruleValuesSchema))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...values } = input;
+      if (!await db.getCategoryRule(ctx.user.id, id)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Regra não encontrada" });
+      }
+      return db.updateCategoryRule(ctx.user.id, id, await resolveRuleTargets(ctx.user.id, values));
+    }),
+
+  toggleRule: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    const rule = await db.getCategoryRule(ctx.user.id, input.id);
+    if (!rule) throw new TRPCError({ code: "NOT_FOUND", message: "Regra não encontrada" });
+    return db.updateCategoryRule(ctx.user.id, input.id, { isActive: !rule.isActive });
+  }),
+
+  deleteRule: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    if (!await db.getCategoryRule(ctx.user.id, input.id)) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Regra não encontrada" });
+    }
+    return db.deleteCategoryRule(ctx.user.id, input.id);
+  }),
+
+  /**
+   * Cria em lote a árvore de categorias a partir de linhas "Caminho;tipo".
+   * Categorias já existentes são puladas em vez de duplicadas — importar duas
+   * vezes o mesmo plano não pode multiplicar o cadastro.
+   */
+  importCategories: protectedProcedure
+    .input(z.object({ content: z.string().min(1).max(200_000) }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = new Set(
+        (await db.listTransactionCategories(ctx.user.id)).map(item => item.name.toLowerCase())
+      );
+      const seen = new Set<string>();
+      const parsed: Array<{ name: string; type: "entrada" | "saida" | "ambos" }> = [];
+      const invalid: string[] = [];
+
+      for (const rawLine of input.content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || /^(caminho|categoria|nome)\s*[;,]/i.test(line)) continue;
+        const [rawName, rawType = ""] = line.split(/[;,]/);
+        const name = rawName.trim().replace(/\s*\/\s*/g, "/").slice(0, 120);
+        if (name.length < 2) { invalid.push(line.slice(0, 60)); continue; }
+        const normalizedType = rawType.trim().toLowerCase();
+        const type = normalizedType === "entrada" || normalizedType === "receita"
+          ? "entrada" as const
+          : normalizedType === "saida" || normalizedType === "saída" || normalizedType === "despesa"
+            ? "saida" as const
+            : "ambos" as const;
+        const key = name.toLowerCase();
+        if (existing.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        parsed.push({ name, type });
+      }
+
+      let created = 0;
+      for (const item of parsed) {
+        try {
+          await db.createTransactionCategory(ctx.user.id, { ...item, color: "#4C6355", isActive: true });
+          created += 1;
+        } catch (error) {
+          if (!isDuplicateDatabaseError(error)) throw error;
+        }
+      }
+      return {
+        created,
+        skipped: seen.size - created,
+        ignored: invalid.length,
+        alreadyExisting: existing.size,
+      };
+    }),
 
   createCostCenter: protectedProcedure.input(costCenterValuesSchema).mutation(async ({ ctx, input }) => {
     if (await db.getCostCenterByName(ctx.user.id, input.name)) throw conflictError("um centro de custo");

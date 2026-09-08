@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { findMatchingRule, type CategoryRule } from "@shared/categoryRules";
 import { applyImportClassification, findCompatibleImportCategory, parseImportFile } from "../importers";
 
 const formatSchema = z.enum(["csv", "ofx"]);
@@ -27,6 +28,9 @@ const importRowSchema = z.object({
   externalId: z.string().max(160).nullable(),
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
   categoryId: z.number().int().positive(),
+  costCenterId: z.number().int().positive().nullable().default(null),
+  /** Só informativo, para a tela dizer qual regra classificou a linha. */
+  ruleLabel: z.string().max(200).nullable().default(null),
 });
 
 async function validateOrganization(userId: number, accountId: number) {
@@ -51,13 +55,42 @@ export const importsRouter = router({
       const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, parsed.map(row => row.fingerprint))).map(row => row.fingerprint));
       const seen = new Set<string>();
       let duplicateCount = 0;
+      // As regras rodam na prévia, não na confirmação: assim o usuário vê o que
+      // elas fizeram antes de gravar, em vez de descobrir depois.
+      const rules = (await db.listCategoryRules(ctx.user.id)) as unknown as CategoryRule[];
+      const categoryById = new Map(activeCategories.map(item => [item.id, item]));
+
       const rows = parsed.map(row => {
         const duplicate = existing.has(row.fingerprint) || seen.has(row.fingerprint);
         seen.add(row.fingerprint);
         if (duplicate) duplicateCount += 1;
-        const rowCategory = preferredCategories[row.type];
-        if (!rowCategory) throw new Error(`Não existe uma categoria compatível com ${row.type === "entrada" ? "entradas" : "saídas"}`);
-        return { ...row, categoryId: rowCategory.id, categoryName: rowCategory.name, duplicate };
+
+        const fallback = preferredCategories[row.type];
+        const rule = findMatchingRule(rules, {
+          description: row.description,
+          contact: row.contact,
+          account: account.name,
+        });
+        // Uma regra só troca a categoria se a dela for compatível com o tipo da
+        // linha: classificar uma saída como receita passaria direto pela
+        // conferência e sujaria o DRE.
+        const ruleCategory = rule?.categoryId ? categoryById.get(rule.categoryId) : undefined;
+        const ruleCategoryFits = Boolean(
+          ruleCategory && (ruleCategory.type === "ambos" || ruleCategory.type === row.type)
+        );
+        const chosen = ruleCategoryFits ? ruleCategory! : fallback;
+        if (!chosen) throw new Error(`Não existe uma categoria compatível com ${row.type === "entrada" ? "entradas" : "saídas"}`);
+
+        return {
+          ...row,
+          categoryId: chosen.id,
+          categoryName: chosen.name,
+          costCenterId: rule?.costCenterId ?? null,
+          ruleLabel: rule && (ruleCategoryFits || rule.costCenterId)
+            ? `${rule.matchType === "conta" ? "Conta" : rule.matchType === "contato" ? "Contato" : "Descrição"}: ${rule.matchValue}`
+            : null,
+          duplicate,
+        };
       });
       return {
         fileName: input.fileName,
@@ -89,6 +122,15 @@ export const importsRouter = router({
       const expectedType = row.amount < 0 ? "saida" : "entrada";
       return !category || row.type !== expectedType || (category.type !== "ambos" && category.type !== expectedType);
     })) throw new TRPCError({ code: "BAD_REQUEST", message: "Uma categoria não é compatível com o tipo do lançamento" });
+    // O centro de custo vem da prévia; conferimos aqui porque o cliente pode
+    // mandar qualquer id e a prévia não é uma garantia.
+    const costCenterIds = Array.from(new Set(input.rows.map(row => row.costCenterId).filter((id): id is number => Boolean(id))));
+    const costCenters = await Promise.all(costCenterIds.map(id => db.getCostCenter(ctx.user.id, id)));
+    if (costCenters.some(item => !item?.isActive)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Um dos centros de custo não está disponível" });
+    }
+    const costCenterMap = new Map(costCenters.map(item => [item!.id, item!]));
+
     const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, input.rows.map(row => row.fingerprint))).map(row => row.fingerprint));
     const seen = new Set<string>();
     const uniqueRows = input.rows.filter(row => {
@@ -115,6 +157,8 @@ export const importsRouter = router({
           contact: row.contact,
           category: category.name,
           categoryId: category.id,
+          costCenter: row.costCenterId ? costCenterMap.get(row.costCenterId)?.name ?? "" : "",
+          costCenterId: row.costCenterId,
           amount: row.amount.toFixed(2),
           account: account.name,
           accountId: account.id,
