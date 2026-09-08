@@ -128,7 +128,9 @@ function precoDe(plano: Plano, anual: boolean) {
   return valor.toLocaleString("pt-BR", { minimumFractionDigits: valor % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 }
 
-const CARD = "rounded-[20px] bg-white p-5 ring-1 ring-[#E3EBE6]";
+// `min-w-0` porque o padrão de um item de grade é `min-width:auto`: sem ele
+// a tabela de dentro estica o cartão e a página inteira ganha rolagem lateral.
+const CARD = "min-w-0 rounded-[20px] bg-white p-5 ring-1 ring-[#E3EBE6]";
 
 function Tique() {
   return (
@@ -232,7 +234,8 @@ function ConfirmarTroca({ destino, onClose }: { destino: Plano; onClose: () => v
   );
 }
 
-function MudarDePlano({ onVoltar }: { onVoltar: () => void }) {
+/** Os três planos e a comparação. É a aba "Planos". */
+export function PlanosPanel() {
   const [anual, setAnual] = useState(false);
   const [confirmando, setConfirmando] = useState<Plano | null>(null);
 
@@ -240,7 +243,7 @@ function MudarDePlano({ onVoltar }: { onVoltar: () => void }) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-auto min-w-0">
-          <h2 className="text-[18px] font-bold tracking-[-.01em]">Mudar de plano</h2>
+          <h2 className="text-[18px] font-bold tracking-[-.01em]">Planos</h2>
           <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
             Você está no {ASSINATURA.plano} {ASSINATURA.ciclo} · a mudança vale no próximo ciclo
           </p>
@@ -265,13 +268,6 @@ function MudarDePlano({ onVoltar }: { onVoltar: () => void }) {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={onVoltar}
-          className="h-[38px] rounded-[12px] px-3.5 text-[13px] font-semibold text-[#4C6355] transition hover:bg-[#F1F4F2]"
-        >
-          Voltar
-        </button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -392,16 +388,18 @@ function MudarDePlano({ onVoltar }: { onVoltar: () => void }) {
   );
 }
 
-export function PlanoCobranca() {
-  const [mudando, setMudando] = useState(false);
-
-  if (mudando) return <MudarDePlano onVoltar={() => setMudando(false)} />;
-
+/**
+ * A assinatura em vigor: plano, uso do ciclo, faturas e forma de pagamento.
+ *
+ * Trocar de plano é outra aba — `onVerPlanos` leva para lá em vez de o
+ * componente guardar um estado de "estou mudando".
+ */
+export function AssinaturaPanel({ onVerPlanos }: { onVerPlanos: () => void }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="mr-auto min-w-0">
-          <h2 className="text-[18px] font-bold tracking-[-.01em]">Plano e cobrança</h2>
+          <h2 className="text-[18px] font-bold tracking-[-.01em]">Assinatura</h2>
           <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
             {ASSINATURA.plano} {ASSINATURA.ciclo} · próxima cobrança em {ASSINATURA.proximaCobranca}
           </p>
@@ -421,7 +419,7 @@ export function PlanoCobranca() {
         </button>
         <button
           type="button"
-          onClick={() => setMudando(true)}
+          onClick={onVerPlanos}
           className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E]"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -577,7 +575,7 @@ export function PlanoCobranca() {
             </p>
             <button
               type="button"
-              onClick={() => setMudando(true)}
+              onClick={onVerPlanos}
               className="mt-1 flex h-11 items-center justify-center rounded-[12px] bg-[#12B85C] text-[13px] font-bold text-white transition hover:bg-[#0F9E4E]"
             >
               Mudar para anual

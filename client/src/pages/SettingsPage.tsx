@@ -7,7 +7,7 @@ import {
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { GranafyLoader } from "@/components/GranafyLoader";
-import { PlanoCobranca } from "@/components/PlanoCobranca";
+import { AssinaturaPanel, PlanosPanel } from "@/components/PlanoCobranca";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import {
@@ -29,7 +29,7 @@ import { useLocation, useSearch } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
-type SettingsTab = "company" | "preferences" | "billing";
+type SettingsTab = "company" | "preferences" | "plans" | "subscription";
 
 /*
  * O menu do perfil aponta direto para uma aba (`?aba=plano`). O estado mora
@@ -40,14 +40,31 @@ type SettingsTab = "company" | "preferences" | "billing";
 const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
   empresa: "company",
   preferencias: "preferences",
-  plano: "billing",
+  planos: "plans",
+  assinatura: "subscription",
 };
 
 const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
   company: "empresa",
   preferences: "preferencias",
-  billing: "plano",
+  plans: "planos",
+  subscription: "assinatura",
 };
+
+const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
+  company: "Dados cadastrais e endereço da empresa",
+  preferences: "Como o sistema mostra períodos, valores e datas",
+  plans: "O que cada plano inclui e quanto custa",
+  subscription: "Plano em vigor, uso do ciclo, faturas e forma de pagamento",
+};
+
+/** `filho` recua o item: Assinatura é um submenu de Planos. */
+const ABAS: Array<{ value: SettingsTab; label: string; filho?: boolean }> = [
+  { value: "company", label: "Empresa" },
+  { value: "preferences", label: "Preferências" },
+  { value: "plans", label: "Planos" },
+  { value: "subscription", label: "Assinatura", filho: true },
+];
 
 function abaDaBusca(busca: string): SettingsTab | null {
   const pedida = new URLSearchParams(busca).get("aba");
@@ -131,13 +148,7 @@ export default function SettingsPage() {
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
-              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                {tab === "company"
-                  ? "Dados cadastrais e endereço da empresa"
-                  : tab === "preferences"
-                    ? "Como o sistema mostra períodos, valores e datas"
-                    : "Assinatura, uso do ciclo, faturas e forma de pagamento"}
-              </p>
+              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{SUBTITULO_POR_ABA[tab]}</p>
             </div>
             <HideValuesButton />
             <ProfileMenu />
@@ -147,7 +158,7 @@ export default function SettingsPage() {
             {/* `self-start` porque numa linha flex o padrão é esticar: sem ele o
                 cartão de duas abas descia até o pé da página. */}
             <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:self-start xl:overflow-visible">
-              {([["company", "Empresa"], ["preferences", "Preferências"], ["billing", "Plano e cobrança"]] as const).map(([value, label]) => (
+              {ABAS.map(({ value, label, filho }) => (
                 <button
                   key={value}
                   type="button"
@@ -159,18 +170,26 @@ export default function SettingsPage() {
                     setLocation(`/configuracoes?aba=${PARAMETRO_POR_ABA[value]}`, { replace: true });
                   }}
                   aria-current={tab === value ? "page" : undefined}
-                  className={`whitespace-nowrap rounded-[12px] px-3.5 py-2.5 text-left text-[13.5px] transition ${
-                    tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
-                  }`}
+                  className={`whitespace-nowrap rounded-[12px] py-2.5 pr-3.5 text-left text-[13.5px] transition ${
+                    filho ? "pl-7 xl:pl-8" : "pl-3.5"
+                  } ${tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"}`}
                 >
+                  {/* O recuo é a hierarquia; o traço deixa ela visível também
+                      no celular, onde as abas viram uma linha rolável. */}
+                  {filho && <span aria-hidden="true" className="mr-2 text-[#C2CDC6]">└</span>}
                   {label}
                 </button>
               ))}
             </nav>
 
             <div className="min-w-0 flex-1">
-              {tab === "billing" ? (
-                <PlanoCobranca />
+              {tab === "plans" ? (
+                <PlanosPanel />
+              ) : tab === "subscription" ? (
+                <AssinaturaPanel onVerPlanos={() => {
+                  setTab("plans");
+                  setLocation("/configuracoes?aba=planos", { replace: true });
+                }} />
               ) : tab === "company" ? (
                 <CompanyForm
                   initial={companyQuery.data}

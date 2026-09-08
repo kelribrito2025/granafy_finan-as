@@ -174,11 +174,11 @@ export function ProfileMenu() {
 
             <button
               type="button"
-              onClick={() => { setOpen(false); setLocation("/configuracoes?aba=plano"); }}
+              onClick={() => { setOpen(false); setLocation("/configuracoes?aba=assinatura"); }}
               className="mt-0.5 flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left text-[14px] text-[#28382E] hover:bg-[#F1FBF6]"
             >
               <CardIcon size={16} className="text-[#4C6355]" />
-              <span className="flex-1">Plano e cobrança</span>
+              <span className="flex-1">Assinatura</span>
               <ChevronRightIcon size={15} className="text-[#8A968D]" />
             </button>
 
