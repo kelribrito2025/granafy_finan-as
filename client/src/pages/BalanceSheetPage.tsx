@@ -20,12 +20,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
-import {
-  formatDate as formatDateWithPreferences,
-  formatMoney as formatMoneyWithPreferences,
-  formatMoneyText as formatMoneyTextWithPreferences,
-  maskMoneyText,
-} from "@/lib/appFormat";
+import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences, valuesHidden } from "@/lib/appFormat";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -59,7 +54,7 @@ import {
   DEPRECIABLE_CATEGORIES,
   type AssetCategory,
 } from "@shared/assetCategory";
-import { FormEvent, useMemo, useState, type ReactNode } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
@@ -174,16 +169,13 @@ function formatMoney(value: number) {
   return formatMoneyWithPreferences(value);
 }
 
-function formatMoneyText(value: number) {
-  return formatMoneyTextWithPreferences(value);
-}
-
 function formatDecimal(value: number) {
-  // Número sem símbolo, mas ainda é dinheiro: borra junto no modo discreto.
-  return maskMoneyText(new Intl.NumberFormat("pt-BR", {
+  // Número sem símbolo, mas ainda é dinheiro: some junto no modo discreto.
+  if (valuesHidden()) return "••••••";
+  return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value));
+  }).format(value);
 }
 
 function formatDate(value: string) {
@@ -201,9 +193,8 @@ function formatSignedPercent(value: number) {
   return `${value >= 0 ? "+" : "−"} ${formatPercent(Math.abs(value))}`;
 }
 
-/** Legenda de KPI, que é texto puro: aqui o modo discreto vira pontinhos. */
-function formatSignedMoneyText(value: number) {
-  return `${value >= 0 ? "+" : "−"} ${formatMoneyText(Math.abs(value))}`;
+function formatSignedMoney(value: number) {
+  return `${value >= 0 ? "+" : "−"} ${formatMoney(Math.abs(value))}`;
 }
 
 function safeError(error: unknown, fallback: string) {
@@ -816,9 +807,9 @@ function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, cap
   icon: IconlyIcon;
   chipClass: string;
   label: string;
-  value: ReactNode;
+  value: string;
   valueClass?: string;
-  caption: ReactNode;
+  caption: string;
   captionClass?: string;
   highlight?: boolean;
 }) {
@@ -995,7 +986,7 @@ export default function BalanceSheetPage() {
     : `${formatSignedPercent(assetsChange)} vs. ${formatDate(baseline.referenceDate)}`;
   const netWorthCaption = netWorthDelta == null
     ? "Ativos menos passivos"
-    : `${formatSignedMoneyText(netWorthDelta)} ${periodNouns[period]}`;
+    : `${formatSignedMoney(netWorthDelta)} ${periodNouns[period]}`;
   const liabilitiesCaption = summary?.debtRatio == null
     ? "Obrigações de curto e longo prazo"
     : `${formatPercent(summary.debtRatio)} do ativo`;
@@ -1340,7 +1331,7 @@ export default function BalanceSheetPage() {
                       <div>
                         <span className="block text-[11px] text-[#8FB39E]">Depreciação no período</span>
                         <strong className={`mt-0.5 block text-[17px] font-bold ${evolution.depreciation > 0 ? "text-[#F4A497]" : "text-white"}`}>
-                          {evolution.depreciation > 0 ? <>− {formatMoney(evolution.depreciation)}</> : formatMoney(0)}
+                          {evolution.depreciation > 0 ? `− ${formatMoney(evolution.depreciation)}` : formatMoney(0)}
                         </strong>
                       </div>
                       <div>
@@ -1410,7 +1401,7 @@ export default function BalanceSheetPage() {
                                 <span className={index === 0 ? "font-bold text-[#0A7A42]" : "text-[#8A968D]"}>{row.label}</span>
                                 <span className={`truncate ${index === 0 ? "font-semibold text-[#0A7A42]" : ""}`} title={row.movement}>{row.movement}</span>
                                 <span className={`text-right font-semibold ${row.contributions > 0 ? (index === 0 ? "text-[#0A7A42]" : "") : "text-[#8A968D]"}`}>
-                                  {row.contributions > 0 ? <>+ {formatDecimal(row.contributions)}</> : "—"}
+                                  {row.contributions > 0 ? `+ ${formatDecimal(row.contributions)}` : "—"}
                                 </span>
                                 <span className={`text-right ${row.depreciation > 0 ? "text-[#B3261E]" : "text-[#8A968D]"}`}>
                                   {row.depreciation > 0 ? formatDecimal(row.depreciation) : "—"}

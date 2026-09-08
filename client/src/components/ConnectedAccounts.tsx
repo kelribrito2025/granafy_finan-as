@@ -1,4 +1,4 @@
-import { formatMoney as money, formatMoneyText as moneyText, valuesHidden } from "@/lib/appFormat";
+import { formatMoney as money, valuesHidden } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 
 
@@ -29,7 +29,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
     const total = accounts.reduce((sum, account) => sum + account.balance, 0);
     return (
       <span
-        title={`Saldo somado das contas: ${moneyText(total)}`}
+        title={`Saldo somado das contas: ${money(total)}`}
         className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1FBF6] text-[11px] font-bold text-[#0A7A42] ${className}`}
       >
         {accountsQuery.isLoading ? "—" : compact(total)}
@@ -51,7 +51,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
       ) : (
         <div className="mt-2.5 flex flex-col gap-1.5">
           {accounts.map(account => (
-            <div key={account.id} className="flex items-baseline gap-2 text-[12px]" title={`${account.name}: ${moneyText(account.balance)}`}>
+            <div key={account.id} className="flex items-baseline gap-2 text-[12px]" title={`${account.name}: ${money(account.balance)}`}>
               <span className="min-w-0 flex-1 truncate text-[#4C6355]">{account.name}</span>
               <span className={`shrink-0 font-bold ${account.balance >= 0 ? "text-[#0B1F14]" : "text-[#B3261E]"}`}>
                 {money(account.balance)}

@@ -60,7 +60,7 @@ const CLASSIFICATION_LABELS: Record<Classification, string> =
 
 function ModalShell({ title, subtitle, children, onClose }: {
   title: string;
-  subtitle?: React.ReactNode;
+  subtitle?: string;
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -70,7 +70,7 @@ function ModalShell({ title, subtitle, children, onClose }: {
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-bold">{title}</h2>
-            {subtitle && <p className="mt-1 truncate text-[13px] text-[#4C6355]">{subtitle}</p>}
+            {subtitle && <p className="mt-1 truncate text-[13px] text-[#4C6355]" title={subtitle}>{subtitle}</p>}
           </div>
           <button
             type="button"
@@ -131,7 +131,7 @@ function RowMenu({ item, onAction, onClose }: {
 }
 
 function signedMoney(value: number) {
-  return value < 0 ? <>− {formatMoney(Math.abs(value))}</> : <>+ {formatMoney(value)}</>;
+  return value < 0 ? `− ${formatMoney(Math.abs(value))}` : `+ ${formatMoney(value)}`;
 }
 
 function Check({ checked, disabled = false, onChange, label }: {
@@ -415,7 +415,7 @@ function CreateModal({ item, categories, split, onClose, onConfirm, pending }: {
   return (
     <ModalShell
       title={split ? "Dividir entre lançamentos" : "Criar lançamento"}
-      subtitle={<>{item.description} · {signedMoney(item.amount)}</>}
+      subtitle={`${item.description} · ${signedMoney(item.amount)}`}
       onClose={onClose}
     >
       <div className="flex flex-col gap-3">
@@ -468,7 +468,7 @@ function CreateModal({ item, categories, split, onClose, onConfirm, pending }: {
           + Outra parte
         </button>
         <span className={`ml-auto text-[13px] font-semibold ${resta === 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
-          {resta === 0 ? "fecha com a movimentação" : <>faltam {formatMoney(resta)}</>}
+          {resta === 0 ? "fecha com a movimentação" : `faltam ${formatMoney(resta)}`}
         </span>
       </div>
 
@@ -503,7 +503,7 @@ function LinkModal({ item, candidates, onClose, onConfirm, pending }: {
 }) {
   const [escolhido, setEscolhido] = useState<number | null>(candidates[0]?.id ?? null);
   return (
-    <ModalShell title="Vincular a um lançamento" subtitle={<>{item.description} · {signedMoney(item.amount)}</>} onClose={onClose}>
+    <ModalShell title="Vincular a um lançamento" subtitle={`${item.description} · ${signedMoney(item.amount)}`} onClose={onClose}>
       {candidates.length === 0 ? (
         <p className="rounded-xl bg-[#F8FAF9] px-4 py-6 text-center text-[13px] leading-relaxed text-[#4C6355]">
           Nenhum lançamento em aberto com este valor, nesta conta, em até três dias.
@@ -568,7 +568,7 @@ function DifferenceModal({ data, onClose, onResolve }: {
   return (
     <ModalShell
       title="Composição da diferença"
-      subtitle={data.difference === null ? undefined : <>{formatMoney(Math.abs(data.difference))} entre o extrato do banco e o GranaFy</>}
+      subtitle={data.difference === null ? undefined : `${formatMoney(Math.abs(data.difference))} entre o extrato do banco e o GranaFy`}
       onClose={onClose}
     >
       <div className="flex flex-col gap-2">
@@ -693,7 +693,7 @@ function GroupModal({ items, total, candidates, loading, onClose, onConfirm, pen
   return (
     <ModalShell
       title={`Agrupar ${items.length} movimentações`}
-      subtitle={<>somam {signedMoney(total)}</>}
+      subtitle={`somam ${signedMoney(total)}`}
       onClose={onClose}
     >
       <div className="flex flex-col gap-1.5 rounded-[14px] bg-[#F8FAF9] p-3.5">
@@ -1085,7 +1085,7 @@ export default function ConciliacaoPage() {
                     <span className="text-[12.5px] text-[#C5DACE]">
                       {data.balance.statement === null
                         ? "o extrato importado não declara saldo"
-                        : <>banco {formatMoney(data.balance.statement)} · sistema {formatMoney(data.balance.system)}</>}
+                        : `banco ${formatMoney(data.balance.statement)} · sistema ${formatMoney(data.balance.system)}`}
                     </span>
                   </button>
                 </AuroraSurface>

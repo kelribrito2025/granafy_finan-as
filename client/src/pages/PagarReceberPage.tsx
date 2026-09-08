@@ -52,8 +52,8 @@ function OverdueCard({ count, amount }: { count: number; amount: number }) {
 
 function KpiCard({ label, value, hint, valueClass, hintClass, icon, highlight = false }: {
   label: string;
-  value: React.ReactNode;
-  hint: React.ReactNode;
+  value: string;
+  hint: string;
   valueClass?: string;
   hintClass?: string;
   icon?: { node: React.ReactNode; className: string };
@@ -99,7 +99,7 @@ function StatusTag({ status }: { status: TitleStatus }) {
 }
 
 function signedMoney(value: number) {
-  return value < 0 ? <>− {formatMoney(Math.abs(value))}</> : <>+ {formatMoney(value)}</>;
+  return value < 0 ? `− ${formatMoney(Math.abs(value))}` : `+ ${formatMoney(value)}`;
 }
 
 const LIST_GRID = "grid grid-cols-[26px_minmax(0,1fr)_auto] gap-3 lg:grid-cols-[34px_84px_minmax(0,1fr)_170px_140px_120px_150px_44px]";
@@ -161,7 +161,7 @@ function SingleList({ data, titles, onSettle, pending }: {
             <span className="text-[12px] text-[#4C6355]">
               {group.titles.length === 1 ? "1 título" : `${group.titles.length} títulos`} ·{" "}
               {group.receivable !== 0 && group.payable !== 0
-                ? <>{formatMoney(group.receivable)} a receber · {formatMoney(Math.abs(group.payable))} a pagar</>
+                ? `${formatMoney(group.receivable)} a receber · ${formatMoney(Math.abs(group.payable))} a pagar`
                 : signedMoney(group.balance)}
             </span>
             <span className="h-px flex-1 bg-[#F1F4F2]" />
@@ -463,7 +463,7 @@ export default function PagarReceberPage() {
                     node: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>,
                   }}
                   hint={overduePayables.length > 0
-                    ? <>{overduePayables.length} em atraso · {formatMoney(Math.abs(data.totals.overduePayable))}</>
+                    ? `${overduePayables.length} em atraso · ${formatMoney(Math.abs(data.totals.overduePayable))}`
                     : "nenhum em atraso"}
                   hintClass={overduePayables.length > 0 ? "font-semibold text-[#8E1F16]" : undefined}
                 />

@@ -209,18 +209,6 @@
     animation: popover-in 180ms var(--ease-out) both;
   }
 
-  /* Modo discreto: o valor fica borrado no lugar de sumir.
-     O blur é em `em` para acompanhar o tamanho da fonte — o mesmo borrão que
-     apaga um saldo de 42px deixaria um rótulo de 11px ainda legível. */
-  .valor-borrado {
-    display: inline-block;
-    filter: blur(0.3em);
-    -webkit-user-select: none;
-    user-select: none;
-    pointer-events: none;
-    opacity: 0.92;
-  }
-
   /* Painel lateral: desliza da direita. O fundo escurece junto, senão o
      escurecimento aparece de uma vez e briga com o movimento do painel. */
   .drawer-enter {

@@ -15,12 +15,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
-import {
-  activePreferences,
-  maskMoneyText,
-  formatMoney as formatMoneyWithPreferences,
-  formatMoneyText,
-} from "@/lib/appFormat";
+import { activePreferences, maskedMoney, valuesHidden, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { buildCashCurve } from "@/lib/cashCurve";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
@@ -44,15 +39,16 @@ function formatMoney(value: number, compact = false) {
   // A versão compacta ("R$ 62,1 mil") é dos eixos do gráfico e não passa pelas
   // preferências: a moeda escolhida entra pelo símbolo, o resto é escala.
   if (!compact) return formatMoneyWithPreferences(value);
-  // O eixo do gráfico também borra no modo discreto: um eixo com escala real
+  // O eixo do gráfico também some no modo discreto: um eixo com escala real
   // entrega a ordem de grandeza que o resto da tela está escondendo.
+  if (valuesHidden()) return maskedMoney();
   const { currency } = activePreferences();
-  return maskMoneyText(new Intl.NumberFormat(CURRENCY_LOCALES[currency], {
+  return new Intl.NumberFormat(CURRENCY_LOCALES[currency], {
     style: "currency",
     currency,
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(value));
+  }).format(value);
 }
 
 const badgeClass = {
@@ -312,7 +308,7 @@ export default function Home() {
                     </div>
                     <div className="relative z-10 flex h-full items-end gap-2 sm:gap-4">
                       {months.map((month, index) => (
-                        <div key={`${month.label}-${index}`} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${month.label}: entradas ${formatMoneyText(month.incoming)}, saídas ${formatMoneyText(month.outgoing)}`}>
+                        <div key={`${month.label}-${index}`} className="group flex h-full flex-1 items-end gap-[3px] sm:gap-1" title={`${month.label}: entradas ${formatMoney(month.incoming)}, saídas ${formatMoney(month.outgoing)}`}>
                           <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%` }} />
                           <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === months.length - 1 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%` }} />
                         </div>
