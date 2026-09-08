@@ -5,6 +5,7 @@ import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, type AttachmentFolder } from "../attachments";
 import * as db from "../db";
+import { userToday } from "../userToday";
 import { assertPeriodsOpen } from "../periodLock";
 import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
 import { storageGetSignedUrl, storagePut } from "../storage";
@@ -339,9 +340,8 @@ export const transactionsRouter = router({
       db.listAllTransactions(ctx.user.id),
       db.listFinancialAccounts(ctx.user.id),
     ]);
-    const today = new Date();
-    const year = today.getUTCFullYear();
-    const month = today.getUTCMonth() + 1;
+    const todayString = await userToday(ctx.user.id);
+    const [year, month] = todayString.split("-").map(Number);
     const range = input?.range ?? "month";
     const startMonth = range === "year" ? 1 : range === "quarter" ? Math.floor((month - 1) / 3) * 3 + 1 : month;
     const endMonth = range === "year" ? 13 : range === "quarter" ? startMonth + 3 : month + 1;
@@ -352,7 +352,6 @@ export const transactionsRouter = router({
     const paidBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
       .filter(record => record.status === "Pago")
       .reduce((sum, record) => sum + Number(record.amount), 0);
-    const todayString = today.toISOString().slice(0, 10);
     const open = records.filter(record =>
       isOpenInWindow(record, { start, end, todayIso: todayString })
     );

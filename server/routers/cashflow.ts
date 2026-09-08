@@ -9,6 +9,7 @@ import {
 import { buildPayablesView, type TitleRow } from "@shared/payables";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { userToday } from "../userToday";
 
 const MONTH_NAMES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -37,10 +38,6 @@ function shiftMonth(year: number, month: number, offset: number) {
 
 function monthLabel(year: number, month: number) {
   return `${MONTH_NAMES[month - 1]} de ${year}`;
-}
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function toFlowRow(record: Record_): FlowRow {
@@ -94,8 +91,8 @@ async function loadLedger(userId: number) {
 
 export const payablesRouter = router({
   /** Só os números da bolinha da barra lateral: uma contagem, não a lista. */
-  badges: protectedProcedure.query(({ ctx }) => {
-    const today = todayIso();
+  badges: protectedProcedure.query(async ({ ctx }) => {
+    const today = await userToday(ctx.user.id);
     const [year, month] = today.split("-").map(Number);
     return db.countOpenTitles(ctx.user.id, today, lastDayOf(year, month));
   }),
@@ -110,7 +107,7 @@ export const payablesRouter = router({
    */
   overview: protectedProcedure.input(monthSchema).query(async ({ ctx, input }) => {
     const { records, accounts } = await loadLedger(ctx.user.id);
-    const today = todayIso();
+    const today = await userToday(ctx.user.id);
     const start = monthStart(input.year, input.month);
     const end = lastDayOf(input.year, input.month);
 
@@ -141,7 +138,7 @@ export const cashflowRouter = router({
     .input(monthSchema.extend({ granularity: z.enum(["dia", "semana"]).default("dia") }))
     .query(async ({ ctx, input }) => {
       const { records, accounts } = await loadLedger(ctx.user.id);
-      const today = todayIso();
+      const today = await userToday(ctx.user.id);
       const start = monthStart(input.year, input.month);
       const end = lastDayOf(input.year, input.month);
       const rows = records.map(toFlowRow);
@@ -190,7 +187,7 @@ export const cashflowRouter = router({
     .input(monthSchema.extend({ span: z.union([z.literal(6), z.literal(12)]).default(6) }))
     .query(async ({ ctx, input }) => {
       const { records, accounts } = await loadLedger(ctx.user.id);
-      const today = todayIso();
+      const today = await userToday(ctx.user.id);
       // A janela olha três meses à frente: projeção que termina no mês corrente
       // não projeta nada.
       const last = shiftMonth(input.year, input.month, 3);
