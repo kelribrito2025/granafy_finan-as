@@ -397,14 +397,15 @@ export function PlanoCobranca() {
           </p>
         </div>
         {/*
-          Vermelho porque cancelar é destrutivo, mas em contorno e não em
-          bloco: preenchido, ele competiria com o "Mudar de plano" e o botão
-          mais perigoso da tela seria o mais chamativo.
+          Vermelho porque cancelar é destrutivo, mas na tinta clara e não no
+          vermelho cheio: sólido, ele competiria com o "Mudar de plano" e o
+          botão mais perigoso da tela seria o mais chamativo. É o mesmo
+          #FDECEA que o resto do produto usa para o negativo.
         */}
         <button
           type="button"
           onClick={avisar}
-          className="h-11 rounded-[12px] bg-white px-4 text-[13px] font-semibold text-[#B3261E] ring-1 ring-[#F0C8C4] transition hover:bg-[#FDECEA]"
+          className="h-11 rounded-[12px] bg-[#FDECEA] px-4 text-[13px] font-semibold text-[#8E1F16] ring-1 ring-[#F0C8C4] transition hover:bg-[#F9DDD9]"
         >
           Cancelar assinatura
         </button>
