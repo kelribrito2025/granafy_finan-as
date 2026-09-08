@@ -95,12 +95,20 @@ function rethrowOrganizationError(error: unknown, entity: string): never {
 
 export const organizationRouter = router({
   overview: protectedProcedure.query(async ({ ctx }) => {
-    const [accounts, categories, costCenters, transactions, imports] = await Promise.all([
+    const today = new Date();
+    const monthStart = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const nextMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1))
+      .toISOString()
+      .slice(0, 10);
+
+    const [accounts, categories, costCenters, transactions, imports, importSummary, monthCounts] = await Promise.all([
       db.listFinancialAccounts(ctx.user.id),
       db.listTransactionCategories(ctx.user.id),
       db.listCostCenters(ctx.user.id),
       db.listAllTransactions(ctx.user.id),
       db.listImportBatches(ctx.user.id),
+      db.getAccountImportSummary(ctx.user.id),
+      db.getAccountTransactionCounts(ctx.user.id, monthStart, nextMonth),
     ]);
     const accountStats = new Map<number, { count: number; movement: number }>();
     const categoryStats = new Map<number, { count: number; total: number }>();
@@ -121,12 +129,21 @@ export const organizationRouter = router({
     });
 
     return {
-      accounts: accounts.map(account => ({
-        ...account,
-        initialBalance: Number(account.initialBalance),
-        balance: Number(account.initialBalance) + (accountStats.get(account.id)?.movement ?? 0),
-        transactionCount: accountStats.get(account.id)?.count ?? 0,
-      })),
+      accounts: accounts.map(account => {
+        const imported = importSummary.get(account.id);
+        return {
+          ...account,
+          initialBalance: Number(account.initialBalance),
+          balance: Number(account.initialBalance) + (accountStats.get(account.id)?.movement ?? 0),
+          transactionCount: accountStats.get(account.id)?.count ?? 0,
+          monthTransactionCount: monthCounts.get(account.id) ?? 0,
+          // Não há conexão bancária: a "sincronização" da conta é o histórico
+          // real de importação de arquivo, ou nada.
+          lastImportedAt: imported?.lastImportedAt ?? null,
+          importFormat: imported?.format ?? "",
+          importBatchCount: imported?.batchCount ?? 0,
+        };
+      }),
       categories: categories.map(category => ({
         ...category,
         transactionCount: categoryStats.get(category.id)?.count ?? 0,
@@ -138,6 +155,15 @@ export const organizationRouter = router({
         total: costCenterStats.get(costCenter.id)?.total ?? 0,
       })),
       imports,
+      uncategorized: transactions
+        .filter(transaction => !transaction.categoryId && transaction.type !== "transferencia")
+        .reduce(
+          (summary, transaction) => ({
+            count: summary.count + 1,
+            amount: summary.amount + Math.abs(Number(transaction.amount)),
+          }),
+          { count: 0, amount: 0 }
+        ),
     };
   }),
 
