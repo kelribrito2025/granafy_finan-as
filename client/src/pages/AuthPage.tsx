@@ -378,7 +378,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                         </svg>
                       )}
                     </span>
-                    <span className="text-[13px] text-[#28382E]">Lembrar-me neste dispositivo</span>
+                    <span className="text-[13px] text-[#28382E]">Lembrar-me</span>
                   </button>
                 </div>
               )}
