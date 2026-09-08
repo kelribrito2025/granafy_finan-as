@@ -181,11 +181,13 @@ function KpiCard({ label, value, hint, valueClass, children }: {
 }
 
 /** A barra escura que aparece quando há seleção. */
-function BatchBar({ items, onConfirm, pending }: {
+function BatchBar({ items, onConfirm, onGroup, pending }: {
   items: Item[];
   onConfirm: () => void;
+  onGroup: () => void;
   pending: boolean;
 }) {
+  const comSugestao = items.filter(item => item.suggestion).length;
   const resumo = summarizeBatch(items.map(item => item.amount));
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[16px] bg-[#0B1F14] px-4 py-3 text-white">
@@ -201,15 +203,27 @@ function BatchBar({ items, onConfirm, pending }: {
         {resumo.incomingCount} {resumo.incomingCount === 1 ? "entrada" : "entradas"} e{" "}
         {resumo.outgoingCount} {resumo.outgoingCount === 1 ? "saída" : "saídas"} · líquido {signedMoney(resumo.net)}
       </span>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={onConfirm}
-        className="ml-auto flex h-[38px] items-center gap-2 rounded-[11px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-60"
-      >
-        <CheckIcon size={14} />
-        {pending ? "Conciliando…" : "Conciliar selecionados"}
-      </button>
+      <span className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          disabled={pending || comSugestao === 0}
+          title={comSugestao === 0 ? "Nenhuma das selecionadas tem sugestão" : undefined}
+          onClick={onConfirm}
+          className="flex h-[38px] items-center gap-2 rounded-[11px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <CheckIcon size={14} />
+          {pending ? "Conciliando…" : `Conciliar ${comSugestao > 0 ? comSugestao : ""}`.trim()}
+        </button>
+        <button
+          type="button"
+          disabled={pending || items.length < 2}
+          title={items.length < 2 ? "Selecione ao menos duas movimentações" : "Várias movimentações para um lançamento só"}
+          onClick={onGroup}
+          className="flex h-[38px] items-center gap-2 rounded-[11px] border border-[#1F3D2B] px-3.5 text-[13px] font-semibold text-[#EAF4EE] transition hover:bg-[#153021] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Agrupar
+        </button>
+      </span>
     </div>
   );
 }
@@ -662,6 +676,96 @@ function HistoryModal({ item, entries, loading, onClose }: {
   );
 }
 
+
+/** Escolhe o lançamento que recebe o grupo de movimentações. */
+function GroupModal({ items, total, candidates, loading, onClose, onConfirm, pending }: {
+  items: Item[];
+  total: number;
+  candidates: Array<{ id: number; description: string; transactionDate: string; amount: number; category: string }>;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: (transactionId: number) => void;
+  pending: boolean;
+}) {
+  const [escolhido, setEscolhido] = useState<number | null>(null);
+  return (
+    <ModalShell
+      title={`Agrupar ${items.length} movimentações`}
+      subtitle={`somam ${signedMoney(total)}`}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-1.5 rounded-[14px] bg-[#F8FAF9] p-3.5">
+        {items.map(item => (
+          <div key={item.id} className="flex items-baseline gap-3 text-[12.5px]">
+            <span className="shrink-0 text-[#4C6355]">{formatDate(item.movementDate)}</span>
+            <span className="min-w-0 flex-1 truncate">{item.description}</span>
+            <span className={`shrink-0 font-semibold ${item.amount < 0 ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>
+              {signedMoney(item.amount)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <span className="text-[12.5px] font-semibold text-[#4C6355]">
+        Lançamentos com esse total exato
+      </span>
+
+      {loading ? (
+        <p className="py-6 text-center text-[13px] text-[#4C6355]">Procurando…</p>
+      ) : candidates.length === 0 ? (
+        <p className="rounded-xl bg-[#FFF3E6] px-4 py-5 text-center text-[13px] leading-relaxed text-[#8A4B00]">
+          Nenhum lançamento em aberto soma {formatMoney(Math.abs(total))} nesta conta.
+          Agrupar exige que o total das movimentações feche com o valor do lançamento.
+        </p>
+      ) : (
+        <div className="flex max-h-[260px] flex-col gap-2 overflow-y-auto">
+          {candidates.map(candidate => (
+            <button
+              key={candidate.id}
+              type="button"
+              onClick={() => setEscolhido(candidate.id)}
+              className={`flex items-center gap-3 rounded-[14px] p-3.5 text-left transition ${
+                escolhido === candidate.id
+                  ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                  : "border border-[#E3EBE6] hover:bg-[#F8FAF9]"
+              }`}
+            >
+              <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${
+                escolhido === candidate.id ? "bg-[#12B85C]" : "border-[1.5px] border-[#C9D4CD]"
+              }`}>
+                {escolhido === candidate.id && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13.5px] font-semibold">{candidate.description}</span>
+                <span className="block truncate text-[12px] text-[#4C6355]">
+                  {formatDate(candidate.transactionDate)} · {candidate.category}
+                </span>
+              </span>
+              <span className={`shrink-0 text-[13.5px] font-bold ${candidate.amount < 0 ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>
+                {signedMoney(candidate.amount)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2.5">
+        <button type="button" onClick={onClose} className="h-11 flex-1 rounded-xl bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#E3EBE6]">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={pending || escolhido === null}
+          onClick={() => escolhido !== null && onConfirm(escolhido)}
+          className="h-11 flex-1 rounded-xl bg-[#12B85C] text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
+        >
+          {pending ? "Agrupando…" : "Agrupar"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
 export default function ConciliacaoPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
@@ -673,6 +777,7 @@ export default function ConciliacaoPage() {
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [modal, setModal] = useState<{ kind: "classify" | "create" | "split" | "link" | "history"; item: Item } | null>(null);
   const [differenceOpen, setDifferenceOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
 
@@ -725,6 +830,10 @@ export default function ConciliacaoPage() {
     onSuccess: async () => { await refresh(); toast.success("Mês fechado."); },
     onError: error => toast.error(error.message),
   });
+  const group = trpc.reconciliation.group.useMutation({
+    onSuccess: async () => { setGroupOpen(false); await refresh(); toast.success("Movimentações agrupadas."); },
+    onError: error => toast.error(error.message),
+  });
   const applyAutoRules = trpc.reconciliation.applyAutoRules.useMutation({
     onSuccess: async result => {
       await refresh();
@@ -747,6 +856,10 @@ export default function ConciliacaoPage() {
     { ...period, accountId },
     { enabled: differenceOpen }
   );
+  const groupQuery = trpc.reconciliation.groupCandidates.useQuery(
+    { movementIds: Array.from(selected) },
+    { enabled: groupOpen && selected.size >= 2 }
+  );
   const historyQuery = trpc.reconciliation.history.useQuery(
     { movementId: modal?.item.id ?? 0 },
     { enabled: modal?.kind === "history" }
@@ -768,7 +881,14 @@ export default function ConciliacaoPage() {
     });
   }, [data, search, tab]);
 
-  const selectableIds = visible.filter(item => item.status === "sugerido").map(item => item.id);
+  /*
+   * Sugerida e sem par entram na seleção: a primeira para conciliar em lote, a
+   * segunda porque agrupar existe justamente para as que não têm par sozinhas.
+   * Conciliada e classificada ficam de fora — já foram decididas.
+   */
+  const selectableIds = visible
+    .filter(item => item.status === "sugerido" || item.status === "sem_par")
+    .map(item => item.id);
   const selectedItems = (data?.items ?? []).filter(item => selected.has(item.id));
   const allSelected = selectableIds.length > 0 && selectableIds.every(id => selected.has(id));
 
@@ -1000,8 +1120,9 @@ export default function ConciliacaoPage() {
                   {selectedItems.length > 0 && (
                     <BatchBar
                       items={selectedItems}
-                      pending={confirmBatch.isPending}
+                      pending={confirmBatch.isPending || group.isPending}
                       onConfirm={() => setBatchModal(true)}
+                      onGroup={() => setGroupOpen(true)}
                     />
                   )}
 
@@ -1010,7 +1131,7 @@ export default function ConciliacaoPage() {
                       {selectableIds.length > 0 && (
                         <Check
                           checked={allSelected}
-                          label="Selecionar todas as sugeridas"
+                          label="Selecionar todas as pendentes"
                           onChange={() => setSelected(current => {
                             if (selectableIds.every(id => current.has(id))) return new Set();
                             return new Set(selectableIds);
@@ -1042,7 +1163,7 @@ export default function ConciliacaoPage() {
                         >
                           <Check
                             checked={selected.has(item.id)}
-                            disabled={item.status !== "sugerido"}
+                            disabled={item.status === "conciliado" || item.status === "classificado"}
                             label={`Selecionar ${item.description}`}
                             onChange={() => toggle(item.id)}
                           />
@@ -1188,12 +1309,14 @@ export default function ConciliacaoPage() {
         </section>
       </div>
 
-      {batchModal && selectedItems.length > 0 && (
+      {batchModal && selectedItems.some(item => item.suggestion) && (
         <ConfirmBatchModal
-          items={selectedItems}
+          items={selectedItems.filter(item => item.suggestion)}
           pending={confirmBatch.isPending}
           onClose={() => setBatchModal(false)}
-          onConfirm={() => confirmBatch.mutate({ movementIds: selectedItems.map(item => item.id) })}
+          onConfirm={() => confirmBatch.mutate({
+            movementIds: selectedItems.filter(item => item.suggestion).map(item => item.id),
+          })}
         />
       )}
 
@@ -1251,6 +1374,18 @@ export default function ConciliacaoPage() {
             setDifferenceOpen(false);
             if (item) setModal({ kind: "create", item });
           }}
+        />
+      )}
+
+      {groupOpen && selectedItems.length >= 2 && (
+        <GroupModal
+          items={selectedItems}
+          total={groupQuery.data?.total ?? selectedItems.reduce((sum, item) => sum + item.amount, 0)}
+          candidates={groupQuery.data?.candidates ?? []}
+          loading={groupQuery.isPending}
+          pending={group.isPending}
+          onClose={() => setGroupOpen(false)}
+          onConfirm={transactionId => group.mutate({ movementIds: selectedItems.map(item => item.id), transactionId })}
         />
       )}
 

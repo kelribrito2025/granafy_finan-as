@@ -50,6 +50,7 @@ type CategoryRuleView = {
   costCenterId: number | null;
   costCenter: string;
   priority: number;
+  autoReconcile: boolean;
   isActive: boolean;
 };
 type Category = {
@@ -303,12 +304,13 @@ function RuleModal({ categories, costCenters, pending, onClose, onSave }: {
   costCenters: CostCenter[];
   pending: boolean;
   onClose: () => void;
-  onSave: (values: { matchType: RuleMatchType; matchValue: string; categoryId: number | null; costCenterId: number | null; priority: number }) => Promise<void>;
+  onSave: (values: { matchType: RuleMatchType; matchValue: string; categoryId: number | null; costCenterId: number | null; priority: number; autoReconcile: boolean }) => Promise<void>;
 }) {
   const [matchType, setMatchType] = useState<RuleMatchType>("descricao");
   const [matchValue, setMatchValue] = useState("");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [costCenterId, setCostCenterId] = useState<number | null>(null);
+  const [autoReconcile, setAutoReconcile] = useState(false);
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="rule-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
@@ -316,7 +318,7 @@ function RuleModal({ categories, costCenters, pending, onClose, onSave }: {
         onSubmit={async event => {
           event.preventDefault();
           if (!categoryId && !costCenterId) return toast.info("Escolha uma categoria ou um centro de custo.");
-          await onSave({ matchType, matchValue: matchValue.trim(), categoryId, costCenterId, priority: 0 });
+          await onSave({ matchType, matchValue: matchValue.trim(), categoryId, costCenterId, priority: 0, autoReconcile });
         }}
         className="modal-enter w-full max-w-[460px] rounded-[22px] bg-white p-6 text-[#0B1F14]"
       >
@@ -358,6 +360,27 @@ function RuleModal({ categories, costCenters, pending, onClose, onSave }: {
               {costCenters.filter(item => item.isActive).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoReconcile}
+            onClick={() => setAutoReconcile(value => !value)}
+            className="flex items-center gap-3 rounded-xl border border-[#E3EAE5] px-3.5 py-3 text-left transition hover:bg-[#F8FAF9]"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[12.5px] font-semibold">
+                {autoReconcile ? "Concilia sozinha" : "Só sugere"}
+              </span>
+              <span className="text-[11px] leading-relaxed text-[#4C6355]">
+                {autoReconcile
+                  ? "na conciliação, o que esta regra explicar entra sem conferência item a item"
+                  : "na conciliação, a regra explica a sugestão e você confirma"}
+              </span>
+            </span>
+            <span className={`flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition ${autoReconcile ? "justify-end bg-[#12B85C]" : "justify-start bg-[#D8E2DB]"}`}>
+              <span className="h-5 w-5 rounded-full bg-white" />
+            </span>
+          </button>
           <p className="rounded-xl bg-[#F1FBF6] px-3.5 py-3 text-[11px] leading-relaxed text-[#4C6355]">
             A regra só troca a categoria se ela for compatível com o tipo do lançamento. Uma categoria de entrada nunca é aplicada a uma saída.
           </p>
@@ -828,6 +851,11 @@ export default function OrganizationPage() {
                           <div className="min-w-0 flex-1">
                             <span className="block text-[12.5px] text-[#8A968D]">
                               {RULE_MATCH_LABELS[rule.matchType]} <span className="font-semibold text-[#0B1F14]">“{rule.matchValue}”</span>
+                              {rule.autoReconcile && (
+                                <span className="ml-2 rounded-[5px] bg-[#DFF6EA] px-[7px] py-[2px] text-[10.5px] font-semibold text-[#0A7A42]">
+                                  concilia sozinha
+                                </span>
+                              )}
                             </span>
                             <span className="mt-1 flex items-center gap-2 text-[13px] font-semibold">
                               <ChevronRightIcon size={13} />

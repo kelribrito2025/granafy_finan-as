@@ -483,6 +483,43 @@ export const reconciliationRouter = router({
       return { success: true, criados: input.parts.length } as const;
     }),
 
+  /**
+   * Os lançamentos que podem receber um grupo de movimentações.
+   *
+   * Só entram os de valor igual à soma do grupo: agrupar é dizer que aquelas
+   * linhas do extrato são, juntas, aquele lançamento — e isso só é verdade se
+   * o total bater.
+   */
+  groupCandidates: protectedProcedure
+    .input(z.object({ movementIds: z.array(z.number().int().positive()).min(2).max(50) }))
+    .query(async ({ ctx, input }) => {
+      const movements = (await Promise.all(input.movementIds.map(id => db.getBankMovement(ctx.user.id, id))))
+        .filter((movement): movement is NonNullable<typeof movement> => Boolean(movement));
+      if (movements.length < 2) return { total: 0, candidates: [] };
+
+      const total = movements.reduce((sum, movement) => sum + Number(movement.amount), 0);
+      const dates = movements.map(movement => movement.movementDate).sort();
+      const rows = await db.listUnlinkedTransactions(
+        ctx.user.id,
+        movements[0].accountId,
+        addDays(dates[0], -MAX_DATE_DISTANCE_DAYS),
+        addDays(dates[dates.length - 1], MAX_DATE_DISTANCE_DAYS)
+      );
+
+      return {
+        total: Math.round(total * 100) / 100,
+        candidates: rows
+          .filter(row => Math.round(Number(row.amount) * 100) === Math.round(total * 100))
+          .map(row => ({
+            id: row.id,
+            description: row.description,
+            transactionDate: row.transactionDate,
+            amount: Number(row.amount),
+            category: row.category,
+          })),
+      };
+    }),
+
   /** Agrupa várias movimentações num lançamento só. */
   group: protectedProcedure
     .input(z.object({
