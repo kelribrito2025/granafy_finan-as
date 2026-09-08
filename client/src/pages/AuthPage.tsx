@@ -28,7 +28,7 @@ function BrandPanel() {
       <div className="pointer-events-none absolute -bottom-44 -left-32 h-[380px] w-[380px] rounded-full bg-[#7EE2A8]/10 blur-3xl" />
 
       <div className="relative z-10">
-        <GranafyLogo size={44} tone="onDark" subtitle="Número Virtual LTDA" />
+        <GranafyLogo size={44} tone="onDark" subtitle="Powered by Bigteck" />
       </div>
 
       <div className="relative z-10 my-auto max-w-[540px] py-12">
@@ -140,7 +140,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       <section className="relative flex min-h-screen flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-12 xl:px-16">
         <ThemeToggle showLabel={false} className="absolute right-5 top-6 z-20 sm:right-10 sm:top-9 lg:right-12 xl:right-16" />
         <div className="flex items-center justify-between lg:hidden">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="lg:hidden" />
+          <GranafyLogo size={36} subtitle="Powered by Bigteck" className="lg:hidden" />
         </div>
 
         <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">

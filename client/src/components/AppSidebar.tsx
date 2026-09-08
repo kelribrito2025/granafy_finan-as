@@ -216,7 +216,7 @@ export function AppSidebar({ open, onClose, footer }: {
   const wideBody = (inPanel: boolean) => (
     <>
       <div className="flex items-center gap-2.5 px-1.5">
-        <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
+        <GranafyLogo size={36} subtitle="Powered by Bigteck" className="min-w-0 shrink-0" />
         <button
           type="button"
           aria-label="Fechar menu"
