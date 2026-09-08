@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
+import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, type AttachmentFolder } from "../attachments";
 import * as db from "../db";
 import { assertPeriodsOpen } from "../periodLock";
 import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
@@ -236,23 +237,6 @@ const ATTACHMENT_CONTENT_TYPES = [
   "image/jpeg",
   "image/webp",
 ] as const;
-
-/** Pastas de anexo. O nome entra na chave, então a lista é fechada. */
-const ATTACHMENT_FOLDERS = ["lancamentos", "bens"] as const;
-type AttachmentFolder = (typeof ATTACHMENT_FOLDERS)[number];
-
-/**
- * Todo anexo mora sob o prefixo do dono. Ler exige que a chave comece com um
- * prefixo do usuário da requisição, então uma chave vazada não serve para
- * alcançar o anexo de outra conta.
- */
-function attachmentPrefix(userId: number, folder: AttachmentFolder) {
-  return `${folder}/${userId}/`;
-}
-
-function ownsAttachment(userId: number, key: string) {
-  return ATTACHMENT_FOLDERS.some(folder => key.startsWith(attachmentPrefix(userId, folder)));
-}
 
 /**
  * As linhas que uma única submissão do formulário produz.
