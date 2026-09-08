@@ -140,7 +140,7 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
         </span>
       )}
       {tooltips && (
-        <span className="pointer-events-none absolute left-14 top-1/2 z-30 -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity delay-[400ms] duration-[120ms] group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-14 top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity delay-[400ms] duration-[120ms] group-hover:opacity-100">
           {label}
           <span className="absolute -left-1 top-1/2 -mt-1 h-2 w-2 rotate-45 bg-[#0B1F14]" />
         </span>
@@ -306,7 +306,7 @@ export function AppSidebar({ open, onClose, footer }: {
         tela pular embaixo do cursor.
       */}
       {mode === "hover" && hovering && (
-        <div className="absolute left-0 top-0 z-40 flex h-[calc(100vh-40px)] w-[236px] flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)]">
+        <div className="absolute left-0 top-0 z-[80] flex h-[calc(100vh-40px)] w-[236px] flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)]">
           {wideBody(true)}
         </div>
       )}
@@ -333,7 +333,12 @@ export function AppSidebar({ open, onClose, footer }: {
         {wideBody(false)}
       </aside>
 
-      {collapsed && <div className="sticky top-5 hidden xl:block">{rail}</div>}
+      {collapsed && (
+        <>
+          <div aria-hidden="true" className="hidden w-[76px] shrink-0 xl:block" />
+          <div className="fixed left-5 top-5 z-[70] hidden xl:block">{rail}</div>
+        </>
+      )}
     </>
   );
 }
