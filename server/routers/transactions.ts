@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { assertPeriodsOpen } from "../periodLock";
 import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
 import { storageGetSignedUrl, storagePut } from "../storage";
 
@@ -432,6 +433,10 @@ export const transactionsRouter = router({
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
     const rows = await buildRowsForCreate(ctx.user.id, input);
+    // Depois de montar: uma série recorrente ou uma transferência espalha
+    // linhas por vários meses e contas, e qualquer uma delas pode cair no mês
+    // fechado. Conferir só a data digitada deixaria as parcelas passarem.
+    await assertPeriodsOpen(ctx.user.id, rows.map(row => ({ accountId: row.accountId ?? null, date: row.transactionDate })));
     const records = await db.createTransactionSeries(ctx.user.id, rows);
     if (records.length !== rows.length) {
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
@@ -445,6 +450,15 @@ export const transactionsRouter = router({
     const { id, scope, ...values } = input;
     const existing = await db.getTransactionById(ctx.user.id, id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+
+    /*
+     * Os dois meses contam: tirar um lançamento de um mês fechado o desequilibra
+     * tanto quanto colocar um novo lá dentro.
+     */
+    await assertPeriodsOpen(ctx.user.id, [
+      { accountId: existing.accountId, date: existing.transactionDate },
+      { accountId: values.accountId ?? existing.accountId, date: values.transactionDate },
+    ]);
 
     const wasTransfer = Boolean(existing.transferGroupId);
     if (wasTransfer !== (values.type === "transferencia")) {
@@ -725,6 +739,7 @@ export const transactionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const existing = await db.getTransactionById(ctx.user.id, input.id);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+      await assertPeriodsOpen(ctx.user.id, [{ accountId: existing.accountId, date: existing.transactionDate }]);
 
       if (input.scope === "following" && existing.recurrenceGroupId) {
         const group = await db.getRecurrenceGroup(ctx.user.id, existing.recurrenceGroupId);
@@ -746,6 +761,8 @@ export const transactionsRouter = router({
     ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_DELETE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
   })).mutation(async ({ ctx, input }) => {
     const ids = Array.from(new Set(input.ids));
+    const alvos = await db.getTransactionsByIds(ctx.user.id, ids);
+    await assertPeriodsOpen(ctx.user.id, alvos.map(record => ({ accountId: record.accountId, date: record.transactionDate })));
     const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
     return { success: true, requestedCount: ids.length, deletedCount } as const;
   }),

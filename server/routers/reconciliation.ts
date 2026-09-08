@@ -224,6 +224,7 @@ export const reconciliationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const movement = await db.getBankMovement(ctx.user.id, input.movementId);
       if (!movement) throw new TRPCError({ code: "NOT_FOUND", message: "Movimentação não encontrada" });
+      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
 
       const existing = await db.listReconciliationLinks(ctx.user.id, [movement.id]);
       if (existing.length > 0) {
@@ -284,6 +285,10 @@ export const reconciliationRouter = router({
       }
 
       const dates = movements.map(movement => movement.movementDate).sort();
+      // O lote pode cruzar a virada do mês: basta uma ponta fechada para recusar.
+      await requireOpenPeriod(ctx.user.id, accountId, dates[0]);
+      await requireOpenPeriod(ctx.user.id, accountId, dates[dates.length - 1]);
+
       const [candidateRows, rules, existingLinks] = await Promise.all([
         db.listUnlinkedTransactions(
           ctx.user.id,

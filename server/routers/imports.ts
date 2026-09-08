@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { assertPeriodsOpen } from "../periodLock";
 import { findMatchingRule, type CategoryRule } from "@shared/categoryRules";
 import {
   applyImportClassification,
@@ -125,6 +126,12 @@ export const importsRouter = router({
   })).mutation(async ({ ctx, input }) => {
     const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
     if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "A conta selecionada não está disponível" });
+    /*
+     * O extrato costuma cobrir mais de um mês. Recusar o lote inteiro é o certo:
+     * importar só a parte aberta deixaria o arquivo pela metade sem o usuário
+     * saber, e ele reimportaria achando que faltou.
+     */
+    await assertPeriodsOpen(ctx.user.id, input.rows.map(row => ({ accountId: account.id, date: row.transactionDate })));
     const categoryIds = Array.from(new Set(input.rows.map(row => row.categoryId)));
     const categories = await Promise.all(categoryIds.map(id => db.getTransactionCategory(ctx.user.id, id)));
     if (categories.some(category => !category?.isActive)) throw new TRPCError({ code: "BAD_REQUEST", message: "Uma das categorias não está disponível" });

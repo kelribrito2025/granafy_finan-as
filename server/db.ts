@@ -1221,6 +1221,29 @@ export async function getReconciliationPeriod(userId: number, accountId: number,
   return rows[0];
 }
 
+/**
+ * Os meses que estão fechados agora.
+ *
+ * Reabrir não apaga a linha, só carimba `reopenedAt` — o histórico do
+ * fechamento precisa sobreviver à reabertura. Quem pergunta "posso escrever
+ * aqui?" quer só os que continuam fechados.
+ */
+export async function listClosedReconciliationPeriods(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      accountId: reconciliationPeriods.accountId,
+      year: reconciliationPeriods.year,
+      month: reconciliationPeriods.month,
+    })
+    .from(reconciliationPeriods)
+    .where(and(
+      eq(reconciliationPeriods.userId, userId),
+      isNull(reconciliationPeriods.reopenedAt)
+    ));
+}
+
 export async function closeReconciliationPeriod(input: {
   userId: number;
   accountId: number;
