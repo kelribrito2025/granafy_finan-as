@@ -21,6 +21,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
@@ -245,20 +246,39 @@ const STATUS_TONE: Record<RowStatus["tone"], string> = {
   neutral: "bg-[#F1F4F2] text-[#4C6355]",
 };
 
-function KpiCard({ label, value, valueClass, hint, hintClass }: {
+/**
+ * `highlight` põe o cartão sobre a superfície aurora — o mesmo destaque do
+ * caixa disponível na visão geral. Sobre esse fundo as cores de sinal saem de
+ * cena: verde ou vermelho sobre verde escuro não se lê.
+ */
+function KpiCard({ label, value, valueClass, hint, hintClass, highlight = false }: {
   label: string;
   value: string;
   valueClass?: string;
   hint: string;
   hintClass?: string;
+  highlight?: boolean;
 }) {
-  return (
-    <article className="flex flex-col gap-2.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
-      <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]">{label}</span>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? ""}`}>{value}</strong>
-      <span className={`text-[12px] ${hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
-    </article>
+  const content = (
+    <>
+      <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>
+        {label}
+      </span>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>
+        {value}
+      </strong>
+      <span className={`text-[12px] ${highlight ? "text-[#C5DACE]" : hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
+    </>
   );
+
+  if (highlight) {
+    return (
+      <AuroraSurface className="rounded-[20px] p-5">
+        <div className="flex flex-1 flex-col gap-2.5">{content}</div>
+      </AuroraSurface>
+    );
+  }
+  return <article className="flex flex-col gap-2.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">{content}</article>;
 }
 
 /** Chip removível de um filtro ativo. */
@@ -1213,6 +1233,7 @@ export default function LancamentosPage() {
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
+              highlight
               label="Entradas do período"
               value={formatMoney(summary.incoming)}
               valueClass="text-[#0A7A42]"

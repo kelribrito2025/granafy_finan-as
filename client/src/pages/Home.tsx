@@ -16,6 +16,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { greetingFor } from "@/lib/greeting";
 import { GranafyLogo } from "@/components/GranafyLogo";
@@ -353,22 +354,8 @@ export default function Home() {
           </header>
 
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
-            <section className="relative isolate flex min-h-[326px] flex-col gap-[18px] overflow-hidden rounded-[20px] bg-[#06120B] p-5 text-white sm:p-6">
-              {/* Aurora: camadas de verde e água sobre base escura. Os brilhos
-                  ficam no alto e à direita para o texto continuar sobre a parte
-                  mais escura do cartão. */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background: [
-                    "radial-gradient(135% 115% at 88% -12%, rgba(18,184,92,.58) 0%, rgba(18,184,92,.18) 44%, rgba(18,184,92,0) 70%)",
-                    "radial-gradient(120% 100% at 4% 106%, rgba(13,148,136,.34) 0%, rgba(13,148,136,0) 62%)",
-                    "radial-gradient(85% 60% at 66% 34%, rgba(126,226,168,.16) 0%, rgba(126,226,168,0) 62%)",
-                    "linear-gradient(158deg, #0D2A1B 0%, #08190F 58%, #06120B 100%)",
-                  ].join(", "),
-                }}
-              />
+            <AuroraSurface className="min-h-[326px] rounded-[20px] p-5 sm:p-6">
+              <div className="flex flex-1 flex-col gap-[18px]">
               <div className="relative z-10 flex items-center gap-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8FB39E]">Caixa disponível</span>
                 <span className="ml-auto rounded-lg bg-[#06120B]/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
@@ -393,7 +380,8 @@ export default function Home() {
                 <div><span className="block text-[11px] text-[#8FB39E]">Entradas no período</span><strong className="mt-0.5 block text-[17px]">{formatMoney(dashboard?.current.incoming ?? 0)}</strong></div>
                 <div><span className="block text-[11px] text-[#8FB39E]">Saídas no período</span><strong className="mt-0.5 block text-[17px] text-[#F4A497]">{formatMoney(dashboard?.current.outgoing ?? 0)}</strong></div>
               </div>
-            </section>
+              </div>
+            </AuroraSurface>
 
             <div className="flex min-w-0 flex-col gap-5">
               <div className="grid gap-5 sm:grid-cols-3">

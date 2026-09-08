@@ -19,6 +19,7 @@ import {
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -888,7 +889,12 @@ function StatementBlock({ sections, tone, shareBase }: {
   );
 }
 
-function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, captionClass }: {
+/**
+ * `highlight` põe o cartão sobre a superfície aurora — o mesmo destaque do
+ * caixa disponível na visão geral. Sobre esse fundo as cores de sinal saem de
+ * cena: verde ou vermelho sobre verde escuro não se lê.
+ */
+function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, captionClass, highlight = false }: {
   icon: IconlyIcon;
   chipClass: string;
   label: string;
@@ -896,19 +902,29 @@ function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, cap
   valueClass?: string;
   caption: string;
   captionClass?: string;
+  highlight?: boolean;
 }) {
-  return (
-    <article className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+  const content = (
+    <>
       <div className="flex items-center gap-2.5">
-        <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] ${chipClass}`}>
+        <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] ${highlight ? "bg-white/12 text-[#7EE2A8]" : chipClass}`}>
           <Icon size={17} />
         </span>
-        <span className="truncate text-[12.5px] font-semibold text-[#4C6355]">{label}</span>
+        <span className={`truncate text-[12.5px] font-semibold ${highlight ? "text-[#8FB39E]" : "text-[#4C6355]"}`}>{label}</span>
       </div>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? ""}`}>{value}</strong>
-      <span className={`text-[12px] font-semibold ${captionClass ?? "text-[#8A968D]"}`}>{caption}</span>
-    </article>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>{value}</strong>
+      <span className={`text-[12px] font-semibold ${highlight ? "text-[#C5DACE]" : captionClass ?? "text-[#8A968D]"}`}>{caption}</span>
+    </>
   );
+
+  if (highlight) {
+    return (
+      <AuroraSurface className="rounded-[20px] p-5">
+        <div className="flex flex-1 flex-col gap-3">{content}</div>
+      </AuroraSurface>
+    );
+  }
+  return <article className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">{content}</article>;
 }
 
 export default function BalanceSheetPage() {
@@ -1212,6 +1228,7 @@ export default function BalanceSheetPage() {
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
+                  highlight
                   icon={ChartIcon}
                   chipClass="bg-[#DFF6EA] text-[#0A7A42]"
                   label="Ativo total"
