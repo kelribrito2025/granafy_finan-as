@@ -139,10 +139,12 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
           {count > 99 ? "99+" : count}
         </span>
       )}
+      {/* O balão usa o mesmo verde do item selecionado: é a cor que já diz
+          "este é o item do menu", e o balão fala do item sob o cursor. */}
       {tooltips && (
-        <span className="pointer-events-none absolute left-14 top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity duration-[90ms] group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-14 top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-[9px] bg-[#12B85C] px-[11px] py-[7px] text-[12.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity duration-[90ms] group-hover:opacity-100">
           {label}
-          <span className="absolute -left-1 top-1/2 -mt-1 h-2 w-2 rotate-45 bg-[#0B1F14]" />
+          <span className="absolute -left-1 top-1/2 -mt-1 h-2 w-2 rotate-45 bg-[#12B85C]" />
         </span>
       )}
     </button>
