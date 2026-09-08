@@ -255,6 +255,23 @@ export function WalletIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Cartão de crédito, para "Plano e cobrança". Também desenhado à mão, e de
+ * propósito diferente da carteira de "Contas e categorias": um fala do
+ * dinheiro da empresa, o outro da assinatura do GranaFy.
+ */
+export function CardIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.75" y="5.25" width="18.5" height="13.5" rx="3.25" />
+        <path d="M2.75 9.75h18.5" />
+        <path d="M6.5 14.75h3.25" />
+      </g>
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Upload (ID 39036), master canvas 48 px.
 export function UploadIcon(props: IconlyIconProps) {
   return (

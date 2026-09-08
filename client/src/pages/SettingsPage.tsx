@@ -7,6 +7,7 @@ import {
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { GranafyLoader } from "@/components/GranafyLoader";
+import { PlanoCobranca } from "@/components/PlanoCobranca";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import {
@@ -24,11 +25,34 @@ import {
 } from "@shared/preferences";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
-type SettingsTab = "company" | "preferences";
+type SettingsTab = "company" | "preferences" | "billing";
+
+/*
+ * O menu do perfil aponta direto para uma aba (`?aba=plano`). O estado mora
+ * aqui, então a URL é lida na montagem e a cada mudança de busca — sem o
+ * efeito, clicar em "Plano e cobrança" já estando em Configurações trocaria
+ * a URL e deixaria a aba anterior na tela.
+ */
+const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
+  empresa: "company",
+  preferencias: "preferences",
+  plano: "billing",
+};
+
+const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
+  company: "empresa",
+  preferences: "preferencias",
+  billing: "plano",
+};
+
+function abaDaBusca(busca: string): SettingsTab | null {
+  const pedida = new URLSearchParams(busca).get("aba");
+  return pedida ? ABA_POR_PARAMETRO[pedida] ?? null : null;
+}
 
 const TAX_REGIMES = [
   ["simples", "Simples Nacional"],
@@ -77,7 +101,12 @@ export default function SettingsPage() {
   const [, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>("company");
+  const busca = useSearch();
+  const [tab, setTab] = useState<SettingsTab>(() => abaDaBusca(window.location.search) ?? "company");
+  useEffect(() => {
+    const pedida = abaDaBusca(busca);
+    if (pedida) setTab(pedida);
+  }, [busca]);
 
   const utils = trpc.useUtils();
   const companyQuery = trpc.settings.company.useQuery();
@@ -103,7 +132,11 @@ export default function SettingsPage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                {tab === "company" ? "Dados cadastrais e endereço da empresa" : "Como o sistema mostra períodos, valores e datas"}
+                {tab === "company"
+                  ? "Dados cadastrais e endereço da empresa"
+                  : tab === "preferences"
+                    ? "Como o sistema mostra períodos, valores e datas"
+                    : "Assinatura, uso do ciclo, faturas e forma de pagamento"}
               </p>
             </div>
             <HideValuesButton />
@@ -114,11 +147,17 @@ export default function SettingsPage() {
             {/* `self-start` porque numa linha flex o padrão é esticar: sem ele o
                 cartão de duas abas descia até o pé da página. */}
             <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:self-start xl:overflow-visible">
-              {([["company", "Empresa"], ["preferences", "Preferências"]] as const).map(([value, label]) => (
+              {([["company", "Empresa"], ["preferences", "Preferências"], ["billing", "Plano e cobrança"]] as const).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setTab(value)}
+                  onClick={() => {
+                    setTab(value);
+                    // A URL acompanha a aba: é ela que o menu do perfil aponta,
+                    // e sem sincronizar aqui um segundo clique lá não mudaria
+                    // nada — a busca continuaria a mesma.
+                    setLocation(`/configuracoes?aba=${PARAMETRO_POR_ABA[value]}`, { replace: true });
+                  }}
                   aria-current={tab === value ? "page" : undefined}
                   className={`whitespace-nowrap rounded-[12px] px-3.5 py-2.5 text-left text-[13.5px] transition ${
                     tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
@@ -130,7 +169,9 @@ export default function SettingsPage() {
             </nav>
 
             <div className="min-w-0 flex-1">
-              {tab === "company" ? (
+              {tab === "billing" ? (
+                <PlanoCobranca />
+              ) : tab === "company" ? (
                 <CompanyForm
                   initial={companyQuery.data}
                   loading={companyQuery.isLoading}
