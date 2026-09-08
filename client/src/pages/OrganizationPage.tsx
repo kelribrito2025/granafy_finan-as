@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
+  ArchiveIcon,
   ChartIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -17,6 +18,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { PageIcon } from "@/components/PageIcon";
 import { ModalIcon } from "@/components/ModalIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
@@ -660,6 +662,7 @@ export default function OrganizationPage() {
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <PageIcon icon={WalletIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">{section === "accounts" ? "Contas" : "Categorias"}</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{headerSubtitle}</p>
@@ -780,7 +783,7 @@ export default function OrganizationPage() {
                         <span className="text-[13px] text-[#4C6355]">{item.monthTransactionCount} no mês</span>
                         <span className={`text-right text-[15px] font-bold ${item.balance >= 0 ? "" : "text-[#B3261E]"}`}>{formatMoney(item.balance)}</span>
                         <div className="flex items-center justify-end gap-1">
-                          <button type="button" title={item.isActive ? "Arquivar" : "Reativar"} aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><CheckIcon size={15} /></button>
+                          <button type="button" title={item.isActive ? "Arquivar" : "Reativar"} aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button>
                           <button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button>
                           <button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button>
                         </div>

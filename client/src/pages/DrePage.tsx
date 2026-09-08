@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -424,6 +425,7 @@ export default function DrePage() {
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <PageIcon icon={DocumentIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">DRE</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">

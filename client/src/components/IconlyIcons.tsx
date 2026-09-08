@@ -316,6 +316,22 @@ export function TagIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Caixa de arquivo. O tique estava no lugar dela e dizia "concluído", que é
+ * outra ação — arquivar uma conta tira ela da lista, não a marca como feita.
+ */
+export function ArchiveIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.9" y="3.4" width="18.2" height="4.6" rx="1.7" />
+        <path d="M4.6 8v9.4a3.2 3.2 0 0 0 3.2 3.2h8.4a3.2 3.2 0 0 0 3.2-3.2V8" />
+        <path d="M9.75 12.15h4.5" />
+      </g>
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Upload (ID 39036), master canvas 48 px.
 export function UploadIcon(props: IconlyIconProps) {
   return (

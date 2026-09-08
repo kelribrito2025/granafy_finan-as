@@ -1,9 +1,11 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
+  ArrowUpIcon,
   CheckIcon,
   ChevronRightIcon,
   DownloadIcon,
@@ -305,7 +307,9 @@ export default function PagarReceberPage() {
   usePrivacy();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
-  const [arrangement, setArrangement] = useState<Arrangement>("lista");
+  // Duas colunas por padrão: a pergunta da tela é "o que entra contra o que
+  // sai", e lado a lado ela se responde sem rolar.
+  const [arrangement, setArrangement] = useState<Arrangement>("colunas");
   const [tab, setTab] = useState<Tab>("tudo");
   const [search, setSearch] = useState("");
   const [, setLocation] = useLocation();
@@ -388,6 +392,7 @@ export default function PagarReceberPage() {
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <PageIcon icon={ArrowUpIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">A pagar e receber</h1>
               <p className="mt-0.5 text-[12.5px] text-[#4C6355]">
