@@ -5,6 +5,7 @@ import {
   DATE_FORMATS,
   DEFAULT_PERIODS,
   DEFAULT_PREFERENCES,
+  SIDEBAR_MODES,
 } from "@shared/preferences";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
@@ -35,6 +36,10 @@ const preferencesValuesSchema = z.object({
   timeZone: z.string().trim().min(1).max(60),
   dateFormat: z.enum(DATE_FORMATS),
   fiscalYearStartMonth: z.number().int().min(1).max(12),
+  sidebarMode: z.enum(SIDEBAR_MODES),
+  sidebarTooltips: z.boolean(),
+  sidebarBadges: z.boolean(),
+  sidebarRemember: z.boolean(),
 });
 
 const EMPTY_COMPANY = companyValuesSchema.parse({});
@@ -61,6 +66,10 @@ export const settingsRouter = router({
       timeZone: saved.timeZone,
       dateFormat: saved.dateFormat,
       fiscalYearStartMonth: saved.fiscalYearStartMonth,
+      sidebarMode: saved.sidebarMode,
+      sidebarTooltips: saved.sidebarTooltips,
+      sidebarBadges: saved.sidebarBadges,
+      sidebarRemember: saved.sidebarRemember,
     };
   }),
 

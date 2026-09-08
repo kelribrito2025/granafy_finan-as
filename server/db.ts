@@ -795,6 +795,32 @@ export async function getUserPreferences(userId: number) {
   return rows[0];
 }
 
+/**
+ * Só as contagens que a barra lateral recolhida mostra na bolinha.
+ *
+ * A tela de títulos carrega todos os lançamentos para montar a lista; a barra
+ * aparece em todas as páginas e não pode pagar esse preço, então aqui é COUNT
+ * no banco.
+ */
+export async function countOpenTitles(userId: number, todayIso: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [row] = await db
+    .select({
+      open: sql<number>`COUNT(*)`,
+      overdue: sql<number>`SUM(CASE WHEN ${financialTransactions.transactionDate} < ${todayIso} THEN 1 ELSE 0 END)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.status, "Pendente"),
+      sql`${financialTransactions.type} <> 'transferencia'`
+    ));
+
+  return { open: Number(row?.open ?? 0), overdue: Number(row?.overdue ?? 0) };
+}
+
 export async function saveUserPreferences(userId: number, values: Omit<InsertUserPreferences, "userId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

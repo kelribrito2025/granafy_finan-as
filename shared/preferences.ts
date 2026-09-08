@@ -1,10 +1,12 @@
 export const DEFAULT_PERIODS = ["mes", "trimestre", "ano"] as const;
 export const CURRENCIES = ["BRL", "USD", "EUR"] as const;
 export const DATE_FORMATS = ["dmy", "mdy", "iso"] as const;
+export const SIDEBAR_MODES = ["expandido", "icones", "hover"] as const;
 
 export type DefaultPeriod = (typeof DEFAULT_PERIODS)[number];
 export type Currency = (typeof CURRENCIES)[number];
 export type DateFormat = (typeof DATE_FORMATS)[number];
+export type SidebarMode = (typeof SIDEBAR_MODES)[number];
 
 export type Preferences = {
   defaultPeriod: DefaultPeriod;
@@ -13,6 +15,14 @@ export type Preferences = {
   dateFormat: DateFormat;
   /** Mês em que o exercício começa, 1-12. */
   fiscalYearStartMonth: number;
+  /** Como a barra lateral abre o painel. */
+  sidebarMode: SidebarMode;
+  /** Tooltip com o nome do item quando a barra está recolhida. */
+  sidebarTooltips: boolean;
+  /** Bolinha com o número de pendências sobre o ícone recolhido. */
+  sidebarBadges: boolean;
+  /** Recolher na mão passa a valer na próxima visita. */
+  sidebarRemember: boolean;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -21,6 +31,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   timeZone: "America/Sao_Paulo",
   dateFormat: "dmy",
   fiscalYearStartMonth: 1,
+  sidebarMode: "expandido",
+  sidebarTooltips: true,
+  sidebarBadges: true,
+  sidebarRemember: false,
 };
 
 /**
@@ -83,4 +97,24 @@ export function fiscalYearRange(preferences: Preferences, referenceIso: string) 
     start: `${startYear}-${String(startMonth).padStart(2, "0")}-01`,
     endExclusive,
   };
+}
+
+export const SIDEBAR_MODE_LABELS: Record<SidebarMode, { name: string; hint: string }> = {
+  expandido: {
+    name: "Sempre expandido",
+    hint: "Ícone e nome sempre visíveis. Melhor para telas largas.",
+  },
+  icones: {
+    name: "Somente ícones",
+    hint: "Barra estreita de 76px. O nome aparece num tooltip ao passar o mouse.",
+  },
+  hover: {
+    name: "Expandir ao passar",
+    hint: "Fica recolhida e abre sobre o conteúdo enquanto o mouse estiver nela.",
+  },
+};
+
+/** A barra nasce recolhida nos dois modos que não são "sempre expandido". */
+export function startsCollapsed(mode: SidebarMode) {
+  return mode !== "expandido";
 }

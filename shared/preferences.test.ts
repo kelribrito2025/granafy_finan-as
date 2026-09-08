@@ -4,6 +4,9 @@ import {
   fiscalYearRange,
   formatDateWith,
   formatMoneyWith,
+  SIDEBAR_MODE_LABELS,
+  SIDEBAR_MODES,
+  startsCollapsed,
   todayIn,
   type Preferences,
 } from "./preferences";
@@ -90,5 +93,30 @@ describe("fiscalYearRange", () => {
   it("tolera mês fora da faixa", () => {
     expect(fiscalYearRange(prefs({ fiscalYearStartMonth: 0 }), "2026-06-15").start).toBe("2026-01-01");
     expect(fiscalYearRange(prefs({ fiscalYearStartMonth: 99 }), "2026-06-15").start).toBe("2025-12-01");
+  });
+});
+
+describe("startsCollapsed", () => {
+  it("só o modo expandido nasce com a barra inteira", () => {
+    expect(startsCollapsed("expandido")).toBe(false);
+    expect(startsCollapsed("icones")).toBe(true);
+    expect(startsCollapsed("hover")).toBe(true);
+  });
+});
+
+describe("DEFAULT_PREFERENCES", () => {
+  it("nasce com a barra inteira, tooltip e contador ligados e sem lembrar estado", () => {
+    expect(DEFAULT_PREFERENCES.sidebarMode).toBe("expandido");
+    expect(DEFAULT_PREFERENCES.sidebarTooltips).toBe(true);
+    expect(DEFAULT_PREFERENCES.sidebarBadges).toBe(true);
+    expect(DEFAULT_PREFERENCES.sidebarRemember).toBe(false);
+  });
+
+  it("descreve os três modos que a tela de preferências oferece", () => {
+    expect(SIDEBAR_MODES.map(mode => SIDEBAR_MODE_LABELS[mode].name)).toEqual([
+      "Sempre expandido",
+      "Somente ícones",
+      "Expandir ao passar",
+    ]);
   });
 });

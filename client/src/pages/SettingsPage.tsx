@@ -1,17 +1,8 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { ConnectedAccounts } from "@/components/ConnectedAccounts";
-import { GranafyLogo } from "@/components/GranafyLogo";
+import { AppSidebar } from "@/components/AppSidebar";
 import {
-  ArrowUpIcon,
-  ChartIcon,
-  CheckIcon,
   ChevronRightIcon,
-  CloseIcon,
-  DashboardIcon,
-  DocumentIcon,
   MenuIcon,
-  SettingsIcon,
-  TrendUpIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -22,32 +13,19 @@ import {
   CURRENCY_LABELS,
   CURRENCY_LOCALES,
   DEFAULT_PREFERENCES,
+  SIDEBAR_MODES,
+  SIDEBAR_MODE_LABELS,
   type Currency,
   type DateFormat,
   type DefaultPeriod,
   type Preferences,
+  type SidebarMode,
 } from "@shared/preferences";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
-type NavItem = { label: string; icon: IconlyIcon; disabled?: boolean };
 type SettingsTab = "company" | "preferences";
-
-const panelItems: NavItem[] = [
-  { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "A pagar e receber", icon: ArrowUpIcon },
-  { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon, disabled: true },
-];
-const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon },
-  { label: "Balanço Patrimonial", icon: ChartIcon },
-];
-const organizationItems: NavItem[] = [
-  { label: "Contas e categorias", icon: SettingsIcon },
-];
 
 const TAX_REGIMES = [
   ["simples", "Simples Nacional"],
@@ -88,65 +66,6 @@ const MONTHS = [
 const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
 const labelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
-function NavGroup({ title, items, active = "", onSelect }: {
-  title: string;
-  items: NavItem[];
-  active?: string;
-  onSelect: (label: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-[3px]">
-      <span className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#B3BFB7]">{title}</span>
-      {items.map(({ label, icon: Icon, disabled = false }) => (
-        <button
-          key={label}
-          type="button"
-          disabled={disabled}
-          title={disabled ? "Página em desenvolvimento" : undefined}
-          onClick={() => onSelect(label)}
-          className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[10px] text-left text-[13px] transition active:scale-[.98] ${
-            label === active
-              ? "bg-[#12B85C] font-bold text-white"
-              : disabled
-                ? "cursor-not-allowed text-[#A8B1AB] opacity-55"
-                : "text-[#28382E] hover:bg-[#F1FBF6]"
-          }`}
-        >
-          <Icon size={16} />
-          <span className="truncate">{label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [, setLocation] = useLocation();
-  const select = (label: string) => {
-    onClose();
-    if (label === "Visão geral") setLocation("/");
-    else if (label === "Lançamentos") setLocation("/lancamentos");
-    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
-    else if (label === "DRE") setLocation("/dre");
-    else if (label === "Fluxo de caixa") setLocation("/fluxo-de-caixa");
-    else if (label === "A pagar e receber") setLocation("/a-pagar-e-receber");
-    else if (label === "Contas e categorias") setLocation("/organizacao");
-    else toast.info(`${label} ainda não está disponível.`);
-  };
-  return (
-    <>
-      {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
-        <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
-        <NavGroup title="Painel" items={panelItems} onSelect={select} />
-        <NavGroup title="Análise" items={analysisItems} onSelect={select} />
-        <NavGroup title="Organização" items={organizationItems} onSelect={select} />
-        <ConnectedAccounts className="mt-auto" />
-      </aside>
-    </>
-  );
-}
-
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -170,7 +89,7 @@ export default function SettingsPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
@@ -388,6 +307,60 @@ function CompanyForm({ initial, loading, pending, onSave }: {
   );
 }
 
+/** Chave liga/desliga das opções do menu. */
+function Toggle({ checked, onChange, label, hint }: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-3 rounded-[14px] px-3.5 py-3 text-left transition hover:bg-[#F8FAF9]"
+    >
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[13.5px] font-semibold">{label}</span>
+        <span className="text-[12px] leading-relaxed text-[#4C6355]">{hint}</span>
+      </span>
+      <span className={`flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition ${checked ? "justify-end bg-[#12B85C]" : "justify-start bg-[#D8E2DB]"}`}>
+        <span className="h-5 w-5 rounded-full bg-white" />
+      </span>
+    </button>
+  );
+}
+
+/** Miniatura do comportamento: barra à esquerda e conteúdo à direita. */
+function SidebarPreview({ mode }: { mode: SidebarMode }) {
+  const wide = mode === "expandido";
+  return (
+    <div className={`relative flex h-[74px] gap-2 rounded-[11px] p-2 ${wide ? "bg-white" : "bg-[#F8FAF9]"}`}>
+      <div className={`flex shrink-0 flex-col gap-[5px] ${wide ? "w-14" : "w-[22px]"}`}>
+        <span className="h-3 rounded bg-[#12B85C]" />
+        <span className="h-2 rounded-sm bg-[#DFF6EA]" />
+        <span className="h-2 rounded-sm bg-[#DFF6EA]" />
+        <span className="h-2 rounded-sm bg-[#DFF6EA]" />
+      </div>
+      <div className="flex-1 rounded-md bg-[#F1F4F2]" />
+      {mode === "icones" && (
+        <span className="absolute left-9 top-[26px] rounded-[7px] bg-[#0B1F14] px-2.5 py-1 text-[10.5px] font-semibold text-white">
+          Lançamentos
+        </span>
+      )}
+      {mode === "hover" && (
+        <span className="absolute inset-y-2 left-2 flex w-[58px] flex-col gap-[5px] rounded-lg border-[1.5px] border-[#12B85C] bg-white p-1.5">
+          <span className="h-[9px] rounded-sm bg-[#12B85C]" />
+          <span className="h-[7px] rounded-sm bg-[#DFF6EA]" />
+          <span className="h-[7px] rounded-sm bg-[#DFF6EA]" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PreferencesForm({ initial, loading, pending, onSave }: {
   initial: Preferences | undefined;
   loading: boolean;
@@ -466,6 +439,57 @@ function PreferencesForm({ initial, loading, pending, onSave }: {
         <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3.5 py-3 text-[11px] leading-relaxed text-[#725517]">
           A moeda muda apenas como o valor é escrito. Nada é convertido: R$ 100 vira $ 100,00, não o equivalente em dólar.
         </p>
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Menu lateral</h2>
+        <p className="mt-0.5 text-[12.5px] text-[#8A968D]">Como a barra de navegação se comporta ao abrir o painel</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {SIDEBAR_MODES.map(mode => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setForm({ ...form, sidebarMode: mode })}
+              aria-pressed={form.sidebarMode === mode}
+              className={`flex flex-col gap-3 rounded-[14px] p-4 text-left transition ${
+                form.sidebarMode === mode
+                  ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                  : "border border-[#E3EAE5] hover:bg-[#F8FAF9]"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${form.sidebarMode === mode ? "bg-[#12B85C]" : "border-[1.5px] border-[#C9D5CD]"}`}>
+                  {form.sidebarMode === mode && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </span>
+                <span className={`text-[14px] font-semibold ${form.sidebarMode === mode ? "text-[#0A7A42]" : ""}`}>
+                  {SIDEBAR_MODE_LABELS[mode].name}
+                </span>
+              </span>
+              <SidebarPreview mode={mode} />
+              <span className="text-[12px] leading-relaxed text-[#4C6355]">{SIDEBAR_MODE_LABELS[mode].hint}</span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-col">
+          <Toggle
+            checked={form.sidebarTooltips}
+            onChange={value => setForm({ ...form, sidebarTooltips: value })}
+            label="Mostrar tooltip com o nome do menu"
+            hint="aparece após 0,4s sobre cada ícone quando a barra está recolhida"
+          />
+          <Toggle
+            checked={form.sidebarBadges}
+            onChange={value => setForm({ ...form, sidebarBadges: value })}
+            label="Mostrar contadores nos ícones"
+            hint="bolinha com o número de títulos abertos sobre o ícone"
+          />
+          <Toggle
+            checked={form.sidebarRemember}
+            onChange={value => setForm({ ...form, sidebarRemember: value })}
+            label="Lembrar do estado ao recarregar"
+            hint="recolher a barra na mão passa a valer na próxima visita, neste navegador"
+          />
+        </div>
       </article>
 
       <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">

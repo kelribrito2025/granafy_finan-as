@@ -93,6 +93,10 @@ async function loadLedger(userId: number) {
 }
 
 export const payablesRouter = router({
+  /** Só os números da bolinha da barra lateral: uma contagem, não a lista. */
+  badges: protectedProcedure.query(({ ctx }) => db.countOpenTitles(ctx.user.id, todayIso())),
+
+
   /**
    * Os títulos abertos do mês, mais os atrasados de qualquer data.
    *

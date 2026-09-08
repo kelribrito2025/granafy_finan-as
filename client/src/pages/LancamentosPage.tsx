@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { AppSidebar } from "@/components/AppSidebar";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -6,7 +7,6 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CloseIcon,
-  DashboardIcon,
   DeleteIcon,
   DocumentIcon,
   DownloadIcon,
@@ -15,15 +15,11 @@ import {
   MenuIcon,
   PlusIcon,
   SearchIcon,
-  SettingsIcon,
-  TrendUpIcon,
   UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
-import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
-import { GranafyLogo } from "@/components/GranafyLogo";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -37,13 +33,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
-type NavItem = {
-  label: string;
-  icon: IconlyIcon;
-  disabled?: boolean;
-  badge?: string;
-  badgeTone?: "positive" | "negative" | "neutral";
-};
 
 type TransactionType = "entrada" | "saida" | "transferencia";
 
@@ -86,23 +75,6 @@ type OrganizationOptions = {
 };
 
 const EMPTY_TRANSACTIONS: Transaction[] = [];
-
-const panelItems: NavItem[] = [
-  { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "A pagar e receber", icon: ArrowUpIcon },
-  { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon, disabled: true },
-];
-
-const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon },
-  { label: "Balanço Patrimonial", icon: ChartIcon },
-];
-
-const organizationItems: NavItem[] = [
-  { label: "Contas e categorias", icon: SettingsIcon },
-];
 
 const badgeClass = {
   positive: "bg-[#DFF6EA] text-[#0A7A42]",
@@ -178,54 +150,6 @@ function defaultDateForMonth(year: number, month: number) {
   const now = new Date();
   if (now.getFullYear() === year && now.getMonth() + 1 === month) return now.toISOString().slice(0, 10);
   return `${year}-${String(month).padStart(2, "0")}-01`;
-}
-
-function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[]; onSelect: (label: string) => void }) {
-  return (
-    <div className="flex flex-col gap-[3px]">
-      <span className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#B3BFB7]">{title}</span>
-      {items.map(({ label, icon: Icon, disabled = false, badge, badgeTone = "neutral" }) => {
-        const selected = label === "Lançamentos";
-        return (
-          <button key={label} type="button" disabled={disabled} aria-disabled={disabled} title={disabled ? "Página em desenvolvimento" : undefined} onClick={() => onSelect(label)} className={`group flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition-all duration-150 active:scale-[0.98] ${selected ? "bg-[#12B85C] font-bold text-white" : disabled ? "cursor-not-allowed text-[#A8B1AB] opacity-55" : "text-[#28382E] hover:bg-[#F1FBF6]"}`}>
-            <Icon size={16} />
-            <span className="truncate">{label}</span>
-            {badge && <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${selected ? "bg-white/18 text-white" : badgeClass[badgeTone]}`}>{badge}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [, setLocation] = useLocation();
-  const select = (label: string) => {
-    onClose();
-    if (label === "Visão geral") setLocation("/");
-    else if (label === "Contas e categorias") setLocation("/organizacao");
-    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
-    else if (label === "DRE") setLocation("/dre");
-    else if (label === "Fluxo de caixa") setLocation("/fluxo-de-caixa");
-    else if (label === "A pagar e receber") setLocation("/a-pagar-e-receber");
-    else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
-  };
-
-  return (
-    <>
-      {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
-        <div className="flex items-center gap-2.5 px-1.5">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
-          <button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button>
-        </div>
-        <NavGroup title="Painel" items={panelItems} onSelect={select} />
-        <NavGroup title="Análise" items={analysisItems} onSelect={select} />
-        <NavGroup title="Organização" items={organizationItems} onSelect={select} />
-        <ConnectedAccounts className="mt-auto" />
-      </aside>
-    </>
-  );
 }
 
 function AccountBadge({ account }: { account: string }) {
@@ -1197,7 +1121,7 @@ export default function LancamentosPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
         <section className="flex min-w-0 flex-1 flex-col gap-4 pb-1">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>

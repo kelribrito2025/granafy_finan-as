@@ -1,18 +1,9 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
-import { ConnectedAccounts } from "@/components/ConnectedAccounts";
-import { GranafyLogo } from "@/components/GranafyLogo";
+import { AppSidebar } from "@/components/AppSidebar";
 import {
-  ArrowUpIcon,
-  ChartIcon,
-  CheckIcon,
   ChevronRightIcon,
-  CloseIcon,
-  DashboardIcon,
-  DocumentIcon,
   DownloadIcon,
   MenuIcon,
-  SettingsIcon,
-  TrendUpIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -24,7 +15,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
-type NavItem = { label: string; icon: IconlyIcon; disabled?: boolean };
 type View = "dia" | "semana" | "mes";
 type Outputs = inferRouterOutputs<AppRouter>["cashflow"];
 type DailyData = Outputs["daily"];
@@ -35,87 +25,14 @@ const MONTH_LABELS = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-const panelItems: NavItem[] = [
-  { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon },
-  { label: "A pagar e receber", icon: ArrowUpIcon },
-  { label: "Lançamentos", icon: DocumentIcon },
-  { label: "Conciliação", icon: CheckIcon, disabled: true },
-];
-const analysisItems: NavItem[] = [
-  { label: "DRE", icon: DocumentIcon },
-  { label: "Balanço Patrimonial", icon: ChartIcon },
-];
-const organizationItems: NavItem[] = [
-  { label: "Contas e categorias", icon: SettingsIcon },
-];
-
-function NavGroup({ title, items, onSelect }: { title: string; items: NavItem[]; onSelect: (label: string) => void }) {
+/** Cartão do pé do menu com o dia mais baixo da projeção. */
+function LowestBalanceCard({ lowest }: { lowest: { date: string; balance: number } }) {
   return (
-    <div className="flex flex-col gap-[3px]">
-      <span className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#B3BFB7]">{title}</span>
-      {items.map(({ label, icon: Icon, disabled = false }) => (
-        <button
-          key={label}
-          type="button"
-          disabled={disabled}
-          title={disabled ? "Página em desenvolvimento" : undefined}
-          onClick={() => onSelect(label)}
-          className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition active:scale-[.98] ${
-            label === "Fluxo de caixa"
-              ? "bg-[#12B85C] font-bold text-white"
-              : disabled
-                ? "cursor-not-allowed text-[#A8B1AB] opacity-55"
-                : "text-[#28382E] hover:bg-[#F1FBF6]"
-          }`}
-        >
-          <Icon size={16} />
-          <span className="truncate">{label}</span>
-        </button>
-      ))}
+    <div className="flex flex-col gap-1.5 rounded-[16px] bg-[#F1FBF6] p-3.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Menor saldo previsto</span>
+      <span className="text-[20px] font-bold text-[#0A7A42]">{formatMoney(lowest.balance)}</span>
+      <span className="text-[11.5px] text-[#4C6355]">em {formatDate(lowest.date)}</span>
     </div>
-  );
-}
-
-function Sidebar({ open, onClose, lowest }: {
-  open: boolean;
-  onClose: () => void;
-  lowest: { date: string; balance: number } | null;
-}) {
-  const [, setLocation] = useLocation();
-  const select = (label: string) => {
-    onClose();
-    if (label === "Visão geral") setLocation("/");
-    else if (label === "A pagar e receber") setLocation("/a-pagar-e-receber");
-    else if (label === "Lançamentos") setLocation("/lancamentos");
-    else if (label === "DRE") setLocation("/dre");
-    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
-    else if (label === "Contas e categorias") setLocation("/organizacao");
-    else if (label !== "Fluxo de caixa") toast.info(`${label} ainda não está disponível.`);
-  };
-
-  return (
-    <>
-      {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
-        <div className="flex items-center gap-2.5 px-1.5">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
-          <button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button>
-        </div>
-        <NavGroup title="Painel" items={panelItems} onSelect={select} />
-        <NavGroup title="Análise" items={analysisItems} onSelect={select} />
-        <NavGroup title="Organização" items={organizationItems} onSelect={select} />
-        {lowest ? (
-          <div className="mt-auto flex flex-col gap-1.5 rounded-[16px] bg-[#F1FBF6] p-3.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">Menor saldo previsto</span>
-            <span className="text-[20px] font-bold text-[#0A7A42]">{formatMoney(lowest.balance)}</span>
-            <span className="text-[11.5px] text-[#4C6355]">em {formatDate(lowest.date)}</span>
-          </div>
-        ) : (
-          <ConnectedAccounts className="mt-auto" />
-        )}
-      </aside>
-    </>
   );
 }
 
@@ -435,7 +352,11 @@ export default function FluxoCaixaPage() {
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
       <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
-        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} lowest={daily?.lowest ?? null} />
+        <AppSidebar
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          footer={daily?.lowest ? <LowestBalanceCard lowest={daily.lowest} /> : undefined}
+        />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">

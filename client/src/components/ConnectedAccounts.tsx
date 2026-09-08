@@ -3,14 +3,37 @@ import { trpc } from "@/lib/trpc";
 
 
 
+/** Total abreviado que cabe na pílula de 40px do menu recolhido: "112k". */
+function compact(value: number) {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000) return `${Math.round(value / 100_000) / 10}M`;
+  if (absolute >= 1_000) return `${Math.round(value / 1_000)}k`;
+  return String(Math.round(value));
+}
+
 /**
  * Rodapé da sidebar: as contas do usuário com o saldo de cada uma. Substitui o
  * antigo selo do banco de dados, que dizia respeito à infraestrutura e não ao
  * dinheiro de quem usa.
  */
-export function ConnectedAccounts({ className = "" }: { className?: string }) {
+export function ConnectedAccounts({ className = "", variant = "card" }: {
+  className?: string;
+  variant?: "card" | "rail";
+}) {
   const accountsQuery = trpc.organization.accountBalances.useQuery();
   const accounts = accountsQuery.data ?? [];
+
+  if (variant === "rail") {
+    const total = accounts.reduce((sum, account) => sum + account.balance, 0);
+    return (
+      <span
+        title={`Saldo somado das contas: ${money(total)}`}
+        className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1FBF6] text-[11px] font-bold text-[#0A7A42] ${className}`}
+      >
+        {accountsQuery.isLoading ? "—" : compact(total)}
+      </span>
+    );
+  }
 
   return (
     <div className={`rounded-2xl bg-[#F1FBF6] p-3.5 ${className}`}>

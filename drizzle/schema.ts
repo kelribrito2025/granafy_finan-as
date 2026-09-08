@@ -122,6 +122,12 @@ export const userPreferences = mysqlTable("userPreferences", {
   dateFormat: mysqlEnum("dateFormat", ["dmy", "mdy", "iso"]).default("dmy").notNull(),
   /** Mês em que o exercício começa, 1-12. */
   fiscalYearStartMonth: int("fiscalYearStartMonth").default(1).notNull(),
+  /** Como a barra lateral abre: inteira, só ícones ou recolhida que expande no hover. */
+  sidebarMode: mysqlEnum("sidebarMode", ["expandido", "icones", "hover"]).default("expandido").notNull(),
+  sidebarTooltips: boolean("sidebarTooltips").default(true).notNull(),
+  sidebarBadges: boolean("sidebarBadges").default(true).notNull(),
+  /** Quando ligado, recolher a barra na mão vira o estado da próxima visita. */
+  sidebarRemember: boolean("sidebarRemember").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
