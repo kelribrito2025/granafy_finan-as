@@ -34,14 +34,14 @@ const PLANOS: Plano[] = [
     id: "essencial",
     nome: "Essencial",
     chamada: "para quem está saindo da planilha",
-    precoMensal: 89,
+    precoMensal: 15,
     destaques: ["1 empresa e 2 contas", "Fluxo de caixa e lançamentos", "A pagar e receber", "2 usuários"],
   },
   {
     id: "controle",
     nome: "Controle",
     chamada: "o plano de quem fecha o mês",
-    precoMensal: 189,
+    precoMensal: 29,
     destaques: [
       "Conciliação com sugestões e regras",
       "DRE, balanço e patrimônio",
@@ -53,7 +53,7 @@ const PLANOS: Plano[] = [
     id: "grupo",
     nome: "Grupo",
     chamada: "para holdings e múltiplos CNPJ",
-    precoMensal: 389,
+    precoMensal: 49,
     destaques: [
       "Até 5 empresas no mesmo login",
       "Relatórios consolidados do grupo",
@@ -66,12 +66,21 @@ const PLANOS: Plano[] = [
 /** O anual dá dois meses: doze pelo preço de dez, que são os 17% do seletor. */
 const DESCONTO_ANUAL = 10 / 12;
 
+/** O plano assinado hoje. Tudo o que a tela mostra de preço sai daqui. */
+const PLANO_ATUAL: Plano["id"] = "controle";
+const planoAtual = PLANOS.find(plano => plano.id === PLANO_ATUAL)!;
+
+/** "R$ 29,00" — com centavos, que é como fatura e cobrança aparecem. */
+function dinheiro(valor: number) {
+  return `R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 const ASSINATURA = {
-  plano: "Controle",
+  plano: planoAtual.nome,
   ciclo: "mensal",
   descricao: "Conciliação com sugestões, DRE, balanço e patrimônio. Contas ilimitadas e até 5 usuários.",
   proximaCobranca: "05/10/2026",
-  valor: "R$ 189,00",
+  valor: dinheiro(planoAtual.precoMensal),
   assinanteDesde: "março de 2026",
   cicloAtual: "05/09 a 05/10",
 };
@@ -83,12 +92,14 @@ const USO = [
   { rotulo: "Lançamentos no mês", usado: 318, limite: "de ilimitados", proporcao: 0.55, estourado: false },
 ];
 
+const PRECO = Object.fromEntries(PLANOS.map(plano => [plano.id, plano.precoMensal])) as Record<Plano["id"], number>;
+
 const FATURAS = [
-  { data: "05/09/2026", descricao: "Controle · mensal", situacao: "Paga", valor: "R$ 189,00" },
-  { data: "05/08/2026", descricao: "Controle · mensal", situacao: "Paga", valor: "R$ 189,00" },
-  { data: "05/07/2026", descricao: "Controle · mensal", situacao: "Paga", valor: "R$ 189,00" },
-  { data: "05/06/2026", descricao: "Essencial · mensal", situacao: "Paga", valor: "R$ 89,00" },
-  { data: "05/05/2026", descricao: "Essencial · mensal", situacao: "Paga", valor: "R$ 89,00" },
+  { data: "05/09/2026", descricao: "Controle · mensal", situacao: "Paga", valor: dinheiro(PRECO.controle) },
+  { data: "05/08/2026", descricao: "Controle · mensal", situacao: "Paga", valor: dinheiro(PRECO.controle) },
+  { data: "05/07/2026", descricao: "Controle · mensal", situacao: "Paga", valor: dinheiro(PRECO.controle) },
+  { data: "05/06/2026", descricao: "Essencial · mensal", situacao: "Paga", valor: dinheiro(PRECO.essencial) },
+  { data: "05/05/2026", descricao: "Essencial · mensal", situacao: "Paga", valor: dinheiro(PRECO.essencial) },
 ];
 
 const PAGAMENTO = { bandeira: "VISA", final: "•••• 4471", validade: "vence em 09/2029", notaFiscal: "financeiro@bigteck.com.br" };
@@ -111,8 +122,6 @@ const COMPARACAO: Array<{ recurso: string; valores: [boolean | string, boolean |
   { recurso: "Onboarding assistido", valores: [false, false, true] },
 ];
 
-const PLANO_ATUAL: Plano["id"] = "controle";
-
 function precoDe(plano: Plano, anual: boolean) {
   const valor = anual ? plano.precoMensal * DESCONTO_ANUAL : plano.precoMensal;
   return valor.toLocaleString("pt-BR", { minimumFractionDigits: valor % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
@@ -130,7 +139,7 @@ function Tique() {
 
 /** Confirmação da troca, com a conta proporcional feita antes de cobrar. */
 function ConfirmarTroca({ destino, onClose }: { destino: Plano; onClose: () => void }) {
-  const atual = PLANOS.find(plano => plano.id === PLANO_ATUAL)!;
+  const atual = planoAtual;
   /*
    * Faltando 20 dos 30 dias do ciclo, a diferença cobrada hoje é dois terços
    * dela. A conta some quando o servidor passar a devolver o valor: é ele
@@ -138,7 +147,6 @@ function ConfirmarTroca({ destino, onClose }: { destino: Plano; onClose: () => v
    */
   const diasRestantes = 20;
   const diferenca = ((destino.precoMensal - atual.precoMensal) * diasRestantes) / 30;
-  const dinheiro = (valor: number) => `R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div
@@ -319,7 +327,7 @@ function MudarDePlano({ onVoltar }: { onVoltar: () => void }) {
                       : "text-[#0A7A42] ring-1 ring-[#C7E8D6] hover:bg-[#F1FBF6]"
                   }`}
                 >
-                  {plano.precoMensal > PLANOS.find(item => item.id === PLANO_ATUAL)!.precoMensal
+                  {plano.precoMensal > planoAtual.precoMensal
                     ? "Fazer upgrade"
                     : "Mudar para este plano"}
                 </button>
@@ -433,7 +441,7 @@ export function PlanoCobranca() {
           </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <strong className="text-[26px] font-bold tracking-[-.02em]">{ASSINATURA.plano}</strong>
-            <span className="text-[15px] font-semibold text-[#7EE2A8]">R$ 189/mês</span>
+            <span className="text-[15px] font-semibold text-[#7EE2A8]">R$ {planoAtual.precoMensal}/mês</span>
           </div>
           <p className="text-[12.5px] leading-relaxed text-[#C5DACE]">{ASSINATURA.descricao}</p>
           <div className="mt-auto grid gap-3 border-t border-[#1F3D2B] pt-4 sm:grid-cols-3">
@@ -562,7 +570,8 @@ export function PlanoCobranca() {
           <div className="flex flex-col gap-2.5 rounded-[20px] bg-[#F1FBF6] p-5 ring-1 ring-[#C7E8D6]">
             <strong className="text-[13.5px] font-bold text-[#0A7A42]">Economize 2 meses no anual</strong>
             <p className="text-[12.5px] leading-relaxed text-[#28382E]">
-              Mudando para o ciclo anual, o {ASSINATURA.plano} sai por R$ 157,50/mês — R$ 1.890 por ano.
+              Mudando para o ciclo anual, o {ASSINATURA.plano} sai por{" "}
+              {dinheiro(planoAtual.precoMensal * DESCONTO_ANUAL)}/mês — {dinheiro(planoAtual.precoMensal * 12 * DESCONTO_ANUAL)} por ano.
             </p>
             <button
               type="button"
