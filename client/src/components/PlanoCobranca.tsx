@@ -1,5 +1,6 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
-import { CheckIcon, CloseIcon, DownloadIcon } from "@/components/IconlyIcons";
+import { CardIcon, CheckIcon, CloseIcon, DownloadIcon } from "@/components/IconlyIcons";
+import { ModalIcon } from "@/components/ModalIcon";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -158,6 +159,7 @@ function ConfirmarTroca({ destino, onClose }: { destino: Plano; onClose: () => v
     >
       <div className="modal-enter w-full max-w-[452px] rounded-[20px] bg-white p-6 shadow-[0_20px_50px_rgba(11,31,20,.24)]">
         <div className="flex items-start gap-3">
+          <ModalIcon icon={CardIcon} />
           <div className="min-w-0">
             <h2 id="confirmar-troca-titulo" className="text-[18px] font-bold tracking-[-.01em]">
               Mudar para o plano {destino.nome}?

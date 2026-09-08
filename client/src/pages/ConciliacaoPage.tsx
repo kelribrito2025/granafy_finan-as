@@ -8,7 +8,9 @@ import {
   DownloadIcon,
   MenuIcon,
   SearchIcon,
+  type IconlyIcon,
 } from "@/components/IconlyIcons";
+import { ModalIcon } from "@/components/ModalIcon";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
@@ -59,9 +61,11 @@ const CLASSIFICATIONS: Array<{ value: Classification; label: string; effect: str
 const CLASSIFICATION_LABELS: Record<Classification, string> =
   Object.fromEntries(CLASSIFICATIONS.map(item => [item.value, item.label])) as Record<Classification, string>;
 
-function ModalShell({ title, subtitle, children, onClose }: {
+function ModalShell({ title, subtitle, icon = CheckIcon, children, onClose }: {
   title: string;
   subtitle?: string;
+  /** O selo à esquerda do título. Cada modal manda o seu; conciliar é o padrão. */
+  icon?: IconlyIcon;
   children: React.ReactNode;
   onClose: () => void;
 }) {
@@ -69,6 +73,7 @@ function ModalShell({ title, subtitle, children, onClose }: {
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[#0B1F14]/[.42] p-4 sm:p-10">
       <div className="flex w-full max-w-[520px] flex-col gap-5 rounded-[20px] bg-white p-6 shadow-[0_20px_50px_rgba(11,31,20,.24)]">
         <div className="flex items-start gap-3">
+          <ModalIcon icon={icon} />
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-bold">{title}</h2>
             {subtitle && <p className="mt-1 truncate text-[13px] text-[#4C6355]" title={subtitle}>{subtitle}</p>}
@@ -241,11 +246,14 @@ function ConfirmBatchModal({ items, onClose, onConfirm, pending }: {
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[#0B1F14]/[.42] p-6 sm:p-10">
       <div className="flex w-full max-w-[452px] flex-col gap-5 rounded-[20px] bg-white p-6 shadow-[0_20px_50px_rgba(11,31,20,.24)]">
-        <div>
-          <h2 className="text-[18px] font-bold">
-            Conciliar {resumo.count} {resumo.count === 1 ? "movimentação" : "movimentações"}?
-          </h2>
-          <p className="mt-1 text-[13px] text-[#4C6355]">os lançamentos ficam marcados como conferidos</p>
+        <div className="flex items-start gap-3">
+          <ModalIcon icon={CheckIcon} />
+          <div className="min-w-0">
+            <h2 className="text-[18px] font-bold">
+              Conciliar {resumo.count} {resumo.count === 1 ? "movimentação" : "movimentações"}?
+            </h2>
+            <p className="mt-1 text-[13px] text-[#4C6355]">os lançamentos ficam marcados como conferidos</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

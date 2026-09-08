@@ -20,6 +20,7 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartDot } from "@/components/ChartDot";
+import { ModalIcon } from "@/components/ModalIcon";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences, valuesHidden } from "@/lib/appFormat";
@@ -347,10 +348,10 @@ function AssetModal({ item, pending, options, onManageOrganization, onClose, onS
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="asset-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px] sm:p-8" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <form onSubmit={submit} className="modal-enter flex max-h-full w-full max-w-[520px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
+    <div role="dialog" aria-modal="true" aria-labelledby="asset-modal-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 p-3 backdrop-blur-[3px] sm:p-4" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
         <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
-          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-[#DFF6EA] text-[#0A7A42]"><ChartIcon size={19} /></span>
+          <ModalIcon icon={ChartIcon} />
           <div className="min-w-0">
             <h2 id="asset-modal-title" className="text-[18px] font-bold tracking-[-.01em]">{item ? "Editar bem" : "Cadastrar bem"}</h2>
             <p className="text-[12.5px] text-[#8A968D]">
@@ -580,6 +581,7 @@ function LiabilityModal({ item, initialGroup, pending, onClose, onSave }: {
     <div role="dialog" aria-modal="true" aria-labelledby="liability-modal-title" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px] sm:p-8" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <form onSubmit={submit} className="modal-enter flex max-h-full w-full max-w-[460px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
         <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
+          <ModalIcon icon={DocumentIcon} />
           <div className="min-w-0">
             <h2 id="liability-modal-title" className="text-[18px] font-bold tracking-[-.01em]">
               {item ? "Editar linha do balanço" : "Nova obrigação ou linha de PL"}
@@ -651,6 +653,7 @@ function SnapshotModal({ pending, onClose, onSave }: {
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <form onSubmit={async event => { event.preventDefault(); await onSave(date); }} className="modal-enter w-full max-w-[440px] rounded-[22px] bg-white p-5 sm:p-6">
         <div className="flex items-start gap-3">
+          <ModalIcon icon={ChartIcon} />
           <div><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Evolução real</p><h2 className="mt-1 text-xl font-bold">Registrar posição</h2><p className="mt-1 text-xs leading-relaxed text-[#8A968D]">Salve os valores atuais como um fechamento histórico nesta data.</p></div>
           <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355]"><CloseIcon size={17} /></button>
         </div>

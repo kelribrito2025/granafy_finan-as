@@ -350,6 +350,7 @@
 
 .dark .bg-\[\#FFF5DD\], .dark .bg-\[\#FFF8E8\],
 .dark .bg-\[\#FFF9EB\], .dark .bg-\[\#FFF0C9\],
+.dark .bg-\[\#FFF3E6\],
 .dark .bg-\[\#FFF4E8\] { background-color: #3b3020 !important; }
 
 .dark .bg-\[\#F2EAF8\] { background-color: #30243a !important; }
@@ -378,6 +379,7 @@
 
 .dark .text-\[\#B87500\], .dark .text-\[\#936000\],
 .dark .text-\[\#7A5A14\], .dark .text-\[\#725517\],
+.dark .text-\[\#8A4B00\],
 .dark .text-\[\#D36F12\] { color: #f0c16e !important; }
 
 .dark .text-\[\#6D2385\] { color: #d6a0ea !important; }
@@ -388,15 +390,20 @@
 .dark .border-\[\#E1E8E3\], .dark .border-\[\#E3EAE5\],
 .dark .border-\[\#E8EEEA\], .dark .border-\[\#EDF1EE\],
 .dark .border-\[\#C9D5CD\],
-.dark .border-\[\#E3EBE6\], .dark .border-\[\#F1F4F2\],
+.dark .border-\[\#E3EBE6\], .dark .border-\[\#EDF2EE\],
+.dark .border-\[\#F1F4F2\],
 .dark .border-\[\#F8FAF9\] { border-color: #2a3d31 !important; }
 
 .dark .ring-\[\#DCE5DF\], .dark .ring-\[\#DDE8E1\],
 .dark .ring-\[\#DFE6E1\], .dark .ring-\[\#E1E8E3\],
+.dark .ring-\[\#E3EBE6\],
 .dark .ring-\[\#E8EEEA\], .dark .ring-\[\#CFE2D7\] { --tw-ring-color: #2a3d31 !important; }
 
-.dark .ring-\[\#BDE8CF\], .dark .ring-\[\#C8EBD8\],
+.dark .ring-\[\#BDE8CF\], .dark .ring-\[\#C7E8D6\], .dark .ring-\[\#C8EBD8\],
 .dark .ring-\[\#CFE9DA\] { --tw-ring-color: #285d3f !important; }
+
+/* Contorno vermelho do "Cancelar assinatura". */
+.dark .ring-\[\#F0C8C4\] { --tw-ring-color: #5a2622 !important; }
 .dark .ring-white { --tw-ring-color: #14241b !important; }
 
 .dark .hover\:bg-\[\#F1FBF6\]:hover, .dark .hover\:bg-\[\#F1F4F2\]:hover,

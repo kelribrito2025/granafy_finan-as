@@ -6,6 +6,7 @@ import {
   SettingsIcon,
   SwapIcon,
 } from "@/components/IconlyIcons";
+import { ModalIcon } from "@/components/ModalIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { useCallback, useRef, useState } from "react";
@@ -57,6 +58,7 @@ function CompanySwitcher({ companyName, taxId, onClose }: {
     <div role="dialog" aria-modal="true" aria-labelledby="company-switcher-title" className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#0B1F14]/42 p-4 backdrop-blur-[2px] sm:p-10" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <div className="modal-enter w-full max-w-[452px] rounded-[20px] bg-white p-6 text-[#0B1F14]">
         <div className="flex items-start gap-3">
+          <ModalIcon icon={SwapIcon} />
           <div>
             <h2 id="company-switcher-title" className="text-[18px] font-bold tracking-[-.01em]">Trocar de empresa</h2>
             <p className="mt-1 text-[12.5px] text-[#8A968D]">1 empresa neste acesso</p>

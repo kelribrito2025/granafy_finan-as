@@ -6,6 +6,7 @@ import {
   DocumentIcon,
   UploadIcon,
 } from "@/components/IconlyIcons";
+import { ModalIcon } from "@/components/ModalIcon";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
 import { formatDate } from "@/lib/appFormat";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
@@ -204,6 +205,7 @@ export function TransactionModal({ transaction, defaultDate, pending, options, o
     <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 p-3 backdrop-blur-[3px] sm:p-4" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
         <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
+          <ModalIcon icon={DocumentIcon} />
           <div className="min-w-0">
             <h2 id="launch-title" className="text-[18px] font-bold tracking-[-.01em]">
               {transaction ? "Editar lançamento" : "Novo lançamento"}

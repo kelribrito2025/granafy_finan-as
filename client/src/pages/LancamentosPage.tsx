@@ -21,6 +21,7 @@ import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
+import { ModalIcon } from "@/components/ModalIcon";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
 import { TransactionModal } from "@/components/TransactionModal";
 import type {
@@ -305,12 +306,17 @@ function SeriesScopeDialog({ action, transaction, pending, onCancel, onConfirm }
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="series-scope-title" className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onCancel()}>
       <div className="modal-enter w-full max-w-[420px] rounded-[20px] bg-white p-6 text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.16)]">
+        <div className="flex items-start gap-3">
+        <ModalIcon icon={action === "delete" ? DeleteIcon : DocumentIcon} />
+        <div className="min-w-0">
         <h2 id="series-scope-title" className="text-[18px] font-bold tracking-[-.01em]">
           {action === "delete" ? "Excluir lançamento recorrente" : "Salvar lançamento recorrente"}
         </h2>
         <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A968D]">
           Este é a parcela {position} de {total}. Escolha o alcance da mudança.
         </p>
+        </div>
+        </div>
         <div className="mt-5 flex flex-col gap-2">
           <button type="button" disabled={pending} onClick={() => onConfirm("single")} className="rounded-[12px] border border-[#E3EAE5] px-4 py-3 text-left text-[13px] font-semibold hover:bg-[#F8FAF9] disabled:opacity-50">
             {verb} só esta parcela
@@ -393,6 +399,7 @@ function CategorizeModal({ selectedCount, selectedTypes, options, pending, onClo
         className="modal-enter w-full max-w-[440px] rounded-[22px] bg-white p-6 text-[#0B1F14]"
       >
         <div className="flex items-start gap-3">
+          <ModalIcon icon={FilterIcon} />
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Em lote</p>
             <h2 id="categorize-title" className="mt-1 text-xl font-bold">Categorizar lançamentos</h2>
