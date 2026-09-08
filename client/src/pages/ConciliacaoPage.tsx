@@ -15,6 +15,7 @@ import { ModalIcon } from "@/components/ModalIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
+import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
 import { summarizeBatch } from "@shared/reconciliation";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -570,11 +571,104 @@ function LinkModal({ item, candidates, onClose, onConfirm, pending }: {
 }
 
 
+/**
+ * O formulário que destrava a conciliação de quem importou sem saldo.
+ *
+ * Sem saldo declarado a diferença é `null` e a tela só escreve "—". Aqui a
+ * pessoa abre o app do banco, lê o saldo do último dia do mês e digita. Fica
+ * marcado como informado, e a alteração entra no histórico.
+ */
+function StatementBalanceForm({ accountId, asOf, current, origin, onSaved }: {
+  accountId: number | null;
+  asOf: string;
+  current: number | null;
+  origin: "arquivo" | "manual" | null;
+  onSaved: () => void;
+}) {
+  const [aberto, setAberto] = useState(current === null);
+  const [valor, setValor] = useState(current === null ? "" : formatCurrencyValue(current));
+  const salvar = trpc.reconciliation.setStatementBalance.useMutation();
+
+  if (accountId === null) return null;
+
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="self-start text-[12.5px] font-semibold text-[#0A7A42] transition hover:underline"
+      >
+        {origin === "manual" ? "Corrigir o saldo informado" : "Informar outro saldo"}
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2.5 rounded-[14px] bg-[#F1FBF6] p-4"
+      onSubmit={async event => {
+        event.preventDefault();
+        const numero = currencyInputToNumber(valor);
+        if (!Number.isFinite(numero)) return toast.info("Informe o saldo do extrato.");
+        try {
+          await salvar.mutateAsync({ accountId, asOf, balance: numero });
+          toast.success("Saldo do extrato informado");
+          setAberto(false);
+          onSaved();
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Não foi possível salvar o saldo");
+        }
+      }}
+    >
+      <span className="text-[12.5px] font-semibold text-[#0A7A42]">
+        {current === null ? "Este extrato não declara saldo" : "Corrigir o saldo do extrato"}
+      </span>
+      <p className="text-[11.5px] leading-relaxed text-[#28382E]">
+        Sem o saldo do banco em {formatDate(asOf)}, a conciliação não consegue apontar diferença — ela fica cega.
+        Abra o app do banco, veja o saldo desse dia e informe aqui.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <span className="flex h-11 min-w-[150px] flex-1 items-center gap-2 rounded-xl border border-[#C7E8D6] bg-white px-3.5">
+          <span className="text-[12.5px] font-semibold text-[#8A968D]">R$</span>
+          <input
+            autoFocus
+            inputMode="decimal"
+            value={valor}
+            onChange={event => setValor(formatCurrencyInput(event.target.value))}
+            placeholder="0,00"
+            aria-label={`Saldo do extrato em ${formatDate(asOf)}`}
+            className="min-w-0 flex-1 bg-transparent text-[14px] font-bold outline-none"
+          />
+        </span>
+        <button
+          type="submit"
+          disabled={salvar.isPending}
+          className="h-11 rounded-xl bg-[#12B85C] px-4 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-60"
+        >
+          {salvar.isPending ? "Salvando…" : "Informar saldo"}
+        </button>
+        {current !== null && (
+          <button
+            type="button"
+            onClick={() => setAberto(false)}
+            className="h-11 rounded-xl bg-[#F1F4F2] px-4 text-[13px] font-semibold text-[#4C6355]"
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
 /** A composição da diferença: quais movimentações o razão não tem. */
-function DifferenceModal({ data, onClose, onResolve }: {
+function DifferenceModal({ data, accountId, lastDayOfMonth, onClose, onResolve, onBalanceSaved }: {
   data: inferRouterOutputs<AppRouter>["reconciliation"]["difference"];
+  accountId: number | null;
+  lastDayOfMonth: string;
   onClose: () => void;
   onResolve: (movementId: number) => void;
+  onBalanceSaved: () => void;
 }) {
   return (
     <ModalShell
@@ -583,8 +677,19 @@ function DifferenceModal({ data, onClose, onResolve }: {
       onClose={onClose}
     >
       <div className="flex flex-col gap-2">
-        <div className="flex justify-between rounded-[14px] bg-[#F8FAF9] px-4 py-3 text-[13px]">
-          <span className="text-[#4C6355]">Saldo no extrato · {data.accountName}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#F8FAF9] px-4 py-3 text-[13px]">
+          <span className="flex flex-wrap items-center gap-2 text-[#4C6355]">
+            Saldo no extrato · {data.accountName}
+            {/* A origem fica à vista: "o banco disse" e "alguém digitou" não
+                valem a mesma coisa numa conferência. */}
+            {data.statementOrigin && (
+              <span className={`rounded-md px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] ${
+                data.statementOrigin === "arquivo" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FFF3E6] text-[#8A4B00]"
+              }`}>
+                {data.statementOrigin === "arquivo" ? "do extrato" : "informado"}
+              </span>
+            )}
+          </span>
           <span className="font-bold">{data.statement === null ? "—" : formatMoney(data.statement)}</span>
         </div>
         <div className="flex justify-between rounded-[14px] bg-[#F8FAF9] px-4 py-3 text-[13px]">
@@ -598,6 +703,14 @@ function DifferenceModal({ data, onClose, onResolve }: {
           </span>
         </div>
       </div>
+
+      <StatementBalanceForm
+        accountId={accountId}
+        asOf={lastDayOfMonth}
+        current={data.statement}
+        origin={data.statementOrigin}
+        onSaved={onBalanceSaved}
+      />
 
       <div className="flex flex-col gap-2">
         <span className="text-[12.5px] font-semibold text-[#4C6355]">
@@ -800,6 +913,8 @@ export default function ConciliacaoPage() {
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.reconciliation.overview.useQuery({ ...period, accountId });
   const utils = trpc.useUtils();
+  // O saldo do extrato se refere ao último dia do mês em conferência.
+  const lastDayOfMonth = new Date(Date.UTC(period.year, period.month, 0)).toISOString().slice(0, 10);
 
   const refresh = async () => {
     setSelected(new Set());
@@ -1396,6 +1511,12 @@ export default function ConciliacaoPage() {
       {differenceOpen && differenceQuery.data && (
         <DifferenceModal
           data={differenceQuery.data}
+          accountId={accountId}
+          lastDayOfMonth={lastDayOfMonth}
+          onBalanceSaved={() => {
+            void utils.reconciliation.difference.invalidate();
+            void utils.reconciliation.overview.invalidate();
+          }}
           onClose={() => setDifferenceOpen(false)}
           onResolve={movementId => {
             const item = data?.items.find(candidate => candidate.id === movementId);

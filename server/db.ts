@@ -19,6 +19,7 @@ import {
   type InsertUser,
   passwordResetRequests,
   patrimonialItems,
+  statementBalances,
   transactionCategories,
   type InsertTransactionCategory,
   bankMovements,
@@ -38,6 +39,7 @@ import {
   defaultCategoryUpgradeValues,
   defaultCategoryValues,
 } from "./defaultCategories";
+import { pickDeclaredBalance } from "./statementBalance";
 import { chunkImportRows } from "./importers";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -986,26 +988,105 @@ export async function listUnlinkedTransactions(userId: number, accountId: number
   return rows.map(({ linkId: _linkId, ...row }) => row);
 }
 
-/** O saldo mais recente que o banco declarou para a conta até a data. */
+/**
+ * O saldo declarado mais recente até a data, venha de onde vier.
+ *
+ * Duas origens: o `LEDGERBAL` que veio no arquivo e o número que alguém
+ * digitou olhando o banco. A origem sobe junto porque a tela precisa dizer
+ * qual é qual — "o banco disse" e "alguém digitou" não valem a mesma coisa
+ * numa conferência.
+ *
+ * Empate na data vai para o manual: quem digitou depois de importar estava
+ * corrigindo o que o arquivo trouxe.
+ */
 export async function getStatementBalance(userId: number, accountId: number, throughDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db
-    .select({
-      balance: transactionImportBatches.statementBalance,
-      asOf: transactionImportBatches.statementBalanceDate,
-    })
-    .from(transactionImportBatches)
-    .where(and(
-      eq(transactionImportBatches.userId, userId),
-      eq(transactionImportBatches.accountId, accountId),
-      isNotNull(transactionImportBatches.statementBalance),
-      lte(transactionImportBatches.statementBalanceDate, throughDate)
-    ))
-    .orderBy(desc(transactionImportBatches.statementBalanceDate))
-    .limit(1);
-  const row = rows[0];
-  return row?.balance && row.asOf ? { balance: Number(row.balance), asOf: row.asOf } : null;
+
+  const [doArquivo, doUsuario] = await Promise.all([
+    db
+      .select({
+        balance: transactionImportBatches.statementBalance,
+        asOf: transactionImportBatches.statementBalanceDate,
+      })
+      .from(transactionImportBatches)
+      .where(and(
+        eq(transactionImportBatches.userId, userId),
+        eq(transactionImportBatches.accountId, accountId),
+        isNotNull(transactionImportBatches.statementBalance),
+        lte(transactionImportBatches.statementBalanceDate, throughDate)
+      ))
+      .orderBy(desc(transactionImportBatches.statementBalanceDate))
+      .limit(1),
+    db
+      .select({ balance: statementBalances.balance, asOf: statementBalances.asOf })
+      .from(statementBalances)
+      .where(and(
+        eq(statementBalances.userId, userId),
+        eq(statementBalances.accountId, accountId),
+        lte(statementBalances.asOf, throughDate)
+      ))
+      .orderBy(desc(statementBalances.asOf))
+      .limit(1),
+  ]);
+
+  return pickDeclaredBalance(
+    doArquivo[0]?.balance && doArquivo[0]?.asOf
+      ? { balance: Number(doArquivo[0].balance), asOf: doArquivo[0].asOf, origin: "arquivo" }
+      : null,
+    doUsuario[0]
+      ? { balance: Number(doUsuario[0].balance), asOf: doUsuario[0].asOf, origin: "manual" }
+      : null
+  );
+}
+
+/**
+ * Grava o saldo informado à mão e deixa a passagem no histórico.
+ *
+ * Upsert por conta e data: informar de novo é corrigir, não empilhar. O
+ * registro no histórico guarda o valor anterior — sem ele, um saldo que muda
+ * é indistinguível de um saldo que sempre foi aquele.
+ */
+export async function saveStatementBalance(input: {
+  userId: number;
+  accountId: number;
+  asOf: string;
+  balance: string;
+  accountName: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.transaction(async tx => {
+    const [anterior] = await tx
+      .select({ balance: statementBalances.balance })
+      .from(statementBalances)
+      .where(and(
+        eq(statementBalances.userId, input.userId),
+        eq(statementBalances.accountId, input.accountId),
+        eq(statementBalances.asOf, input.asOf)
+      ))
+      .limit(1);
+
+    await tx
+      .insert(statementBalances)
+      .values({
+        userId: input.userId,
+        accountId: input.accountId,
+        asOf: input.asOf,
+        balance: input.balance,
+        informedBy: input.userId,
+      })
+      .onDuplicateKeyUpdate({ set: { balance: input.balance, informedBy: input.userId } });
+
+    await tx.insert(reconciliationAudit).values({
+      userId: input.userId,
+      action: anterior ? "saldo_extrato_alterado" : "saldo_extrato_informado",
+      previousStatus: anterior?.balance ?? "",
+      newStatus: input.balance,
+      detail: `${input.accountName} · saldo em ${input.asOf}`,
+    });
+  });
 }
 
 /**

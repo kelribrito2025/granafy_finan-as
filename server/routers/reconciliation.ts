@@ -595,6 +595,8 @@ export const reconciliationRouter = router({
     return {
       statement: statement?.balance ?? null,
       statementDate: statement?.asOf ?? null,
+      /** "arquivo" veio do extrato, "manual" alguém digitou. Null: não há saldo. */
+      statementOrigin: statement?.origin ?? null,
       system: Math.round(systemBalance * 100) / 100,
       difference: statement ? Math.round((statement.balance - systemBalance) * 100) / 100 : null,
       items: responsaveis.map(movement => ({
@@ -607,6 +609,40 @@ export const reconciliationRouter = router({
       accountName: account.name,
     };
   }),
+
+  /**
+   * Informa o saldo do extrato à mão.
+   *
+   * CSV não declara saldo e nem todo OFX traz `LEDGERBAL`. Sem esse número a
+   * conciliação do mês não tem contra o que calcular a diferença, e a tela
+   * fica dizendo "—" sem explicar o que falta. Aqui a pessoa olha o app do
+   * banco e digita.
+   *
+   * A data é a do saldo, não a de hoje: extrato de setembro se confere com o
+   * saldo de setembro.
+   */
+  setStatementBalance: protectedProcedure
+    .input(z.object({
+      accountId: z.number().int().positive(),
+      asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida"),
+      balance: z.number().finite(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
+      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
+      // Mês fechado foi assinado com um saldo: trocar o saldo por baixo é
+      // desfazer a assinatura sem reabrir.
+      await requireOpenPeriod(ctx.user.id, account.id, input.asOf);
+
+      await db.saveStatementBalance({
+        userId: ctx.user.id,
+        accountId: account.id,
+        asOf: input.asOf,
+        balance: input.balance.toFixed(2),
+        accountName: account.name,
+      });
+      return { success: true } as const;
+    }),
 
   /**
    * Fecha o mês. Só com diferença zero: fechar com sobra é assinar embaixo de

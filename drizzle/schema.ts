@@ -284,6 +284,34 @@ export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
   uniqueIndex("reconciliation_periods_uidx").on(table.userId, table.accountId, table.year, table.month),
 ]);
 
+/**
+ * O saldo que o dono da conta informou à mão.
+ *
+ * O saldo declarado pelo extrato mora no lote de importação, onde ele
+ * chegou. Este aqui é o outro caminho: CSV não declara saldo, nem todo OFX
+ * traz `LEDGERBAL`, e sem esse número a conciliação do mês não tem contra o
+ * que calcular a diferença — ela nasce cega.
+ *
+ * Tabela separada de propósito. Guardar o informado junto do importado
+ * apagaria a diferença entre "o banco disse" e "alguém digitou", que é
+ * justamente o que precisa ficar visível na tela.
+ */
+export const statementBalances = mysqlTable("statementBalances", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  accountId: int("accountId").notNull(),
+  /** A data a que o saldo se refere, não a data em que foi digitado. */
+  asOf: date("asOf", { mode: "string" }).notNull(),
+  balance: decimal("balance", { precision: 15, scale: 2 }).notNull(),
+  informedBy: int("informedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  // Um saldo por conta e por data: informar de novo corrige, não empilha.
+  uniqueIndex("statement_balances_account_date_uidx").on(table.userId, table.accountId, table.asOf),
+  index("statement_balances_user_account_idx").on(table.userId, table.accountId),
+]);
+
 export const reconciliationAudit = mysqlTable("reconciliationAudit", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
