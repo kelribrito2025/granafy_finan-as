@@ -122,7 +122,9 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 function round(value: number) {
-  return Math.round(value * 100) / 100;
+  const rounded = Math.round(value * 100) / 100;
+  // Sem isto, somar uma lista vazia de saídas devolve -0 e a tela escreve "− R$ 0,00".
+  return rounded === 0 ? 0 : rounded;
 }
 
 function keepsRow(row: DreRow, regime: DreRegime) {

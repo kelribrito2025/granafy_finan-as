@@ -22,6 +22,7 @@ import {
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { balanceSheetRouter } from "./routers/balanceSheet";
+import { cashflowRouter, payablesRouter } from "./routers/cashflow";
 import { dreRouter } from "./routers/dre";
 import { importsRouter } from "./routers/imports";
 import { organizationRouter } from "./routers/organization";
@@ -39,7 +40,9 @@ const credentialsSchema = z.object({
 export const appRouter = router({
   system: systemRouter,
   balanceSheet: balanceSheetRouter,
+  cashflow: cashflowRouter,
   dre: dreRouter,
+  payables: payablesRouter,
   imports: importsRouter,
   organization: organizationRouter,
   settings: settingsRouter,

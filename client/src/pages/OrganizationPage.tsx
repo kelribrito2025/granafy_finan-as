@@ -1,6 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
-  ArrowDownIcon,
   ArrowUpIcon,
   ChartIcon,
   CheckIcon,
@@ -80,9 +79,8 @@ type CostCenter = {
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
-  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
-  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
+  { label: "Fluxo de caixa", icon: TrendUpIcon },
+  { label: "A pagar e receber", icon: ArrowUpIcon },
   { label: "Lançamentos", icon: DocumentIcon },
   { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
@@ -227,6 +225,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     else if (label === "Lançamentos") setLocation("/lancamentos");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label === "DRE") setLocation("/dre");
+    else if (label === "Fluxo de caixa") setLocation("/fluxo-de-caixa");
+    else if (label === "A pagar e receber") setLocation("/a-pagar-e-receber");
     else if (label !== "Contas e categorias") toast.info(`${label} ainda não está disponível.`);
   };
   return <>{open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}<aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}><div className="flex items-center gap-2.5 px-1.5"><GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" /><button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button></div><NavGroup title="Painel" items={panelItems} onSelect={select} /><NavGroup title="Análise" items={analysisItems} onSelect={select} /><NavGroup title="Organização" items={organizationItems} onSelect={select} /><ConnectedAccounts className="mt-auto" /></aside></>;

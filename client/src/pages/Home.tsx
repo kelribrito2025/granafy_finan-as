@@ -46,9 +46,8 @@ const PERIOD_LABELS: Record<DefaultPeriod, string> = {
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
-  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
-  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
+  { label: "Fluxo de caixa", icon: TrendUpIcon },
+  { label: "A pagar e receber", icon: ArrowUpIcon },
   { label: "Lançamentos", icon: DocumentIcon },
   { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
@@ -258,6 +257,14 @@ export default function Home() {
     }
     if (item === "DRE") {
       setLocation("/dre");
+      return;
+    }
+    if (item === "Fluxo de caixa") {
+      setLocation("/fluxo-de-caixa");
+      return;
+    }
+    if (item === "A pagar e receber") {
+      setLocation("/a-pagar-e-receber");
       return;
     }
     if (item !== "Visão geral") {

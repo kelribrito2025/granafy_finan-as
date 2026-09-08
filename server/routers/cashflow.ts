@@ -1,0 +1,221 @@
+import { z } from "zod";
+import {
+  buildDailyFlow,
+  buildMonthlyFlow,
+  runwayMonths,
+  toWeeks,
+  type FlowRow,
+} from "@shared/cashflow";
+import { buildPayablesView, type TitleRow } from "@shared/payables";
+import { protectedProcedure, router } from "../_core/trpc";
+import * as db from "../db";
+
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+const monthSchema = z.object({
+  year: z.number().int().min(2000).max(2200),
+  month: z.number().int().min(1).max(12),
+});
+
+type Record_ = Awaited<ReturnType<typeof db.listAllTransactions>>[number];
+
+function monthStart(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}-01`;
+}
+
+function lastDayOf(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
+function shiftMonth(year: number, month: number, offset: number) {
+  const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
+}
+
+function monthLabel(year: number, month: number) {
+  return `${MONTH_NAMES[month - 1]} de ${year}`;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toFlowRow(record: Record_): FlowRow {
+  return {
+    transactionDate: record.transactionDate,
+    amount: Number(record.amount),
+    status: record.status,
+    type: record.type,
+    description: record.description,
+    category: record.category,
+  };
+}
+
+function toTitleRow(record: Record_): TitleRow {
+  return {
+    id: record.id,
+    type: record.type,
+    transactionDate: record.transactionDate,
+    description: record.description,
+    contact: record.contact,
+    category: record.category,
+    amount: Number(record.amount),
+    account: record.account,
+    status: record.status,
+  };
+}
+
+/**
+ * O caixa na véspera de `date`: o saldo inicial das contas mais tudo que já foi
+ * pago até lá. É o mesmo critério do painel e do balanço — pendente não é
+ * dinheiro em caixa.
+ */
+function openingBalance(
+  records: readonly Record_[],
+  accounts: Awaited<ReturnType<typeof db.listFinancialAccounts>>,
+  date: string
+) {
+  const initial = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
+  return records
+    .filter(record => record.status === "Pago" && record.type !== "transferencia" && record.transactionDate < date)
+    .reduce((sum, record) => sum + Number(record.amount), initial);
+}
+
+async function loadLedger(userId: number) {
+  const [records, accounts] = await Promise.all([
+    db.listAllTransactions(userId),
+    db.listFinancialAccounts(userId),
+  ]);
+  return { records, accounts };
+}
+
+export const payablesRouter = router({
+  /**
+   * Os títulos abertos do mês, mais os atrasados de qualquer data.
+   *
+   * O atraso não pertence ao mês em que venceu: ele continua sendo dívida hoje,
+   * e esconder um boleto de julho porque a tela está em setembro seria perder a
+   * única informação que a página existe para dar.
+   */
+  overview: protectedProcedure.input(monthSchema).query(async ({ ctx, input }) => {
+    const { records, accounts } = await loadLedger(ctx.user.id);
+    const today = todayIso();
+    const start = monthStart(input.year, input.month);
+    const end = lastDayOf(input.year, input.month);
+
+    const inScope = records.filter(record =>
+      (record.transactionDate >= start && record.transactionDate <= end) ||
+      (record.status === "Pendente" && record.transactionDate < today)
+    );
+
+    const view = buildPayablesView(inScope.map(toTitleRow), today);
+    const opening = openingBalance(records, accounts, start);
+    const flow = buildDailyFlow(records.map(toFlowRow), { opening, start, end, todayIso: today });
+
+    return {
+      year: input.year,
+      month: input.month,
+      label: monthLabel(input.year, input.month),
+      today,
+      ...view,
+      projectedCash: flow.closing,
+      projectedCashDate: end,
+    };
+  }),
+});
+
+export const cashflowRouter = router({
+  /** Saldo dia a dia (ou semana a semana) do mês escolhido. */
+  daily: protectedProcedure
+    .input(monthSchema.extend({ granularity: z.enum(["dia", "semana"]).default("dia") }))
+    .query(async ({ ctx, input }) => {
+      const { records, accounts } = await loadLedger(ctx.user.id);
+      const today = todayIso();
+      const start = monthStart(input.year, input.month);
+      const end = lastDayOf(input.year, input.month);
+      const rows = records.map(toFlowRow);
+
+      const flow = buildDailyFlow(rows, {
+        opening: openingBalance(records, accounts, start),
+        start,
+        end,
+        todayIso: today,
+      });
+
+      // O saldo de hoje é caixa de verdade: só o que está pago, sem projeção.
+      const cashToday = openingBalance(records, accounts, new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10));
+      const next = shiftMonth(input.year, input.month, 1);
+      const nextFlow = buildDailyFlow(rows, {
+        opening: flow.closing,
+        start: monthStart(next.year, next.month),
+        end: lastDayOf(next.year, next.month),
+        todayIso: today,
+      });
+
+      return {
+        year: input.year,
+        month: input.month,
+        label: monthLabel(input.year, input.month),
+        granularity: input.granularity,
+        today,
+        start,
+        end,
+        opening: flow.opening,
+        closing: flow.closing,
+        cashToday,
+        monthChange: Math.round((flow.closing - flow.opening) * 100) / 100,
+        nextMonthLabel: monthLabel(next.year, next.month),
+        nextMonthClosing: nextFlow.closing,
+        buckets: input.granularity === "semana" ? toWeeks(flow, start) : flow.days,
+        totals: flow.totals,
+        lowest: flow.lowest,
+        biggestIncome: flow.biggestIncome,
+        tightestDay: flow.tightestDay,
+      };
+    }),
+
+  /** Projeção mês a mês: seis ou doze colunas terminando três meses à frente. */
+  monthly: protectedProcedure
+    .input(monthSchema.extend({ span: z.union([z.literal(6), z.literal(12)]).default(6) }))
+    .query(async ({ ctx, input }) => {
+      const { records, accounts } = await loadLedger(ctx.user.id);
+      const today = todayIso();
+      // A janela olha três meses à frente: projeção que termina no mês corrente
+      // não projeta nada.
+      const last = shiftMonth(input.year, input.month, 3);
+      const first = shiftMonth(last.year, last.month, -(input.span - 1));
+      const months = Array.from({ length: input.span }, (_, index) => shiftMonth(first.year, first.month, index));
+
+      const columns = buildMonthlyFlow(records.map(toFlowRow), {
+        opening: openingBalance(records, accounts, monthStart(first.year, first.month)),
+        months,
+        todayIso: today,
+      });
+
+      const realized = columns.filter(column => !column.projected && column.outgoing > 0);
+      const averageOutflow = realized.length > 0
+        ? realized.reduce((sum, column) => sum + column.outgoing, 0) / realized.length
+        : 0;
+      const cashToday = openingBalance(records, accounts, new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10));
+
+      return {
+        span: input.span,
+        today,
+        from: monthLabel(first.year, first.month),
+        to: monthLabel(last.year, last.month),
+        columns,
+        totals: {
+          incoming: Math.round(columns.reduce((sum, column) => sum + column.incoming, 0) * 100) / 100,
+          outgoing: Math.round(columns.reduce((sum, column) => sum + column.outgoing, 0) * 100) / 100,
+          opening: columns[0]?.opening ?? 0,
+          closing: columns[columns.length - 1]?.closing ?? 0,
+        },
+        closingDate: lastDayOf(last.year, last.month),
+        averageOutflow: Math.round(averageOutflow * 100) / 100,
+        runway: runwayMonths(cashToday, averageOutflow),
+      };
+    }),
+});

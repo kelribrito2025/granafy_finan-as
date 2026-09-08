@@ -4,9 +4,11 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import AuthPage from "@/pages/AuthPage";
 import BalanceSheetPage from "@/pages/BalanceSheetPage";
 import DrePage from "@/pages/DrePage";
+import FluxoCaixaPage from "@/pages/FluxoCaixaPage";
 import LancamentosPage from "@/pages/LancamentosPage";
 import NotFound from "@/pages/NotFound";
 import OrganizationPage from "@/pages/OrganizationPage";
+import PagarReceberPage from "@/pages/PagarReceberPage";
 import SettingsPage from "@/pages/SettingsPage";
 import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
@@ -50,6 +52,8 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/fluxo-de-caixa"><ProtectedPage><FluxoCaixaPage /></ProtectedPage></Route>
+      <Route path="/a-pagar-e-receber"><ProtectedPage><PagarReceberPage /></ProtectedPage></Route>
       <Route path="/dre"><ProtectedPage><DrePage /></ProtectedPage></Route>
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>

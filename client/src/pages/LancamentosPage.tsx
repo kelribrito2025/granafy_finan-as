@@ -89,9 +89,8 @@ const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 const panelItems: NavItem[] = [
   { label: "Visão geral", icon: DashboardIcon },
-  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
-  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
-  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
+  { label: "Fluxo de caixa", icon: TrendUpIcon },
+  { label: "A pagar e receber", icon: ArrowUpIcon },
   { label: "Lançamentos", icon: DocumentIcon },
   { label: "Conciliação", icon: CheckIcon, disabled: true },
 ];
@@ -207,6 +206,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     else if (label === "Contas e categorias") setLocation("/organizacao");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label === "DRE") setLocation("/dre");
+    else if (label === "Fluxo de caixa") setLocation("/fluxo-de-caixa");
+    else if (label === "A pagar e receber") setLocation("/a-pagar-e-receber");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };
 
