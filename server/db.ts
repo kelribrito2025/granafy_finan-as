@@ -839,7 +839,7 @@ export async function getUserPreferences(userId: number) {
  * aparece em todas as páginas e não pode pagar esse preço, então aqui é COUNT
  * no banco.
  */
-export async function countOpenTitles(userId: number, todayIso: string) {
+export async function countOpenTitles(userId: number, todayIso: string, monthLastDay: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -852,7 +852,11 @@ export async function countOpenTitles(userId: number, todayIso: string) {
     .where(and(
       eq(financialTransactions.userId, userId),
       eq(financialTransactions.status, "Pendente"),
-      sql`${financialTransactions.type} <> 'transferencia'`
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      // A mesma janela da tela de títulos: o mês corrente mais o que já venceu.
+      // Contar as parcelas de um ano à frente faria a bolinha discordar da
+      // página que ela abre.
+      sql`(${financialTransactions.transactionDate} <= ${monthLastDay} OR ${financialTransactions.transactionDate} < ${todayIso})`
     ));
 
   return { open: Number(row?.open ?? 0), overdue: Number(row?.overdue ?? 0) };

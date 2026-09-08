@@ -94,7 +94,11 @@ async function loadLedger(userId: number) {
 
 export const payablesRouter = router({
   /** Só os números da bolinha da barra lateral: uma contagem, não a lista. */
-  badges: protectedProcedure.query(({ ctx }) => db.countOpenTitles(ctx.user.id, todayIso())),
+  badges: protectedProcedure.query(({ ctx }) => {
+    const today = todayIso();
+    const [year, month] = today.split("-").map(Number);
+    return db.countOpenTitles(ctx.user.id, today, lastDayOf(year, month));
+  }),
 
 
   /**

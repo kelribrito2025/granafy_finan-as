@@ -127,6 +127,22 @@ function toTransaction(record: TransactionRecord) {
   };
 }
 
+/**
+ * Se o título em aberto pertence ao painel do período escolhido.
+ *
+ * Vale o que vence dentro da janela mais o que já venceu e continua em aberto —
+ * atraso não deixa de ser dívida por o mês ter virado. Sem esse recorte o cartão
+ * somava parcela de recorrência até um ano à frente embaixo do rótulo "setembro".
+ */
+function isOpenInWindow(
+  record: Pick<TransactionRecord, "type" | "status" | "transactionDate" | "amount">,
+  window: { start: string; end: string; todayIso: string }
+) {
+  if (!isCashFlow(record) || record.status !== "Pendente") return false;
+  const dueInWindow = record.transactionDate >= window.start && record.transactionDate < window.end;
+  return dueInWindow || record.transactionDate < window.todayIso;
+}
+
 /** Transferência move dinheiro entre contas do próprio usuário: não é receita nem despesa. */
 function isCashFlow(record: Pick<TransactionRecord, "type">) {
   return record.type !== "transferencia";
@@ -350,9 +366,12 @@ export const transactionsRouter = router({
     const paidBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
       .filter(record => record.status === "Pago")
       .reduce((sum, record) => sum + Number(record.amount), 0);
-    const pendingReceivable = records.filter(record => isCashFlow(record) && record.status === "Pendente" && Number(record.amount) > 0);
-    const pendingPayable = records.filter(record => isCashFlow(record) && record.status === "Pendente" && Number(record.amount) < 0);
     const todayString = today.toISOString().slice(0, 10);
+    const open = records.filter(record =>
+      isOpenInWindow(record, { start, end, todayIso: todayString })
+    );
+    const pendingReceivable = open.filter(record => Number(record.amount) > 0);
+    const pendingPayable = open.filter(record => Number(record.amount) < 0);
     const overdue = pendingPayable.filter(record => record.transactionDate < todayString);
     const dueToday = pendingReceivable.filter(record => record.transactionDate === todayString);
     const margin = currentSummary.incoming > 0
@@ -402,7 +421,9 @@ export const transactionsRouter = router({
       },
       margin,
       months,
-      recent: records.slice(0, 5).map(toTransaction),
+      // "Últimos" é o que já aconteceu: parcela de recorrência marcada para 2027
+      // não é lançamento recente, por mais que ela lidere a ordenação por data.
+      recent: records.filter(record => record.transactionDate <= todayString).slice(0, 5).map(toTransaction),
       revenueByCategory,
       range,
     };
@@ -729,4 +750,4 @@ export const transactionsRouter = router({
   }),
 });
 
-export { bulkUpdateChangesSchema, buildTransferLegs, isCashFlow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesBaseSchema, transactionValuesSchema, transactionUpdateSchema };
+export { bulkUpdateChangesSchema, buildTransferLegs, isCashFlow, isOpenInWindow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, signedAmount, summarize, toTransaction, transactionValuesBaseSchema, transactionValuesSchema, transactionUpdateSchema };

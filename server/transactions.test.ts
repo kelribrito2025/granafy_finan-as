@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
 import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
-import { bulkUpdateChangesSchema, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
+import { bulkUpdateChangesSchema, isOpenInWindow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
   return {
@@ -87,5 +87,31 @@ describe("transactions helpers", () => {
       { recurrenceGroupId: null, transferGroupId: "transfer" },
       { recurring: true, recurringMonths: 12 },
     )).toBe(false);
+  });
+});
+
+describe("isOpenInWindow", () => {
+  const janela = { start: "2026-09-01", end: "2026-10-01", todayIso: "2026-09-08" };
+  const titulo = (values: Partial<TransactionRecord>) => ({ ...record("-100.00"), ...values });
+
+  it("conta o que vence dentro do período", () => {
+    expect(isOpenInWindow(titulo({ transactionDate: "2026-09-20" }), janela)).toBe(true);
+  });
+
+  it("conta o vencido de qualquer data, porque atraso continua sendo dívida", () => {
+    expect(isOpenInWindow(titulo({ transactionDate: "2026-07-15" }), janela)).toBe(true);
+  });
+
+  it("deixa de fora a parcela futura fora do período", () => {
+    expect(isOpenInWindow(titulo({ transactionDate: "2026-10-05" }), janela)).toBe(false);
+    expect(isOpenInWindow(titulo({ transactionDate: "2027-08-05" }), janela)).toBe(false);
+  });
+
+  it("deixa de fora o que já foi pago", () => {
+    expect(isOpenInWindow(titulo({ transactionDate: "2026-09-20", status: "Pago" }), janela)).toBe(false);
+  });
+
+  it("deixa de fora transferência", () => {
+    expect(isOpenInWindow(titulo({ transactionDate: "2026-09-20", type: "transferencia" }), janela)).toBe(false);
   });
 });
