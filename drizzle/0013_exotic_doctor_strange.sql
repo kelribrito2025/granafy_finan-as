@@ -1,0 +1,1 @@
+ALTER TABLE `userPreferences` MODIFY COLUMN `defaultPeriod` enum('mes','trimestre','ano') NOT NULL DEFAULT 'mes';

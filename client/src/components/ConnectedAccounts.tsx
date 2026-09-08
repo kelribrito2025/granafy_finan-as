@@ -1,8 +1,7 @@
+import { formatMoney as money } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 
-function money(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
+
 
 /**
  * Rodapé da sidebar: as contas do usuário com o saldo de cada uma. Substitui o

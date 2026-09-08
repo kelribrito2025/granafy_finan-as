@@ -82,6 +82,52 @@ export const costCenters = mysqlTable("costCenters", {
  * Regras de classificação automática. Aplicadas quando o lançamento chega sem
  * categoria — na importação de OFX/CSV e no cadastro manual.
  */
+/** Dados cadastrais da empresa. Uma linha por usuário. */
+export const companyProfiles = mysqlTable("companyProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  legalName: varchar("legalName", { length: 180 }).default("").notNull(),
+  tradeName: varchar("tradeName", { length: 180 }).default("").notNull(),
+  taxId: varchar("taxId", { length: 20 }).default("").notNull(),
+  stateRegistration: varchar("stateRegistration", { length: 30 }).default("").notNull(),
+  taxRegime: mysqlEnum("taxRegime", ["simples", "presumido", "real", "mei", "outro"]).default("simples").notNull(),
+  financeEmail: varchar("financeEmail", { length: 320 }).default("").notNull(),
+  logoKey: varchar("logoKey", { length: 255 }),
+  logoName: varchar("logoName", { length: 180 }),
+  zipCode: varchar("zipCode", { length: 9 }).default("").notNull(),
+  street: varchar("street", { length: 180 }).default("").notNull(),
+  streetNumber: varchar("streetNumber", { length: 20 }).default("").notNull(),
+  complement: varchar("complement", { length: 120 }).default("").notNull(),
+  district: varchar("district", { length: 120 }).default("").notNull(),
+  city: varchar("city", { length: 120 }).default("").notNull(),
+  state: varchar("state", { length: 2 }).default("").notNull(),
+  country: varchar("country", { length: 60 }).default("Brasil").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("company_profiles_user_uidx").on(table.userId),
+]);
+
+/**
+ * Preferências de exibição. A moeda muda símbolo e formato do número, não
+ * converte valor: converter o razão exigiria uma taxa e uma decisão contábil.
+ */
+export const userPreferences = mysqlTable("userPreferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  /** Os mesmos períodos que a Visão geral oferece. */
+  defaultPeriod: mysqlEnum("defaultPeriod", ["mes", "trimestre", "ano"]).default("mes").notNull(),
+  currency: mysqlEnum("currency", ["BRL", "USD", "EUR"]).default("BRL").notNull(),
+  timeZone: varchar("timeZone", { length: 60 }).default("America/Sao_Paulo").notNull(),
+  dateFormat: mysqlEnum("dateFormat", ["dmy", "mdy", "iso"]).default("dmy").notNull(),
+  /** Mês em que o exercício começa, 1-12. */
+  fiscalYearStartMonth: int("fiscalYearStartMonth").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("user_preferences_user_uidx").on(table.userId),
+]);
+
 export const categoryRules = mysqlTable("categoryRules", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -259,6 +305,10 @@ export type TransactionCategoryRecord = typeof transactionCategories.$inferSelec
 export type InsertTransactionCategory = typeof transactionCategories.$inferInsert;
 export type CostCenterRecord = typeof costCenters.$inferSelect;
 export type InsertCostCenter = typeof costCenters.$inferInsert;
+export type CompanyProfileRecord = typeof companyProfiles.$inferSelect;
+export type InsertCompanyProfile = typeof companyProfiles.$inferInsert;
+export type UserPreferencesRecord = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = typeof userPreferences.$inferInsert;
 export type CategoryRuleRecord = typeof categoryRules.$inferSelect;
 export type InsertCategoryRule = typeof categoryRules.$inferInsert;
 export type TransactionImportBatchRecord = typeof transactionImportBatches.$inferSelect;

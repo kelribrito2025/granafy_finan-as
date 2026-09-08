@@ -1,0 +1,506 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { ConnectedAccounts } from "@/components/ConnectedAccounts";
+import { GranafyLogo } from "@/components/GranafyLogo";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChartIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  DashboardIcon,
+  DocumentIcon,
+  MenuIcon,
+  SettingsIcon,
+  TrendUpIcon,
+  type IconlyIcon,
+} from "@/components/IconlyIcons";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { trpc } from "@/lib/trpc";
+import {
+  CURRENCIES,
+  CURRENCY_LABELS,
+  CURRENCY_LOCALES,
+  DEFAULT_PREFERENCES,
+  type Currency,
+  type DateFormat,
+  type DefaultPeriod,
+  type Preferences,
+} from "@shared/preferences";
+import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { useLocation } from "wouter";
+
+type NavItem = { label: string; icon: IconlyIcon; disabled?: boolean };
+type SettingsTab = "company" | "preferences";
+
+const panelItems: NavItem[] = [
+  { label: "Visão geral", icon: DashboardIcon },
+  { label: "Fluxo de caixa", icon: TrendUpIcon, disabled: true },
+  { label: "Contas a pagar", icon: ArrowDownIcon, disabled: true },
+  { label: "Contas a receber", icon: ArrowUpIcon, disabled: true },
+  { label: "Lançamentos", icon: DocumentIcon },
+  { label: "Conciliação", icon: CheckIcon, disabled: true },
+];
+const analysisItems: NavItem[] = [
+  { label: "DRE", icon: DocumentIcon, disabled: true },
+  { label: "Balanço Patrimonial", icon: ChartIcon },
+];
+const organizationItems: NavItem[] = [
+  { label: "Contas e categorias", icon: SettingsIcon },
+  { label: "Configurações", icon: SettingsIcon },
+];
+
+const TAX_REGIMES = [
+  ["simples", "Simples Nacional"],
+  ["presumido", "Lucro Presumido"],
+  ["real", "Lucro Real"],
+  ["mei", "MEI"],
+  ["outro", "Outro"],
+] as const;
+
+// O modelo oferece Diário · Semanal · Mensal, mas a Visão geral navega por mês,
+// trimestre e ano. Nomear períodos que o app não tem seria um ajuste sem efeito.
+const PERIOD_OPTIONS: Array<{ value: DefaultPeriod; label: string; hint: string }> = [
+  { value: "mes", label: "Mês", hint: "Abre no mês corrente" },
+  { value: "trimestre", label: "Trimestre", hint: "Abre no trimestre corrente" },
+  { value: "ano", label: "Ano", hint: "Abre no exercício corrente" },
+];
+
+const DATE_FORMAT_OPTIONS: Array<{ value: DateFormat; label: string }> = [
+  { value: "dmy", label: "DD/MM/AAAA" },
+  { value: "mdy", label: "MM/DD/AAAA" },
+  { value: "iso", label: "AAAA-MM-DD" },
+];
+
+const TIME_ZONES = [
+  ["America/Sao_Paulo", "América/São_Paulo · GMT−3"],
+  ["America/Manaus", "América/Manaus · GMT−4"],
+  ["America/Rio_Branco", "América/Rio_Branco · GMT−5"],
+  ["America/Noronha", "América/Noronha · GMT−2"],
+  ["UTC", "UTC · GMT+0"],
+  ["Europe/Lisbon", "Europa/Lisboa · GMT+1"],
+] as const;
+
+const MONTHS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
+const labelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
+
+function NavGroup({ title, items, active, onSelect }: {
+  title: string;
+  items: NavItem[];
+  active: string;
+  onSelect: (label: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-[3px]">
+      <span className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#B3BFB7]">{title}</span>
+      {items.map(({ label, icon: Icon, disabled = false }) => (
+        <button
+          key={label}
+          type="button"
+          disabled={disabled}
+          title={disabled ? "Página em desenvolvimento" : undefined}
+          onClick={() => onSelect(label)}
+          className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[10px] text-left text-[13px] transition active:scale-[.98] ${
+            label === active
+              ? "bg-[#12B85C] font-bold text-white"
+              : disabled
+                ? "cursor-not-allowed text-[#A8B1AB] opacity-55"
+                : "text-[#28382E] hover:bg-[#F1FBF6]"
+          }`}
+        >
+          <Icon size={16} />
+          <span className="truncate">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [, setLocation] = useLocation();
+  const select = (label: string) => {
+    onClose();
+    if (label === "Visão geral") setLocation("/");
+    else if (label === "Lançamentos") setLocation("/lancamentos");
+    else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
+    else if (label === "Contas e categorias") setLocation("/organizacao");
+    else if (label !== "Configurações") toast.info(`${label} ainda não está disponível.`);
+  };
+  return (
+    <>
+      {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
+      <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
+        <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
+        <NavGroup title="Painel" items={panelItems} active="Configurações" onSelect={select} />
+        <NavGroup title="Análise" items={analysisItems} active="Configurações" onSelect={select} />
+        <NavGroup title="Organização" items={organizationItems} active="Configurações" onSelect={select} />
+        <ConnectedAccounts className="mt-auto" />
+      </aside>
+    </>
+  );
+}
+
+export default function SettingsPage() {
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [tab, setTab] = useState<SettingsTab>("company");
+
+  const utils = trpc.useUtils();
+  const companyQuery = trpc.settings.company.useQuery();
+  const preferencesQuery = trpc.settings.preferences.useQuery();
+  const saveCompany = trpc.settings.saveCompany.useMutation({
+    onSuccess: () => utils.settings.company.invalidate(),
+  });
+  const savePreferences = trpc.settings.savePreferences.useMutation({
+    onSuccess: () => utils.settings.preferences.invalidate(),
+  });
+
+  const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
+  const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] active:scale-95";
+
+  return (
+    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
+      <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
+        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+
+        <section className="flex min-w-0 flex-1 flex-col gap-5">
+          <header className="flex flex-wrap items-center gap-2.5">
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <div className="mr-auto">
+              <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
+              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
+                {tab === "company" ? "Dados cadastrais e endereço da empresa" : "Como o sistema mostra períodos, valores e datas"}
+              </p>
+            </div>
+            <div className="relative">
+              <button type="button" aria-label="Abrir conta" onClick={() => setAccountOpen(value => !value)} className="flex h-11 min-w-11 items-center justify-center rounded-[12px] bg-[#0B1F14] px-2.5 text-[11px] font-bold text-white">{initials || "NV"}</button>
+              {accountOpen && <div className="popover-enter absolute right-0 top-12 z-40 w-[250px] rounded-[17px] bg-white p-3 shadow-[0_20px_50px_rgba(11,31,20,.18)]"><div className="rounded-xl bg-[#F8FAF9] p-3"><strong className="block truncate text-[12px]">{user?.name || "Sua conta"}</strong><span className="mt-0.5 block truncate text-[10.5px] text-[#8A968D]">{user?.email}</span></div><ThemeToggle className="mt-2 rounded-xl bg-[#F8FAF9] p-2" /><button type="button" onClick={async () => { await logout(); setLocation("/login", { replace: true }); }} className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[12px] font-semibold text-[#8E1F16] hover:bg-[#FDECEA]">Sair <ChevronRightIcon size={14} /></button></div>}
+            </div>
+          </header>
+
+          <div className="flex flex-1 flex-col gap-5 xl:flex-row">
+            <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:overflow-visible">
+              {([["company", "Empresa"], ["preferences", "Preferências"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTab(value)}
+                  aria-current={tab === value ? "page" : undefined}
+                  className={`whitespace-nowrap rounded-[12px] px-3.5 py-2.5 text-left text-[13.5px] transition ${
+                    tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="min-w-0 flex-1">
+              {tab === "company" ? (
+                <CompanyForm
+                  initial={companyQuery.data}
+                  loading={companyQuery.isLoading}
+                  pending={saveCompany.isPending}
+                  onSave={async values => {
+                    try {
+                      await saveCompany.mutateAsync(values);
+                      toast.success("Dados da empresa salvos");
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Não foi possível salvar");
+                    }
+                  }}
+                />
+              ) : (
+                <PreferencesForm
+                  initial={preferencesQuery.data}
+                  loading={preferencesQuery.isLoading}
+                  pending={savePreferences.isPending}
+                  onSave={async values => {
+                    try {
+                      await savePreferences.mutateAsync(values);
+                      toast.success("Preferências salvas");
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Não foi possível salvar");
+                    }
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+/** Os campos do formulário. O logo fica de fora: ainda não há upload. */
+type CompanyValues = {
+  legalName: string;
+  tradeName: string;
+  taxId: string;
+  stateRegistration: string;
+  taxRegime: "simples" | "presumido" | "real" | "mei" | "outro";
+  financeEmail: string;
+  zipCode: string;
+  street: string;
+  streetNumber: string;
+  complement: string;
+  district: string;
+  city: string;
+  state: string;
+  country: string;
+};
+
+function CompanyForm({ initial, loading, pending, onSave }: {
+  initial: (CompanyValues & { logoKey?: string | null; logoName?: string | null }) | undefined;
+  loading: boolean;
+  pending: boolean;
+  onSave: (values: CompanyValues) => Promise<void>;
+}) {
+  const [form, setForm] = useState<CompanyValues | null>(null);
+  const utils = trpc.useUtils();
+  const [lookingUp, setLookingUp] = useState(false);
+
+  useEffect(() => {
+    if (!initial || form) return;
+    const { logoKey: _logoKey, logoName: _logoName, ...values } = initial;
+    setForm(values as CompanyValues);
+  }, [form, initial]);
+
+  if (loading || !form) {
+    return <div className="flex min-h-[300px] items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando cadastro...</div>;
+  }
+
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+    setForm(current => (current ? { ...current, [key]: value } : current));
+
+  const lookupZip = async () => {
+    if (!/^\d{5}-?\d{3}$/.test(form.zipCode.trim())) return toast.info("Informe um CEP com 8 dígitos.");
+    setLookingUp(true);
+    try {
+      const found = await utils.settings.lookupZipCode.fetch({ zipCode: form.zipCode.trim() });
+      setForm(current => current ? { ...current, ...found } : current);
+      toast.success("Endereço preenchido pelo CEP");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível consultar o CEP");
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    await onSave(form);
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-5">
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Dados cadastrais</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2">
+            <span className={labelClass}>Razão social</span>
+            <input maxLength={180} value={form.legalName} onChange={event => set("legalName", event.target.value)} placeholder="Número Virtual LTDA" className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Nome fantasia</span>
+            <input maxLength={180} value={form.tradeName} onChange={event => set("tradeName", event.target.value)} placeholder="GranaFy" className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>CNPJ</span>
+            <input maxLength={20} value={form.taxId} onChange={event => set("taxId", event.target.value)} placeholder="00.000.000/0001-00" className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Inscrição estadual</span>
+            <input maxLength={30} value={form.stateRegistration} onChange={event => set("stateRegistration", event.target.value)} placeholder="Isento" className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Regime tributário</span>
+            <select value={form.taxRegime} onChange={event => set("taxRegime", event.target.value as CompanyValues["taxRegime"])} className={fieldClass}>
+              {TAX_REGIMES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="sm:col-span-2">
+            <span className={labelClass}>E-mail financeiro</span>
+            <input type="email" maxLength={320} value={form.financeEmail} onChange={event => set("financeEmail", event.target.value)} placeholder="financeiro@empresa.com" className={fieldClass} />
+          </label>
+        </div>
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Endereço</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-[150px_1fr_110px]">
+          <label>
+            <span className={labelClass}>CEP</span>
+            <div className="flex h-[46px] items-center gap-2 rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 focus-within:border-[#12B85C]">
+              <input maxLength={9} value={form.zipCode} onChange={event => set("zipCode", event.target.value)} placeholder="00000-000" className="min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
+            </div>
+          </label>
+          <label>
+            <span className={labelClass}>Logradouro</span>
+            <input maxLength={180} value={form.street} onChange={event => set("street", event.target.value)} className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Número</span>
+            <input maxLength={20} value={form.streetNumber} onChange={event => set("streetNumber", event.target.value)} className={fieldClass} />
+          </label>
+          <button type="button" onClick={lookupZip} disabled={lookingUp} className="h-[46px] self-end rounded-xl bg-[#F1FBF6] px-3 text-[12.5px] font-bold text-[#0A7A42] hover:bg-[#DFF6EA] disabled:opacity-60 sm:col-span-1">
+            {lookingUp ? "Buscando..." : "Buscar pelo CEP"}
+          </button>
+          <label className="sm:col-span-2">
+            <span className={labelClass}>Complemento</span>
+            <input maxLength={120} value={form.complement} onChange={event => set("complement", event.target.value)} className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Bairro</span>
+            <input maxLength={120} value={form.district} onChange={event => set("district", event.target.value)} className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>Cidade</span>
+            <input maxLength={120} value={form.city} onChange={event => set("city", event.target.value)} className={fieldClass} />
+          </label>
+          <label>
+            <span className={labelClass}>UF</span>
+            <input maxLength={2} value={form.state} onChange={event => set("state", event.target.value.toUpperCase())} className={fieldClass} />
+          </label>
+          <label className="sm:col-span-2">
+            <span className={labelClass}>País</span>
+            <input maxLength={60} value={form.country} onChange={event => set("country", event.target.value)} className={fieldClass} />
+          </label>
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-[#8A968D]">
+          A busca por CEP consulta o ViaCEP. Se o serviço estiver fora do ar, o endereço continua podendo ser digitado.
+        </p>
+      </article>
+
+      <div className="flex justify-end">
+        <button type="submit" disabled={pending} className="h-12 rounded-xl bg-[#12B85C] px-6 text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-60">
+          {pending ? "Salvando..." : "Salvar dados da empresa"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PreferencesForm({ initial, loading, pending, onSave }: {
+  initial: Preferences | undefined;
+  loading: boolean;
+  pending: boolean;
+  onSave: (values: Preferences) => Promise<void>;
+}) {
+  const [form, setForm] = useState<Preferences | null>(null);
+
+  useEffect(() => {
+    if (initial && !form) setForm(initial);
+  }, [form, initial]);
+
+  if (loading || !form) {
+    return <div className="flex min-h-[300px] items-center justify-center gap-3 rounded-[20px] bg-white text-[12px] text-[#718077] ring-1 ring-[#E1E8E3]"><span className="h-4 w-4 animate-spin rounded-full border-2 border-[#12B85C]/20 border-t-[#12B85C]" />Carregando preferências...</div>;
+  }
+
+  const sample = (currency: Currency) =>
+    new Intl.NumberFormat(CURRENCY_LOCALES[currency], { style: "currency", currency }).format(1234.56);
+
+  return (
+    <form onSubmit={async event => { event.preventDefault(); await onSave(form); }} className="flex flex-col gap-5">
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Período de navegação padrão</h2>
+        <p className="mt-0.5 text-[12.5px] text-[#8A968D]">Define o que a Visão geral abre ao entrar</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {PERIOD_OPTIONS.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setForm({ ...form, defaultPeriod: option.value })}
+              aria-pressed={form.defaultPeriod === option.value}
+              className={`rounded-[14px] p-4 text-left transition ${
+                form.defaultPeriod === option.value
+                  ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                  : "border border-[#E3EAE5] hover:bg-[#F8FAF9]"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${form.defaultPeriod === option.value ? "bg-[#12B85C]" : "border-[1.5px] border-[#C9D5CD]"}`}>
+                  {form.defaultPeriod === option.value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </span>
+                <span className="text-[14px] font-semibold">{option.label}</span>
+              </span>
+              <span className="mt-2 block text-[12px] leading-relaxed text-[#8A968D]">{option.hint}</span>
+            </button>
+          ))}
+        </div>
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Moeda padrão</h2>
+        <p className="mt-0.5 text-[12.5px] text-[#8A968D]">Muda o símbolo e o formato do número em todas as telas</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {CURRENCIES.map(currency => (
+            <button
+              key={currency}
+              type="button"
+              onClick={() => setForm({ ...form, currency })}
+              aria-pressed={form.currency === currency}
+              className={`flex items-center gap-3 rounded-[14px] p-4 text-left transition ${
+                form.currency === currency
+                  ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                  : "border border-[#E3EAE5] hover:bg-[#F8FAF9]"
+              }`}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F1F4F2] text-[14px] font-bold text-[#28382E]">
+                {CURRENCY_LABELS[currency].symbol}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-semibold">{CURRENCY_LABELS[currency].name}</span>
+                <span className="block truncate text-[12px] text-[#8A968D]">{currency} · {sample(currency)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 rounded-xl bg-[#FFF8E8] px-3.5 py-3 text-[11px] leading-relaxed text-[#725517]">
+          A moeda muda apenas como o valor é escrito. Nada é convertido: R$ 100 vira $ 100,00, não o equivalente em dólar.
+        </p>
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label>
+            <span className={labelClass}>Fuso horário</span>
+            <select value={form.timeZone} onChange={event => setForm({ ...form, timeZone: event.target.value })} className={fieldClass}>
+              {TIME_ZONES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className={labelClass}>Formato de data</span>
+            <select value={form.dateFormat} onChange={event => setForm({ ...form, dateFormat: event.target.value as DateFormat })} className={fieldClass}>
+              {DATE_FORMAT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className={labelClass}>Início do exercício</span>
+            <select value={form.fiscalYearStartMonth} onChange={event => setForm({ ...form, fiscalYearStartMonth: Number(event.target.value) })} className={fieldClass}>
+              {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+            </select>
+          </label>
+        </div>
+      </article>
+
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => setForm(DEFAULT_PREFERENCES)} className="h-12 rounded-xl bg-[#F1F4F2] px-4 text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9]">
+          Voltar ao padrão
+        </button>
+        <button type="submit" disabled={pending} className="ml-auto h-12 rounded-xl bg-[#12B85C] px-6 text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-60">
+          {pending ? "Salvando..." : "Salvar preferências"}
+        </button>
+      </div>
+    </form>
+  );
+}

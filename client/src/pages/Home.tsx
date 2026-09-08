@@ -19,10 +19,13 @@ import {
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { greetingFor } from "@/lib/greeting";
+import { activePreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
+import { usePreferences } from "@/contexts/PreferencesContext";
+import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -32,6 +35,12 @@ type NavItem = {
   disabled?: boolean;
   badge?: string;
   badgeTone?: "positive" | "negative" | "neutral";
+};
+
+const PERIOD_LABELS: Record<DefaultPeriod, string> = {
+  mes: "Mês",
+  trimestre: "Trimestre",
+  ano: "Ano",
 };
 
 const panelItems: NavItem[] = [
@@ -46,20 +55,23 @@ const panelItems: NavItem[] = [
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon, disabled: true },
   { label: "Balanço Patrimonial", icon: ChartIcon },
-  { label: "Relatórios", icon: ChartIcon, disabled: true },
-  { label: "Clientes", icon: UsersIcon, disabled: true },
 ];
 
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
+  { label: "Configurações", icon: SettingsIcon },
 ];
 
 function formatMoney(value: number, compact = false) {
-  return new Intl.NumberFormat("pt-BR", {
+  // A versão compacta ("R$ 62,1 mil") é dos eixos do gráfico e não passa pelas
+  // preferências: a moeda escolhida entra pelo símbolo, o resto é escala.
+  if (!compact) return formatMoneyWithPreferences(value);
+  const { currency } = activePreferences();
+  return new Intl.NumberFormat(CURRENCY_LOCALES[currency], {
     style: "currency",
-    currency: "BRL",
-    notation: compact ? "compact" : "standard",
-    maximumFractionDigits: compact ? 1 : 2,
+    currency,
+    notation: "compact",
+    maximumFractionDigits: 1,
   }).format(value);
 }
 
@@ -152,7 +164,7 @@ function Sidebar({
         }`}
       >
         <div className="flex items-center gap-2.5 px-1.5">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" />
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
           <button
             type="button"
             aria-label="Fechar menu"
@@ -177,7 +189,17 @@ export default function Home() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [activeNav, setActiveNav] = useState("Visão geral");
-  const [period, setPeriod] = useState("Mês");
+  // O período inicial vem das preferências; depois disso quem manda é o clique.
+  const preferences = usePreferences();
+  const [period, setPeriod] = useState(PERIOD_LABELS[preferences.defaultPeriod]);
+  const appliedDefault = useRef(preferences.defaultPeriod);
+  useEffect(() => {
+    // As preferências chegam depois do primeiro render; só a primeira mudança
+    // reposiciona a tela, para não desfazer a escolha do usuário na sessão.
+    if (appliedDefault.current === preferences.defaultPeriod) return;
+    appliedDefault.current = preferences.defaultPeriod;
+    setPeriod(PERIOD_LABELS[preferences.defaultPeriod]);
+  }, [preferences.defaultPeriod]);
   const dashboardRange = period === "Ano" ? "year" : period === "Trimestre" ? "quarter" : "month";
   const dashboardQuery = trpc.transactions.dashboard.useQuery({ range: dashboardRange });
   const dashboard = dashboardQuery.data;
@@ -228,6 +250,10 @@ export default function Home() {
     }
     if (item === "Contas e categorias") {
       setLocation("/organizacao");
+      return;
+    }
+    if (item === "Configurações") {
+      setLocation("/configuracoes");
       return;
     }
     if (item === "Balanço Patrimonial") {

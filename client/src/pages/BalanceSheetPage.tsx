@@ -16,11 +16,13 @@ import {
   SettingsIcon,
   TrendUpIcon,
   UploadIcon,
-  UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { usePreferences } from "@/contexts/PreferencesContext";
+import { CURRENCY_LABELS } from "@shared/preferences";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
+import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -139,11 +141,10 @@ const panelItems: NavItem[] = [
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon, disabled: true },
   { label: "Balanço Patrimonial", icon: ChartIcon },
-  { label: "Relatórios", icon: ChartIcon, disabled: true },
-  { label: "Clientes", icon: UsersIcon, disabled: true },
 ];
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
+  { label: "Configurações", icon: SettingsIcon },
 ];
 
 const groupLabels: Record<BalanceGroup, string> = {
@@ -183,10 +184,7 @@ function today() {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
+  return formatMoneyWithPreferences(value);
 }
 
 function formatDecimal(value: number) {
@@ -197,8 +195,7 @@ function formatDecimal(value: number) {
 }
 
 function formatDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
+  return formatDateWithPreferences(value);
 }
 
 function formatPercent(value: number) {
@@ -265,6 +262,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (label === "Visão geral") setLocation("/");
     else if (label === "Lançamentos") setLocation("/lancamentos");
     else if (label === "Contas e categorias") setLocation("/organizacao");
+    else if (label === "Configurações") setLocation("/configuracoes");
     else if (label !== "Balanço Patrimonial") toast.info(`${label} ainda não está disponível.`);
   };
   return (
@@ -279,7 +277,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       )}
       <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
         <div className="flex items-center gap-2.5 px-1.5">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" />
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
           <button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden">
             <CloseIcon size={17} />
           </button>
@@ -937,6 +935,7 @@ export default function BalanceSheetPage() {
   const [itemModal, setItemModal] = useState(false);
   const [snapshotModal, setSnapshotModal] = useState(false);
   const [evolutionRange, setEvolutionRange] = useState<EvolutionRange>("12");
+  const preferences = usePreferences();
   const [editingItem, setEditingItem] = useState<PatrimonialItem | null>(null);
   const [newItemGroup, setNewItemGroup] = useState<BalanceGroup>("ativo_nao_circulante");
   const utils = trpc.useUtils();
@@ -1191,7 +1190,7 @@ export default function BalanceSheetPage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Balanço patrimonial</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                Posição em {formatDate(referenceDate)} · valores em reais
+                Posição em {formatDate(referenceDate)} · valores em {CURRENCY_LABELS[preferences.currency].name.toLowerCase()}
               </p>
               <p className="mt-0.5 text-[11px] text-[#B3BFB7]">
                 {baseline

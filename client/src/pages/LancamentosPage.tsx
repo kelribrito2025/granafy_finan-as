@@ -18,11 +18,11 @@ import {
   SettingsIcon,
   TrendUpIcon,
   UploadIcon,
-  UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
+import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -98,12 +98,11 @@ const panelItems: NavItem[] = [
 const analysisItems: NavItem[] = [
   { label: "DRE", icon: DocumentIcon, disabled: true },
   { label: "Balanço Patrimonial", icon: ChartIcon },
-  { label: "Relatórios", icon: ChartIcon, disabled: true },
-  { label: "Clientes", icon: UsersIcon, disabled: true },
 ];
 
 const organizationItems: NavItem[] = [
   { label: "Contas e categorias", icon: SettingsIcon },
+  { label: "Configurações", icon: SettingsIcon },
 ];
 
 const badgeClass = {
@@ -148,7 +147,7 @@ function SelectionCheckbox({ checked, mixed = false, label, onChange }: {
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+  return formatMoneyWithPreferences(value);
 }
 
 function formatPercent(value: number) {
@@ -167,8 +166,7 @@ function formatDayLabel(isoDate: string) {
 }
 
 function formatDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
+  return formatDateWithPreferences(value);
 }
 
 function safeErrorMessage(error: unknown, fallback: string) {
@@ -207,6 +205,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
     onClose();
     if (label === "Visão geral") setLocation("/");
     else if (label === "Contas e categorias") setLocation("/organizacao");
+    else if (label === "Configurações") setLocation("/configuracoes");
     else if (label === "Balanço Patrimonial") setLocation("/balanco-patrimonial");
     else if (label !== "Lançamentos") toast.info(`${label} será adicionada em uma próxima etapa.`);
   };
@@ -216,7 +215,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       {open && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-[#07150d]/35 backdrop-blur-[2px] xl:hidden" onClick={onClose} />}
       <aside className={`fixed inset-y-3 left-3 z-50 flex w-[236px] shrink-0 flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white px-[14px] py-5 shadow-[0_18px_44px_rgba(11,31,20,.16)] transition-transform duration-200 xl:sticky xl:inset-auto xl:top-5 xl:h-[calc(100vh-40px)] xl:min-h-0 xl:translate-x-0 xl:shadow-none ${open ? "translate-x-0" : "-translate-x-[260px]"}`}>
         <div className="flex items-center gap-2.5 px-1.5">
-          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 flex-1" />
+          <GranafyLogo size={36} subtitle="Número Virtual LTDA" className="min-w-0 shrink-0" />
           <button type="button" aria-label="Fechar menu" onClick={onClose} className="ml-auto rounded-lg p-1 text-[#8A968D] hover:bg-[#F1F4F2] xl:hidden"><CloseIcon size={17} /></button>
         </div>
         <NavGroup title="Painel" items={panelItems} onSelect={select} />

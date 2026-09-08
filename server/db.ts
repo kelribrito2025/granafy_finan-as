@@ -5,8 +5,12 @@ import { randomUUID } from "node:crypto";
 import {
   balanceSheetSnapshots,
   categoryRules,
+  companyProfiles,
   costCenters,
   type InsertCategoryRule,
+  type InsertCompanyProfile,
+  type InsertUserPreferences,
+  userPreferences,
   financialAccounts,
   type InsertCostCenter,
   type InsertBalanceSheetSnapshot,
@@ -762,6 +766,45 @@ export async function getAccountTransactionCounts(userId: number, startDate: str
     ))
     .groupBy(financialTransactions.accountId);
   return new Map(rows.map(row => [Number(row.accountId), Number(row.total)]));
+}
+
+export async function getCompanyProfile(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(companyProfiles).where(eq(companyProfiles.userId, userId)).limit(1);
+  return rows[0];
+}
+
+/** Uma linha por usuário: cria na primeira gravação, atualiza depois. */
+export async function saveCompanyProfile(userId: number, values: Omit<InsertCompanyProfile, "userId">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const existing = await getCompanyProfile(userId);
+  if (existing) {
+    await db.update(companyProfiles).set(values).where(eq(companyProfiles.userId, userId));
+  } else {
+    await db.insert(companyProfiles).values({ userId, ...values });
+  }
+  return getCompanyProfile(userId);
+}
+
+export async function getUserPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+  return rows[0];
+}
+
+export async function saveUserPreferences(userId: number, values: Omit<InsertUserPreferences, "userId">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const existing = await getUserPreferences(userId);
+  if (existing) {
+    await db.update(userPreferences).set(values).where(eq(userPreferences.userId, userId));
+  } else {
+    await db.insert(userPreferences).values({ userId, ...values });
+  }
+  return getUserPreferences(userId);
 }
 
 export async function getTransactionsByFingerprints(userId: number, fingerprints: string[]) {

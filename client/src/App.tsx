@@ -6,10 +6,12 @@ import BalanceSheetPage from "@/pages/BalanceSheetPage";
 import LancamentosPage from "@/pages/LancamentosPage";
 import NotFound from "@/pages/NotFound";
 import OrganizationPage from "@/pages/OrganizationPage";
+import SettingsPage from "@/pages/SettingsPage";
 import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { GranafySymbol } from "./components/GranafyLogo";
+import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
@@ -39,7 +41,7 @@ function ProtectedPage({ children }: { children: ReactNode }) {
     return <AuthLoading />;
   }
 
-  return children;
+  return <PreferencesProvider>{children}</PreferencesProvider>;
 }
 
 function Router() {
@@ -49,6 +51,7 @@ function Router() {
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
+      <Route path="/configuracoes"><ProtectedPage><SettingsPage /></ProtectedPage></Route>
       <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
       <Route path="/"><ProtectedPage><Home /></ProtectedPage></Route>
       <Route path={"/404"} component={NotFound} />
