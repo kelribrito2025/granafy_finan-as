@@ -1,5 +1,5 @@
 import { GranafyLoader } from "@/components/GranafyLoader";
-import { OnboardingShell, type PassoIndice } from "@/components/onboarding/OnboardingStepper";
+import { OnboardingRodape, OnboardingShell, type PassoIndice } from "@/components/onboarding/OnboardingStepper";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { OnboardingWelcome } from "@/components/onboarding/OnboardingWelcome";
 import { StepConta } from "@/components/onboarding/StepConta";
@@ -100,7 +100,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     /** Bloqueado esperando uma decisão da pessoa — diferente de estar salvando. */
     disabled?: boolean;
   }) => (
-    <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-[#E3EBE6] pt-6">
+    <OnboardingRodape>
       <button
         type="button"
         onClick={() => setPasso(anterior => (anterior === 0 ? null : ((anterior ?? 1) - 1) as PassoIndice))}
@@ -117,17 +117,16 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       >
         {pending ? "Salvando…" : label}
       </button>
-      {/* A saída acompanha todo passo: a promessa da abertura vale até o fim. */}
-      <button
-        type="button"
-        onClick={pular}
-        disabled={concluir.isPending}
-        className="h-[46px] px-2 text-[13px] text-[#8A968D] transition hover:text-[#0B1F14] disabled:opacity-50 sm:ml-auto"
-      >
-        {concluir.isPending ? "Abrindo o painel…" : "Configurar depois"}
-      </button>
-    </div>
+    </OnboardingRodape>
   );
+
+  /** O texto pequeno do canto esquerdo do rodapé, um por passo. */
+  const DICAS = [
+    "Leva menos de um minuto",
+    "Você adiciona as outras contas depois, em Contas e categorias",
+    "O extrato pode entrar depois, em Lançamentos",
+    "Você pode refazer esses passos em Configurações",
+  ];
 
   const CONTEUDO = [
     { titulo: "Confirme a empresa", apoio: "Razão social, CNPJ e regime tributário. O regime só rotula relatórios — o GranaFy não calcula impostos." },
@@ -143,6 +142,9 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       atual={passo}
       titulo={CONTEUDO[passo].titulo}
       apoio={CONTEUDO[passo].apoio}
+      dica={DICAS[passo]}
+      onSair={pular}
+      sairPending={concluir.isPending}
     >
       {passo === 0 && <StepEmpresa onDone={avancar} renderFooter={rodapeDe} />}
       {passo === 1 && (

@@ -1,4 +1,5 @@
 import { ArrowsUpDownIcon, BuildingIcon, ChevronRightIcon, TagIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
+import { OnboardingRodape } from "@/components/onboarding/OnboardingStepper";
 import { formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import type { OpeningComparison } from "@shared/openingBalance";
@@ -182,19 +183,18 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-[#E3EBE6] pt-6">
-        <span className="text-[12.5px] text-[#8A968D]">
-          Você pode refazer esses passos em Configurações.
-        </span>
+      {/* O botão vai para a barra do rodapé, como nos outros passos. A dica
+          "refazer em Configurações" já é a dica daquela barra. */}
+      <OnboardingRodape>
         <button
           type="button"
           onClick={onFinish}
           disabled={pending}
-          className="ml-auto h-[46px] rounded-[12px] bg-[#12B85C] px-6 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
+          className="h-[46px] rounded-[12px] bg-[#12B85C] px-6 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
         >
           {pending ? "Abrindo…" : "Abrir o painel"}
         </button>
-      </div>
+      </OnboardingRodape>
     </>
   );
 }
