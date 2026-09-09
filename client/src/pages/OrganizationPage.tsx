@@ -11,9 +11,9 @@ import {
   DocumentIcon,
   EditIcon,
   FilterIcon,
-  MenuIcon,
   PlusIcon,
   SearchIcon,
+  SidebarMenuIcon,
   UploadIcon,
   WalletIcon,
   type IconlyIcon,
@@ -664,7 +664,7 @@ export default function OrganizationPage() {
         />
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={WalletIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">{section === "accounts" ? "Contas" : "Categorias"}</h1>
@@ -690,11 +690,11 @@ export default function OrganizationPage() {
               <Hint label="Importar plano de contas"><button type="button" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button></Hint>
             )}
 
+            <HideValuesButton />
+
             <button type="button" onClick={openPrimary} className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F9E4E]">
               <PlusIcon size={15} />{primaryLabel}
             </button>
-
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 
@@ -785,10 +785,22 @@ export default function OrganizationPage() {
                         <SyncBadge account={item} />
                         <span className="text-[13px] text-[#4C6355]">{item.monthTransactionCount} no mês</span>
                         <span className={`text-right text-[15px] font-bold ${item.balance >= 0 ? "" : "text-[#B3261E]"}`}>{formatMoney(item.balance)}</span>
+                        {/*
+                          As dicas destas três abrem para a esquerda.
+
+                          A tabela vive num `overflow-x-auto`, e um balão
+                          invisível conta como conteúdo: o de "Excluir conta",
+                          centrado sobre o último botão, passava 30 px da borda
+                          direita e criava uma barra de rolagem horizontal numa
+                          tabela que cabia inteira na tela. Abrindo para dentro,
+                          o balão não estica nada — e de quebra deixa de ser
+                          cortado pelo próprio contêiner, que também recorta em
+                          cima.
+                        */}
                         <div className="flex items-center justify-end gap-1">
-                          <Hint label={item.isActive ? "Arquivar conta" : "Reativar conta"} placement="top"><button type="button" aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button></Hint>
-                          <Hint label="Editar conta" placement="top"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
-                          <Hint label="Excluir conta" placement="top"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
+                          <Hint label={item.isActive ? "Arquivar conta" : "Reativar conta"} placement="left"><button type="button" aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button></Hint>
+                          <Hint label="Editar conta" placement="left"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
+                          <Hint label="Excluir conta" placement="left"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
                         </div>
                       </div>
                     ))}

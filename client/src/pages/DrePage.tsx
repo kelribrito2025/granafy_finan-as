@@ -8,7 +8,7 @@ import {
   ChevronRightIcon,
   DocumentIcon,
   DownloadIcon,
-  MenuIcon,
+  SidebarMenuIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -425,7 +425,7 @@ export default function DrePage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={DocumentIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">DRE</h1>
@@ -458,6 +458,7 @@ export default function DrePage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <HideValuesButton />
             <button
               type="button"
               disabled={closeMonth.isPending || isFuture}
@@ -468,7 +469,6 @@ export default function DrePage() {
               <DocumentIcon size={15} />
               {closeMonth.isPending ? "Fechando…" : "Fechar o mês"}
             </button>
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 

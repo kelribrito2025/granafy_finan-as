@@ -11,9 +11,9 @@ import {
   CheckIcon,
   ChevronRightIcon,
   DownloadIcon,
-  MenuIcon,
   PlusIcon,
   SearchIcon,
+  SidebarMenuIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -425,7 +425,7 @@ export default function PagarReceberPage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ArrowUpIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">A pagar e receber</h1>

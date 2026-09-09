@@ -8,8 +8,8 @@ import {
   ChevronRightIcon,
   CloseIcon,
   DownloadIcon,
-  MenuIcon,
   SearchIcon,
+  SidebarMenuIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -1147,7 +1147,7 @@ export default function ConciliacaoPage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={CheckIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Conciliação bancária</h1>
@@ -1182,6 +1182,7 @@ export default function ConciliacaoPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar conciliação" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <HideValuesButton />
             {data && (
               data.period.closed ? (
                 <button
@@ -1205,7 +1206,6 @@ export default function ConciliacaoPage() {
                 </button>
               )
             )}
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 

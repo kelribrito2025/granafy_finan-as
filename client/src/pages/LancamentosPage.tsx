@@ -7,6 +7,7 @@ import {
   ArrowUpIcon,
   ChartIcon,
   ChevronRightIcon,
+  ClockIcon,
   CloseIcon,
   DeleteIcon,
   DocumentIcon,
@@ -15,7 +16,9 @@ import {
   FilterIcon,
   MenuIcon,
   PlusIcon,
+  PrintIcon,
   SearchIcon,
+  SidebarMenuIcon,
   UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
@@ -42,7 +45,7 @@ import { todayIso } from "@/lib/period";
 import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -117,7 +120,18 @@ const STATUS_TONE: Record<RowStatus["tone"], string> = {
  * caixa disponível na visão geral. Sobre esse fundo as cores de sinal saem de
  * cena: verde ou vermelho sobre verde escuro não se lê.
  */
-function KpiCard({ label, value, valueClass, hint, hintClass, note, highlight = false }: {
+/*
+ * O mesmo cartão de Pagas e recebidas — medidas, tipos e o selo do ícone.
+ *
+ * Eram dois desenhos parecidos e diferentes: `p-5` contra `p-6`, sem o selo
+ * do ícone, e o resultado é que as duas telas mostravam a mesma fileira de
+ * indicadores com 23 px de diferença de altura. Quem vai de uma para a outra
+ * vê a página inteira pular.
+ *
+ * O cartão em destaque continua sem ícone dos dois lados: ele já se distingue
+ * pelo fundo.
+ */
+function KpiCard({ label, value, valueClass, hint, hintClass, note, icon, highlight = false }: {
   label: string;
   value: string;
   valueClass?: string;
@@ -125,17 +139,21 @@ function KpiCard({ label, value, valueClass, hint, hintClass, note, highlight = 
   hintClass?: string;
   /** Linha de rodapé do cartão: o total do mês quando há filtro de pé. */
   note?: string;
+  icon?: { node: ReactNode; className: string };
   highlight?: boolean;
 }) {
   const content = (
     <>
-      <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>
-        {label}
-      </span>
+      <div className="flex items-center gap-2.5">
+        {icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] ${icon.className}`}>{icon.node}</span>}
+        <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#4C6355]"}`}>
+          {label}
+        </span>
+      </div>
       <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>
         {value}
       </strong>
-      <span className={`text-[12px] ${highlight ? "text-[#C5DACE]" : hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
+      <span className={`text-[12.5px] ${highlight ? "text-[#7EE2A8]" : hintClass ?? "text-[#4C6355]"}`}>{hint}</span>
       {note && (
         <span className={`text-[11.5px] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>{note}</span>
       )}
@@ -144,12 +162,12 @@ function KpiCard({ label, value, valueClass, hint, hintClass, note, highlight = 
 
   if (highlight) {
     return (
-      <AuroraSurface className="rounded-[20px] p-5">
-        <div className="flex flex-1 flex-col gap-2.5">{content}</div>
+      <AuroraSurface className="rounded-[20px] p-6">
+        <div className="flex flex-1 flex-col gap-2">{content}</div>
       </AuroraSurface>
     );
   }
-  return <article className="flex flex-col gap-2.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">{content}</article>;
+  return <article className="flex flex-col gap-2 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">{content}</article>;
 }
 
 /** Chip removível de um filtro ativo. */
@@ -785,7 +803,7 @@ export default function LancamentosPage() {
         />
         <section className="flex min-w-0 flex-1 flex-col gap-4 pb-1">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={DocumentIcon} />
             <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">Dados reais salvos na sua conta</p></div>
             <div className="order-3 mx-auto flex w-full items-center justify-center gap-2 lg:order-none lg:w-auto">
@@ -809,9 +827,9 @@ export default function LancamentosPage() {
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
             </Tooltip>
-            <Hint label="Imprimir" className="hidden sm:inline-flex"><button type="button" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={toolButton}><DocumentIcon size={17} /></button></Hint>
-            <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
+            <Hint label="Imprimir" className="hidden sm:inline-flex"><button type="button" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={toolButton}><PrintIcon size={17} /></button></Hint>
             <HideValuesButton />
+            <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
             <ProfileMenu />
           </header>
 
@@ -831,12 +849,14 @@ export default function LancamentosPage() {
               label="Saídas do período"
               value={formatMoney(filteredSummary.outgoing)}
               valueClass="text-[#B3261E]"
+              icon={{ node: <ArrowDownIcon size={15} />, className: "bg-[#FDECEA] text-[#B3261E]" }}
               hint={`${counts.outgoing.toLocaleString("pt-BR")} ${counts.outgoing === 1 ? "lançamento" : "lançamentos"}`}
               note={filtrosAtivos ? `mês inteiro: ${formatMoney(summary.outgoing)}` : undefined}
             />
             <KpiCard
               label="Resultado"
               value={formatMoney(filteredSummary.balance)}
+              icon={{ node: <ChartIcon size={15} />, className: "bg-[#F1F4F2] text-[#4C6355]" }}
               hint={filteredSummary.incoming > 0 ? `margem ${formatPercent((filteredSummary.balance / filteredSummary.incoming) * 100)}` : "sem entradas no período"}
               hintClass={filteredSummary.balance >= 0 ? "font-semibold text-[#0A7A42]" : "font-semibold text-[#B3261E]"}
               note={filtrosAtivos ? `mês inteiro: ${formatMoney(summary.balance)}` : undefined}
@@ -844,6 +864,7 @@ export default function LancamentosPage() {
             <KpiCard
               label="Pendentes"
               value={counts.pending.toLocaleString("pt-BR")}
+              icon={{ node: <ClockIcon size={15} />, className: "bg-[#F1F4F2] text-[#4C6355]" }}
               hint={counts.pending === 0
                 ? "nada em aberto neste mês"
                 : `${counts.uncategorized} sem categoria · ${counts.late} ${counts.late === 1 ? "atrasado" : "atrasados"}`}

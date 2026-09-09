@@ -6,9 +6,9 @@ import {
   ChartIcon,
   ChevronRightIcon,
   DocumentIcon,
-  MenuIcon,
   NotificationIcon,
   PlusIcon,
+  SidebarMenuIcon,
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
@@ -192,7 +192,7 @@ export default function Home() {
               onClick={() => setMobileOpen(true)}
               className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95 xl:hidden"
             >
-              <MenuIcon size={18} />
+              <SidebarMenuIcon size={18} />
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
               <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">{greeting}, {firstName}</h1>

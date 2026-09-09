@@ -170,6 +170,51 @@ export function MenuIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * A impressora.
+ *
+ * O botão de imprimir usava o ícone de documento, o mesmo do menu "Lançamentos"
+ * e o mesmo do "Fechar o mês" na DRE — três significados no mesmo desenho. A
+ * impressora não existe no conjunto Iconly, então esta é traçada, com o peso
+ * de linha dos vizinhos.
+ */
+export function PrintIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        {/* A folha que entra, por cima. */}
+        <path d="M7 9V5.25C7 4.56 7.56 4 8.25 4h7.5C16.44 4 17 4.56 17 5.25V9" />
+        {/* O corpo, com a luzinha à direita. */}
+        <path d="M7 17.5H5.75A1.75 1.75 0 0 1 4 15.75v-4.5A1.75 1.75 0 0 1 5.75 9.5h12.5A1.75 1.75 0 0 1 20 11.25v4.5a1.75 1.75 0 0 1-1.75 1.75H17" />
+        <path d="M17 12.25h.01" />
+        {/* A folha que sai, por baixo. */}
+        <rect x="7" y="14" width="10" height="6" rx="1.25" />
+      </g>
+    </IconShell>
+  );
+}
+
+/*
+ * O botão que abre o menu lateral no celular.
+ *
+ * Não é do conjunto Iconly: o "Menu" de lá é um balão com três pontinhos, que
+ * na barra de título passa por "mais ações" e não por "abrir o menu" — foi
+ * exatamente essa a confusão. Três traços é o desenho que todo mundo já
+ * aprendeu a ler nessa posição.
+ *
+ * O `IconShell` desenha num espaço de 24 (o `scale(2)` sobre a tela de 48),
+ * então as medidas abaixo são as mesmas dos ícones vizinhos.
+ */
+export function SidebarMenuIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <rect x="3" y="5.75" width="18" height="1.6" rx="0.8" fill="currentColor" />
+      <rect x="3" y="11.2" width="18" height="1.6" rx="0.8" fill="currentColor" />
+      <rect x="3" y="16.65" width="18" height="1.6" rx="0.8" fill="currentColor" />
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Plus (ID 39019), master canvas 48 px.
 export function PlusIcon(props: IconlyIconProps) {
   return (

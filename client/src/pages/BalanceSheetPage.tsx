@@ -11,8 +11,8 @@ import {
   DocumentIcon,
   DownloadIcon,
   EditIcon,
-  MenuIcon,
   PlusIcon,
+  SidebarMenuIcon,
   TrendUpIcon,
   UploadIcon,
   type IconlyIcon,
@@ -1121,7 +1121,7 @@ export default function BalanceSheetPage() {
         />
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ChartIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Balanço patrimonial</h1>
@@ -1152,8 +1152,8 @@ export default function BalanceSheetPage() {
               ))}
             </div>
             <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
-            <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
             <HideValuesButton />
+            <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
             <ProfileMenu />
           </header>
 

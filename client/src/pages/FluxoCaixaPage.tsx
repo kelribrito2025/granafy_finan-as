@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
   DownloadIcon,
-  MenuIcon,
+  SidebarMenuIcon,
   TrendUpIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
@@ -379,13 +379,27 @@ export default function FluxoCaixaPage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={TrendUpIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Fluxo de caixa</h1>
               <p className="mt-0.5 text-[12.5px] text-[#4C6355]">
                 {view === "mes" && monthly ? `projeção de ${monthly.from} a ${monthly.to}` : `realizado e projetado · ${monthLabel.toLowerCase()}`}
               </p>
+            </div>
+
+            {/* O mês vem logo depois do título, como em Lançamentos: é o
+                mesmo controle, e ficar num lugar em cada tela obriga a
+                procurá-lo de novo a cada troca de página. As medidas seguem a
+                escala desta tela (h-11), que é maior que a de lá. */}
+            <div className="order-3 mx-auto flex w-full items-center justify-center gap-1.5 lg:order-none lg:w-auto">
+              <button type="button" aria-label="Mês anterior" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}>
+                <ChevronRightIcon size={15} className="rotate-180" />
+              </button>
+              <div className="flex h-11 min-w-[168px] items-center justify-center rounded-[12px] bg-white px-4 text-[14px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <button type="button" aria-label="Próximo mês" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}>
+                <ChevronRightIcon size={15} />
+              </button>
             </div>
 
             <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
@@ -399,16 +413,6 @@ export default function FluxoCaixaPage() {
                   {label}
                 </button>
               ))}
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button type="button" aria-label="Mês anterior" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}>
-                <ChevronRightIcon size={15} className="rotate-180" />
-              </button>
-              <div className="flex h-11 min-w-[168px] items-center justify-center rounded-[12px] bg-white px-4 text-[14px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
-              <button type="button" aria-label="Próximo mês" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}>
-                <ChevronRightIcon size={15} />
-              </button>
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
