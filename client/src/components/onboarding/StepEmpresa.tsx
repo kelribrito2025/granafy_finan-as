@@ -1,13 +1,21 @@
+import { LockIcon, ReportIcon } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
 
+/*
+ * Os cinco regimes, com a frase que distingue um do outro.
+ *
+ * Em cartão e não em lista suspensa porque a escolha exige saber o que cada um
+ * é — e quem está abrindo a empresa agora costuma não saber. Um `select`
+ * esconde as opções atrás de um clique e não tem onde caber a explicação.
+ */
 const REGIMES = [
-  ["simples", "Simples Nacional"],
-  ["presumido", "Lucro Presumido"],
-  ["real", "Lucro Real"],
-  ["mei", "MEI"],
-  ["outro", "Outro"],
+  { valor: "simples", nome: "Simples Nacional", frase: "Anexo único de impostos sobre o faturamento." },
+  { valor: "presumido", nome: "Lucro Presumido", frase: "Base de cálculo fixada por percentual da receita." },
+  { valor: "real", nome: "Lucro Real", frase: "Impostos sobre o resultado apurado no período." },
+  { valor: "mei", nome: "MEI", frase: "Microempreendedor individual, com limite anual de receita." },
+  { valor: "outro", nome: "Outro", frase: "Nenhum dos anteriores, ou ainda não definido." },
 ] as const;
 
 const MESES = [
@@ -35,7 +43,7 @@ export function StepEmpresa({ onDone, renderFooter }: {
   const [legalName, setLegalName] = useState("");
   const [tradeName, setTradeName] = useState("");
   const [taxId, setTaxId] = useState("");
-  const [taxRegime, setTaxRegime] = useState<(typeof REGIMES)[number][0]>("simples");
+  const [taxRegime, setTaxRegime] = useState<(typeof REGIMES)[number]["valor"]>("simples");
   const [fiscalMonth, setFiscalMonth] = useState(1);
 
   const utils = trpc.useUtils();
@@ -97,18 +105,46 @@ export function StepEmpresa({ onDone, renderFooter }: {
             {MESES.map((mes, indice) => <option key={mes} value={indice + 1}>{mes}</option>)}
           </select>
         </label>
-        <label className="block">
-          <span className={rotulo}>Regime tributário</span>
-          <select value={taxRegime} onChange={e => setTaxRegime(e.target.value as typeof taxRegime)} className={campo}>
-            {REGIMES.map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}
-          </select>
-        </label>
       </div>
 
+      <fieldset className="block">
+        <legend className={rotulo}>
+          Regime tributário
+          <span className="ml-1.5 font-normal text-[#8A968D]">· opcional, usado só na apresentação dos relatórios</span>
+        </legend>
+        <div className="mt-1 grid gap-3 sm:grid-cols-3">
+          {REGIMES.map(regime => {
+            const escolhido = taxRegime === regime.valor;
+            return (
+              <button
+                key={regime.valor}
+                type="button"
+                onClick={() => setTaxRegime(regime.valor)}
+                aria-pressed={escolhido}
+                className={`flex flex-col items-start gap-1.5 rounded-[14px] border-[1.5px] p-4 text-left transition ${
+                  escolhido
+                    ? "border-[#12B85C] bg-[#F1FBF6]"
+                    : "border-[#E3EBE6] hover:border-[#B9C7BE] hover:bg-[#F8FAF9]"
+                }`}
+              >
+                <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${escolhido ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
+                  <ReportIcon size={16} />
+                </span>
+                <strong className={`text-[13.5px] ${escolhido ? "text-[#0A7A42]" : "text-[#0B1F14]"}`}>{regime.nome}</strong>
+                <span className="text-[12px] leading-relaxed text-[#4C6355]">{regime.frase}</span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
       {/* A nota do modelo, e ela é literal: o regime não entra em conta nenhuma. */}
-      <p className="rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] leading-relaxed text-[#0A7A42]">
-        O regime tributário só rotula relatórios. O GranaFy <strong className="font-semibold">não calcula impostos</strong> — se
-        você não tiver certeza agora, escolha depois em Configurações.
+      <p className="flex items-start gap-2.5 rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] leading-relaxed text-[#0A7A42]">
+        <LockIcon size={15} className="mt-0.5 shrink-0" />
+        <span>
+          Você pode mudar qualquer um desses campos depois em Configurações → Empresa. O GranaFy{" "}
+          <strong className="font-semibold">não calcula impostos</strong> — o regime apenas rotula os relatórios.
+        </span>
       </p>
 
       {renderFooter({ onContinue: continuar, pending, label: "Continuar" })}

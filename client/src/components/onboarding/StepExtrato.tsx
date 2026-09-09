@@ -1,4 +1,5 @@
-import { UploadIcon } from "@/components/IconlyIcons";
+import { CheckIcon, UploadIcon } from "@/components/IconlyIcons";
+import { CartaoDeApoio, OnboardingLateral } from "@/components/onboarding/OnboardingStepper";
 import { formatMoney } from "@/lib/appFormat";
 import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory";
 import { trpc } from "@/lib/trpc";
@@ -8,7 +9,7 @@ import {
   openingMismatchReason,
   type OpeningComparison,
 } from "@shared/openingBalance";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const MAX_BYTES = 25_000_000;
@@ -147,6 +148,13 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
   const [previa, setPrevia] = useState<Prévia | null>(null);
   const [decidido, setDecidido] = useState(false);
   const [mantida, setMantida] = useState<OpeningComparison | null>(null);
+  const [arrastando, setArrastando] = useState(false);
+
+  /** O que o cartão do arquivo resume: período e as duas pontas. */
+  const datas = previa?.rows.map(linha => linha.transactionDate).sort() ?? [];
+  const periodo = datas.length ? { de: datas[0], ate: datas[datas.length - 1] } : null;
+  const entradas = previa ? previa.rows.reduce((soma, l) => soma + Math.max(0, l.amount), 0) : 0;
+  const saidas = previa ? previa.rows.reduce((soma, l) => soma + Math.abs(Math.min(0, l.amount)), 0) : 0;
 
   const utils = trpc.useUtils();
   const options = trpc.organization.options.useQuery();
@@ -175,16 +183,14 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
     ? openingMismatchReason(comparacao, previa.statementBalance.balance)
     : null;
 
-  const escolherArquivo = async (event: ChangeEvent<HTMLInputElement>) => {
-    const arquivo = event.target.files?.[0];
+  /** Serve para o clique e para o arraste: os dois entregam um `File`. */
+  const receberArquivo = async (arquivo: File | undefined) => {
     if (!arquivo || !contaId) return;
     const extensao = arquivo.name.split(".").pop()?.toLowerCase();
     if (extensao !== "ofx" && extensao !== "csv") {
-      event.target.value = "";
       return toast.error("Selecione um arquivo .OFX ou .CSV");
     }
     if (arquivo.size > MAX_BYTES) {
-      event.target.value = "";
       return toast.error("O arquivo deve ter no máximo 25 MB");
     }
     try {
@@ -261,45 +267,87 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
 
   return (
     <>
-      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-[#B9C7BE] p-8 text-center transition hover:border-[#12B85C] hover:bg-[#F1FBF6]">
-        <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">
-          <UploadIcon size={18} />
-        </span>
-        <strong className="text-[14px]">{previa ? previa.nome : "Escolher o arquivo do extrato"}</strong>
-        {/* Sem PDF: não existe importador de PDF, e oferecer o que não funciona
-            é pior do que não oferecer. */}
-        <span className="text-[12.5px] text-[#8A968D]">OFX ou CSV do internet banking · até 25 MB</span>
-        <input type="file" accept=".ofx,.csv" onChange={escolherArquivo} className="hidden" />
-      </label>
-
-      {previa && (
-        <div className="flex flex-col gap-1.5 rounded-[14px] bg-[#F8FAF9] p-4 text-[13px] text-[#4C6355]">
-          <div className="flex justify-between gap-3">
-            <span>Movimentações no arquivo</span>
-            <strong className="text-[#0B1F14]">{previa.rows.length.toLocaleString("pt-BR")}</strong>
+      {!previa ? (
+        <label
+          onDragOver={evento => { evento.preventDefault(); setArrastando(true); }}
+          onDragLeave={() => setArrastando(false)}
+          onDrop={evento => { evento.preventDefault(); setArrastando(false); receberArquivo(evento.dataTransfer.files?.[0]); }}
+          className={`flex cursor-pointer flex-col items-center gap-2.5 rounded-[16px] border-[1.5px] border-dashed p-10 text-center transition ${
+            arrastando ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#B9C7BE] bg-[#F8FAF9] hover:border-[#12B85C] hover:bg-[#F1FBF6]"
+          }`}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#DFF6EA] text-[#0A7A42]">
+            <UploadIcon size={19} />
+          </span>
+          <strong className="text-[15px]">Arraste o extrato aqui</strong>
+          {/* Sem PDF: não existe importador de PDF, e oferecer o que não
+              funciona é pior do que não oferecer. */}
+          <span className="max-w-[38ch] text-[12.5px] leading-relaxed text-[#8A968D]">
+            OFX ou CSV do seu banco. Até 25 MB por arquivo.
+          </span>
+          <span className="mt-2 flex h-[42px] items-center rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white">
+            Escolher arquivo
+          </span>
+          <input type="file" accept=".ofx,.csv" onChange={evento => receberArquivo(evento.target.files?.[0])} className="hidden" />
+        </label>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3 rounded-[16px] border border-[#E3EBE6] p-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DFF6EA] text-[#0A7A42]">
+            <CheckIcon size={17} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <strong className="block truncate text-[13.5px]">{previa.nome}</strong>
+            <span className="mt-0.5 block text-[12px] leading-relaxed text-[#4C6355]">
+              {previa.rows.length.toLocaleString("pt-BR")} movimentações
+              {periodo && ` · ${dataCurta(periodo.de)} a ${dataCurta(periodo.ate)}`}
+              {` · ${formatMoney(entradas)} em entradas e ${formatMoney(saidas)} em saídas`}
+            </span>
           </div>
-          {previa.statementBalance ? (
-            <div className="flex justify-between gap-3">
-              <span>Saldo com que o extrato termina</span>
-              <strong className="text-[#0B1F14]">
-                {formatMoney(previa.statementBalance.balance)} em {dataCurta(previa.statementBalance.asOf)}
-              </strong>
-            </div>
-          ) : (
-            /* CSV nunca declara saldo, e nem todo OFX traz. Sem ele não há o que
-               conferir — dizer isso é melhor que ficar em silêncio. */
-            <span className="text-[12.5px] text-[#8A968D]">
-              Este arquivo não declara o saldo do extrato, então não dá para conferir o saldo inicial
-              agora. A conciliação do fim do mês continua valendo.
-            </span>
-          )}
-          {comparacao?.agree && (
-            <span className="text-[12.5px] font-semibold text-[#0A7A42]">
-              O saldo inicial que você informou bate com o do arquivo.
-            </span>
-          )}
+          <button
+            type="button"
+            onClick={() => { setPrevia(null); setDecidido(false); setMantida(null); }}
+            className="text-[12.5px] font-semibold text-[#B3261E] transition hover:text-[#8E1F16]"
+          >
+            Remover
+          </button>
         </div>
       )}
+
+      {previa && !previa.statementBalance && (
+        /* CSV nunca declara saldo, e nem todo OFX traz. Sem ele não há o que
+           conferir — dizer isso é melhor que ficar em silêncio. */
+        <p className="rounded-[14px] bg-[#F8FAF9] p-4 text-[12.5px] leading-relaxed text-[#8A968D]">
+          Este arquivo não declara o saldo do extrato, então não dá para conferir o saldo inicial
+          agora. A conciliação do fim do mês continua valendo.
+        </p>
+      )}
+
+      {comparacao?.agree && (
+        <p className="rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] font-semibold text-[#0A7A42]">
+          O saldo inicial que você informou bate com o que este arquivo indica.
+        </p>
+      )}
+
+      <OnboardingLateral>
+        <CartaoDeApoio titulo="O que vem pronto depois disso" tom="escuro">
+          {[
+            "Curva de caixa dos últimos meses",
+            previa ? `${previa.rows.length.toLocaleString("pt-BR")} lançamentos já no extrato` : "Os lançamentos já no extrato",
+            "Categorias sugeridas por descrição",
+          ].map(linha => (
+            <span key={linha} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-[#C5DACE]">
+              <CheckIcon size={14} className="mt-0.5 shrink-0 text-[#7EE2A8]" />
+              <span>{linha}</span>
+            </span>
+          ))}
+        </CartaoDeApoio>
+        <CartaoDeApoio titulo="Não tem o arquivo agora?">
+          <span className="text-[12.5px] leading-relaxed text-[#4C6355]">
+            Comece sem histórico e lance à mão. O extrato pode entrar a qualquer momento em
+            Lançamentos → Importar.
+          </span>
+        </CartaoDeApoio>
+      </OnboardingLateral>
 
       {precisaDecidir && comparacao && motivo && previa?.statementBalance && dataInformada && (
         <AvisoDeDivergencia

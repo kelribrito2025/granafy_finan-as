@@ -1,6 +1,8 @@
+import { CheckIcon, SearchIcon } from "@/components/IconlyIcons";
+import { CartaoDeApoio, OnboardingLateral } from "@/components/onboarding/OnboardingStepper";
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const TIPOS = [
@@ -19,6 +21,24 @@ const BANCOS = [
   "PagBank", "Picpay Empresas", "Safra", "Santander", "Sicoob", "Sicredi", "Stone",
 ];
 
+/*
+ * O que não é banco.
+ *
+ * Dinheiro em espécie e carteira digital são contas como qualquer outra para o
+ * saldo — e quem tem caixa físico não encontra "caixa" numa busca de bancos.
+ */
+const SEM_BANCO = [
+  { nome: "Caixa físico", tipo: "carteira" as const, sigla: "R$" },
+  { nome: "Carteira digital", tipo: "carteira" as const, sigla: "CD" },
+  { nome: "Outro", tipo: "outro" as const, sigla: "+" },
+];
+
+/** As duas primeiras letras, para o quadradinho ao lado do nome. */
+function sigla(nome: string) {
+  const partes = nome.trim().split(/\s+/);
+  return (partes.length > 1 ? partes[0][0] + partes[1][0] : nome.slice(0, 2)).toUpperCase();
+}
+
 const campo = "h-[46px] w-full rounded-[12px] border border-[#E3EBE6] bg-white px-3.5 text-[14px] text-[#0B1F14] outline-none transition focus:border-[#12B85C] placeholder:text-[#8A968D]";
 const rotulo = "mb-1.5 block text-[12px] font-semibold text-[#4C6355]";
 
@@ -32,6 +52,14 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
   const [accountType, setAccountType] = useState<(typeof TIPOS)[number][0]>("corrente");
   const [saldo, setSaldo] = useState("");
   const [data, setData] = useState("");
+  const [busca, setBusca] = useState("");
+
+  /* Sem busca, os seis mais comuns; com busca, o que casa com o que se digitou. */
+  const sugeridos = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return BANCOS.slice(0, 6);
+    return BANCOS.filter(banco => banco.toLowerCase().includes(termo)).slice(0, 6);
+  }, [busca]);
 
   const utils = trpc.useUtils();
   const criar = trpc.organization.createAccount.useMutation();
@@ -58,33 +86,92 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
 
   return (
     <>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="block">
-          <span className={rotulo}>Banco</span>
+      <label className="block">
+        <span className={rotulo}>Banco</span>
+        <span className="relative block">
+          <SearchIcon size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
           <input
-            list="onboarding-bancos"
-            value={institution}
-            onChange={e => setInstitution(e.target.value)}
+            value={busca}
+            onChange={e => { setBusca(e.target.value); setInstitution(e.target.value); }}
             maxLength={100}
-            placeholder="Digite para buscar"
-            className={campo}
+            placeholder="Buscar banco, instituição ou carteira digital…"
+            className={`${campo} pl-10`}
           />
-          <datalist id="onboarding-bancos">
-            {BANCOS.map(banco => <option key={banco} value={banco} />)}
-          </datalist>
-        </label>
+        </span>
+      </label>
+
+      {sugeridos.length > 0 && (
+        <div>
+          <span className="mb-2 block text-[10.5px] font-semibold uppercase tracking-[.1em] text-[#4C6355]">
+            {busca.trim() ? "Resultados" : "Mais usados"}
+          </span>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {sugeridos.map(banco => {
+              const escolhido = institution === banco;
+              return (
+                <button
+                  key={banco}
+                  type="button"
+                  onClick={() => { setInstitution(banco); setBusca(banco); if (!name.trim()) setName(banco); }}
+                  aria-pressed={escolhido}
+                  className={`flex items-center gap-3 rounded-[14px] border-[1.5px] p-3.5 text-left transition ${
+                    escolhido ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#E3EBE6] hover:border-[#B9C7BE] hover:bg-[#F8FAF9]"
+                  }`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F4F2] text-[10.5px] font-bold text-[#4C6355]">
+                    {sigla(banco)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{banco}</span>
+                  {escolhido && <CheckIcon size={15} className="shrink-0 text-[#0A7A42]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <span className="mb-2 block text-[10.5px] font-semibold uppercase tracking-[.1em] text-[#4C6355]">Sem banco</span>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {SEM_BANCO.map(opcao => {
+            const escolhido = institution === opcao.nome;
+            return (
+              <button
+                key={opcao.nome}
+                type="button"
+                onClick={() => {
+                  setInstitution(opcao.nome);
+                  setBusca(opcao.nome);
+                  setAccountType(opcao.tipo);
+                  if (!name.trim()) setName(opcao.nome);
+                }}
+                aria-pressed={escolhido}
+                className={`flex items-center gap-3 rounded-[14px] border-[1.5px] p-3.5 text-left transition ${
+                  escolhido ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#E3EBE6] hover:border-[#B9C7BE] hover:bg-[#F8FAF9]"
+                }`}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F1F4F2] text-[10.5px] font-bold text-[#4C6355]">
+                  {opcao.sigla}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">{opcao.nome}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className={rotulo}>Apelido da conta</span>
           <input value={name} onChange={e => setName(e.target.value)} maxLength={80} placeholder="Como aparece nas telas" className={campo} />
         </label>
+        <label className="block">
+          <span className={rotulo}>Tipo</span>
+          <select value={accountType} onChange={e => setAccountType(e.target.value as typeof accountType)} className={campo}>
+            {TIPOS.map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}
+          </select>
+        </label>
       </div>
-
-      <label className="block">
-        <span className={rotulo}>Tipo</span>
-        <select value={accountType} onChange={e => setAccountType(e.target.value as typeof accountType)} className={campo}>
-          {TIPOS.map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}
-        </select>
-      </label>
 
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
@@ -108,19 +195,26 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
         </label>
       </div>
 
-      {/*
-        A caixinha do modelo. O texto mudou num ponto: o modelo prometia que o
-        saldo de abertura do OFX venceria o digitado, e OFX não traz saldo de
-        abertura — traz o do fim do período. O que dá para fazer, e é o que a
-        tela promete agora, é conferir por subtração no passo seguinte.
-      */}
-      <div className="rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] leading-relaxed text-[#0A7A42]">
-        Informe o saldo do <strong className="font-semibold">dia anterior à primeira movimentação</strong> do
-        extrato que você vai importar. O GranaFy soma o extrato a partir daí — o saldo de hoje é
-        calculado, nunca digitado.
-        <br />
-        No próximo passo eu confiro esse número contra o próprio arquivo e aviso se houver diferença.
-      </div>
+      <OnboardingLateral>
+        <CartaoDeApoio titulo="Por que o saldo inicial">
+          {/*
+            O texto mudou num ponto em relação ao modelo: ele prometia que o
+            saldo de abertura do OFX venceria o digitado, e OFX não traz saldo
+            de abertura — traz o do fim do período. O que dá para fazer, e é o
+            que a tela promete agora, é conferir por subtração no passo seguinte.
+          */}
+          {[
+            <>Informe o saldo do <strong className="font-semibold">dia anterior à primeira movimentação</strong> do extrato que você vai importar.</>,
+            <>O extrato é somado a esse ponto de partida — assim o saldo de hoje é calculado, não digitado duas vezes.</>,
+            <>No próximo passo eu confiro esse número contra o próprio arquivo e aviso se houver diferença.</>,
+          ].map((linha, indice) => (
+            <span key={indice} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-[#4C6355]">
+              <CheckIcon size={14} className="mt-0.5 shrink-0 text-[#0A7A42]" />
+              <span>{linha}</span>
+            </span>
+          ))}
+        </CartaoDeApoio>
+      </OnboardingLateral>
 
       {renderFooter({
         onContinue: continuar,

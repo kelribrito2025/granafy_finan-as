@@ -1,5 +1,5 @@
 import { ArrowsUpDownIcon, BuildingIcon, ChevronRightIcon, TagIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
-import { OnboardingRodape } from "@/components/onboarding/OnboardingStepper";
+import { OnboardingLateral, OnboardingRodape } from "@/components/onboarding/OnboardingStepper";
 import { formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import type { OpeningComparison } from "@shared/openingBalance";
@@ -164,24 +164,24 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
         ))}
       </div>
 
-      {fimDoTeste && (
-        <div className="flex flex-col gap-2 rounded-[16px] bg-[#0B1F14] p-5 text-white sm:flex-row sm:items-center">
-          <span className="min-w-0 flex-1">
-            <strong className="block text-[14px]">Seu teste vai até {dataCurta(fimDoTeste)}</strong>
-            <span className="mt-0.5 block text-[12.5px] leading-relaxed text-[#C5DACE]">
+      <OnboardingLateral>
+        {fimDoTeste && (
+          <div className="flex flex-col gap-2 rounded-[16px] bg-[#0B1F14] p-5 text-white">
+            <strong className="text-[14px]">Seu teste vai até {dataCurta(fimDoTeste)}</strong>
+            <span className="text-[12.5px] leading-relaxed text-[#C5DACE]">
               {DIAS_DE_TESTE} dias com tudo liberado, sem cartão. Depois disso você escolhe o plano —
               os dados continuam seus.
             </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => { onFinish(); setLocation("/configuracoes?aba=planos"); }}
-            className="h-[42px] shrink-0 rounded-[12px] border border-[#1F4230] px-5 text-[13px] font-semibold text-[#C5DACE] transition hover:bg-[#1F3D2B]"
-          >
-            Ver os planos
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => { onFinish(); setLocation("/configuracoes?aba=planos"); }}
+              className="mt-1.5 h-[42px] rounded-[12px] border border-[#1F4230] px-4 text-[13px] font-semibold text-[#C5DACE] transition hover:bg-[#1F3D2B]"
+            >
+              Ver os planos
+            </button>
+          </div>
+        )}
+      </OnboardingLateral>
 
       {/* O botão vai para a barra do rodapé, como nos outros passos. A dica
           "refazer em Configurações" já é a dica daquela barra. */}

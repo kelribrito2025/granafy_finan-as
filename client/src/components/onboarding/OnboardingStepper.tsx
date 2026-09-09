@@ -19,6 +19,37 @@ export function OnboardingRodape({ children }: { children: ReactNode }) {
   return createPortal(children, destino);
 }
 
+/*
+ * A coluna de apoio da direita, pelo mesmo caminho do rodapé.
+ *
+ * O que ela mostra depende do passo — e no passo do extrato depende até do
+ * arquivo que acabou de entrar. Quem tem essa informação é o passo.
+ */
+const LateralSlot = createContext<HTMLElement | null>(null);
+
+export function OnboardingLateral({ children }: { children: ReactNode }) {
+  const destino = useContext(LateralSlot);
+  if (!destino) return null;
+  return createPortal(children, destino);
+}
+
+/** Um bloco da coluna de apoio, no formato dos modelos. */
+export function CartaoDeApoio({ titulo, children, tom = "claro" }: {
+  titulo?: string;
+  children: ReactNode;
+  tom?: "claro" | "escuro";
+}) {
+  const escuro = tom === "escuro";
+  return (
+    <div className={`flex flex-col gap-2.5 rounded-[16px] p-5 ${escuro ? "bg-[#0B1F14] text-white" : "bg-[#F8FAF9]"}`}>
+      {titulo && (
+        <strong className={`text-[13.5px] font-bold ${escuro ? "text-white" : "text-[#0B1F14]"}`}>{titulo}</strong>
+      )}
+      {children}
+    </div>
+  );
+}
+
 export const PASSOS = ["Empresa", "Conta", "Extrato", "Pronto"] as const;
 export type PassoIndice = 0 | 1 | 2 | 3;
 
@@ -74,19 +105,18 @@ export function OnboardingStepper({ atual }: { atual: PassoIndice }) {
  * à esquerda e o apoio à direita; barra embaixo com a dica de um lado e a ação
  * do outro.
  */
-export function OnboardingShell({ atual, titulo, apoio, children, lateral, dica, onSair, sairPending }: {
+export function OnboardingShell({ atual, titulo, apoio, children, dica, onSair, sairPending }: {
   atual: PassoIndice;
   titulo: string;
   apoio: string;
   children: ReactNode;
-  /** A coluna de apoio da direita. Sem ela o conteúdo ocupa a largura toda. */
-  lateral?: ReactNode;
   /** O texto pequeno do canto esquerdo do rodapé. */
   dica?: string;
   onSair: () => void;
   sairPending: boolean;
 }) {
   const [rodapeNode, setRodapeNode] = useState<HTMLElement | null>(null);
+  const [lateralNode, setLateralNode] = useState<HTMLElement | null>(null);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-white">
@@ -120,10 +150,15 @@ export function OnboardingShell({ atual, titulo, apoio, children, lateral, dica,
             depois do formulário — quem preenche no telefone quer o campo
             primeiro. */}
         <RodapeSlot.Provider value={rodapeNode}>
-          <div className={`mt-9 grid flex-1 items-start gap-8 ${lateral ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
-            <div className="flex min-w-0 flex-col gap-5">{children}</div>
-            {lateral && <aside className="flex flex-col gap-4">{lateral}</aside>}
-          </div>
+          <LateralSlot.Provider value={lateralNode}>
+            <div className="mt-9 grid flex-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_336px]">
+              <div className="flex min-w-0 flex-col gap-5">{children}</div>
+              {/* A coluna existe sempre; passo sem apoio simplesmente não a
+                  preenche, e o espaço vazio mantém a largura do formulário
+                  estável de um passo para o outro. */}
+              <aside ref={setLateralNode} className="flex flex-col gap-4" />
+            </div>
+          </LateralSlot.Provider>
         </RodapeSlot.Provider>
       </main>
 
