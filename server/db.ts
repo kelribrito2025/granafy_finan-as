@@ -531,6 +531,287 @@ export async function sumTransactionsBefore(userId: number, date: string) {
   return Number(row?.total ?? 0);
 }
 
+/*
+ * As somas do painel, feitas no banco.
+ *
+ * Antes o painel baixava o razão inteiro — 6.725 linhas, 26 colunas — e somava
+ * em JavaScript. Medido contra o TiDB: a consulta grande custa 539 ms, dos quais
+ * 360 ms são só transporte, enquanto qualquer uma destas agregações custa 183 ms,
+ * que é o próprio tempo de ida e volta. O trabalho de somar é de graça; o que se
+ * paga é a linha atravessando a rede, e isso cresce junto com o razão.
+ *
+ * Cada função é uma consulta só, para que a rota possa dispará-las em paralelo:
+ * em série elas somariam sete idas e voltas e o remédio seria pior que a doença.
+ *
+ * `type <> 'transferencia'` repete o `isCashFlow` do router: transferência entre
+ * contas próprias move saldo mas não é receita nem despesa.
+ */
+
+/** Entradas e saídas do período, ignorando transferência. */
+export async function sumWindowTotals(userId: number, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({
+      incoming: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} ELSE 0 END), 0)`,
+      outgoing: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} ELSE 0 END), 0)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      gte(financialTransactions.transactionDate, start),
+      lt(financialTransactions.transactionDate, end)
+    ));
+  return { incoming: Number(row?.incoming ?? 0), outgoing: Number(row?.outgoing ?? 0) };
+}
+
+/** Tudo que está pago, de qualquer data: é o dinheiro que existe. */
+export async function sumPaidTransactions(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.status, "Pago")
+    ));
+  return Number(row?.total ?? 0);
+}
+
+/**
+ * Os quatro cartões de título em aberto, numa consulta só.
+ *
+ * O recorte é o mesmo `isOpenInWindow` do router: vence dentro da janela ou já
+ * venceu e continua em aberto. Atraso não deixa de ser dívida por o mês ter
+ * virado.
+ */
+export async function sumOpenTitles(userId: number, start: string, end: string, todayIso: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  /*
+   * Os parênteses de fora são obrigatórios: o `and()` do drizzle não envolve o
+   * fragmento cru, e sem eles o OR escapa da precedência e a condição vira
+   * "(tudo isso) OU vencido", casando linha de qualquer usuário.
+   */
+  const naJanela = sql`((${financialTransactions.transactionDate} >= ${start} AND ${financialTransactions.transactionDate} < ${end}) OR ${financialTransactions.transactionDate} < ${todayIso})`;
+  const [row] = await db
+    .select({
+      receivableCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} > 0 THEN 1 END)`,
+      receivableAmount: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} END), 0)`,
+      payableCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} < 0 THEN 1 END)`,
+      payableAmount: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} END), 0)`,
+      overdueCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} < 0 AND ${financialTransactions.transactionDate} < ${todayIso} THEN 1 END)`,
+      overdueAmount: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 AND ${financialTransactions.transactionDate} < ${todayIso} THEN -${financialTransactions.amount} END), 0)`,
+      dueTodayCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} > 0 AND ${financialTransactions.transactionDate} = ${todayIso} THEN 1 END)`,
+      dueTodayAmount: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 AND ${financialTransactions.transactionDate} = ${todayIso} THEN ${financialTransactions.amount} END), 0)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      eq(financialTransactions.status, "Pendente"),
+      naJanela
+    ));
+  return {
+    receivable: { count: Number(row?.receivableCount ?? 0), amount: Number(row?.receivableAmount ?? 0) },
+    payable: { count: Number(row?.payableCount ?? 0), amount: Number(row?.payableAmount ?? 0) },
+    overdue: { count: Number(row?.overdueCount ?? 0), amount: Number(row?.overdueAmount ?? 0) },
+    dueToday: { count: Number(row?.dueTodayCount ?? 0), amount: Number(row?.dueTodayAmount ?? 0) },
+  };
+}
+
+/** Entradas e saídas mês a mês, para o gráfico de nove colunas. */
+export async function sumMonthlyTotals(userId: number, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  /*
+   * O apelido não é enfeite: o drizzle qualifica a coluna no GROUP BY e não no
+   * SELECT, e com `only_full_group_by` ligado o MySQL não reconhece as duas
+   * expressões como a mesma. Agrupar pelo apelido resolve.
+   */
+  const mes = sql<string>`DATE_FORMAT(${financialTransactions.transactionDate}, '%Y-%m')`.as("mes");
+  const linhas = await db
+    .select({
+      month: mes,
+      incoming: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} ELSE 0 END), 0)`,
+      outgoing: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} ELSE 0 END), 0)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      gte(financialTransactions.transactionDate, start),
+      lt(financialTransactions.transactionDate, end)
+    ))
+    .groupBy(sql`mes`);
+  return new Map(linhas.map(linha => [
+    linha.month,
+    { incoming: Number(linha.incoming), outgoing: Number(linha.outgoing) },
+  ]));
+}
+
+/** As categorias que mais entraram dinheiro no período. */
+export async function topRevenueCategories(userId: number, start: string, end: string, limit: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const total = sql<string>`SUM(${financialTransactions.amount})`;
+  const linhas = await db
+    .select({ label: financialTransactions.category, amount: total })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      gt(financialTransactions.amount, "0"),
+      gte(financialTransactions.transactionDate, start),
+      lt(financialTransactions.transactionDate, end)
+    ))
+    .groupBy(financialTransactions.category)
+    .orderBy(desc(total))
+    .limit(limit);
+  return linhas.map(linha => ({ label: linha.label, amount: Number(linha.amount) }));
+}
+
+/** Os últimos lançamentos que já aconteceram — parcela de 2027 não é recente. */
+export async function listRecentTransactions(userId: number, todayIso: string, limit: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      lte(financialTransactions.transactionDate, todayIso)
+    ))
+    .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id))
+    .limit(limit);
+}
+
+/*
+ * As contagens de "contas e categorias", agregadas no banco.
+ *
+ * A tela baixava o razão inteiro para montar três `Map` em JavaScript. Como ela
+ * já dispara sete consultas em paralelo, estas três entram sem custo de tempo
+ * nenhum e tiram as 6.725 linhas da rede.
+ */
+type EstatisticaPorId = Map<number, { count: number; total: number }>;
+
+type ColunaDeAgrupamento =
+  | typeof financialTransactions.accountId
+  | typeof financialTransactions.categoryId
+  | typeof financialTransactions.costCenterId;
+
+async function statsPorColuna(userId: number, coluna: ColunaDeAgrupamento, somaSoPago: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const soma = somaSoPago
+    ? sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.status} = 'Pago' THEN ${financialTransactions.amount} ELSE 0 END), 0)`
+    : sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)`;
+  const linhas = await db
+    .select({ id: coluna, count: sql<number>`COUNT(*)`, total: soma })
+    .from(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), isNotNull(coluna)))
+    .groupBy(coluna);
+  const mapa: EstatisticaPorId = new Map();
+  for (const linha of linhas) {
+    if (linha.id === null) continue;
+    mapa.set(linha.id, { count: Number(linha.count), total: Number(linha.total) });
+  }
+  return mapa;
+}
+
+/** Quanto ainda está sem categoria — o aviso da tela de contas e categorias. */
+export async function getUncategorizedSummary(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({
+      count: sql<number>`COUNT(*)`,
+      amount: sql<string>`COALESCE(SUM(ABS(${financialTransactions.amount})), 0)`,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      isNull(financialTransactions.categoryId),
+      sql`${financialTransactions.type} <> 'transferencia'`
+    ));
+  return { count: Number(row?.count ?? 0), amount: Number(row?.amount ?? 0) };
+}
+
+/** Movimento por conta: só o que está pago, que é o que forma saldo. */
+export function getTransactionStatsByAccount(userId: number) {
+  return statsPorColuna(userId, financialTransactions.accountId, true);
+}
+
+/** Total por categoria: pago e pendente, que é o que a tela mostra. */
+export function getTransactionStatsByCategory(userId: number) {
+  return statsPorColuna(userId, financialTransactions.categoryId, false);
+}
+
+export function getTransactionStatsByCostCenter(userId: number) {
+  return statsPorColuna(userId, financialTransactions.costCenterId, false);
+}
+
+/**
+ * O saldo de abertura, somado no banco.
+ *
+ * É o mesmo recorte do `openingBalance` que vivia no router: só o que está pago
+ * e não é transferência, antes da data. Antes exigia o razão inteiro na memória
+ * para somar uma coluna.
+ */
+export async function sumPaidBefore(userId: number, date: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.status, "Pago"),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      lt(financialTransactions.transactionDate, date)
+    ));
+  return Number(row?.total ?? 0);
+}
+
+/**
+ * Os lançamentos que as telas de fluxo e de títulos realmente usam.
+ *
+ * `buildDailyFlow`, `buildMonthlyFlow` e `buildPayablesView` já descartavam por
+ * conta própria tudo que está fora da janela ou não está pendente — o recorte
+ * aqui só deixa de trazer da rede o que ia ser jogado fora em memória. Medido:
+ * 539 ms para o razão inteiro contra 189 ms para o recorte.
+ *
+ * Agregar em vez de recortar exigiria reescrever esses três módulos de
+ * `shared/`, que têm 65 testes em cima. O recorte dá o mesmo ganho sem tocar em
+ * lógica testada.
+ */
+export async function listLedgerWindow(userId: number, from: string, to: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: financialTransactions.id,
+      type: financialTransactions.type,
+      transactionDate: financialTransactions.transactionDate,
+      description: financialTransactions.description,
+      contact: financialTransactions.contact,
+      category: financialTransactions.category,
+      amount: financialTransactions.amount,
+      account: financialTransactions.account,
+      status: financialTransactions.status,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, userId),
+      // Pendente de qualquer data entra: atraso continua sendo dívida hoje, e é
+      // isso que a tela de títulos lista.
+      sql`(${financialTransactions.status} = 'Pendente' OR (${financialTransactions.transactionDate} >= ${from} AND ${financialTransactions.transactionDate} < ${to}))`
+    ))
+    .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
+}
+
 export async function getFinancialAccount(userId: number, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

@@ -336,13 +336,20 @@ export const transactionsRouter = router({
     };
   }),
 
+  /*
+   * O painel não baixa mais o razão para somá-lo em JavaScript.
+   *
+   * Eram 6.725 linhas de 26 colunas atravessando a rede para virar oito números
+   * e cinco linhas de lista. Medido contra o TiDB: a consulta grande custa
+   * 539 ms, dos quais 360 ms são transporte puro; cada agregação custa 183 ms,
+   * que é o próprio tempo de ida e volta. Somar no banco é de graça.
+   *
+   * As sete consultas saem juntas no `Promise.all` de propósito. Em série
+   * seriam sete idas e voltas e o painel ficaria mais lento do que era.
+   */
   dashboard: protectedProcedure
     .input(z.object({ range: z.enum(["month", "quarter", "year"]).default("month") }).optional())
     .query(async ({ ctx, input }) => {
-    const [records, accounts] = await Promise.all([
-      db.listAllTransactions(ctx.user.id),
-      db.listFinancialAccounts(ctx.user.id),
-    ]);
     const todayString = await userToday(ctx.user.id);
     const [year, month] = todayString.split("-").map(Number);
     const range = input?.range ?? "month";
@@ -350,71 +357,75 @@ export const transactionsRouter = router({
     const endMonth = range === "year" ? 13 : range === "quarter" ? startMonth + 3 : month + 1;
     const start = `${year}-${String(startMonth).padStart(2, "0")}-01`;
     const end = endMonth === 13 ? `${year + 1}-01-01` : `${year}-${String(endMonth).padStart(2, "0")}-01`;
-    const current = records.filter(record => record.transactionDate >= start && record.transactionDate < end);
-    const currentSummary = summarize(current);
+
+    // A faixa das nove colunas do gráfico, calculada aqui para virar um só
+    // GROUP BY em vez de nove filtros sobre a mesma lista.
+    const monthColumns = Array.from({ length: 9 }, (_, index) =>
+      new Date(Date.UTC(year, month - 9 + index, 1))
+    );
+    const monthlyStart = monthColumns[0].toISOString().slice(0, 10);
+    const monthlyEnd = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+
+    const [accounts, windowTotals, paidTotal, openTitles, monthlyTotals, revenueByCategory, recent] = await Promise.all([
+      db.listFinancialAccounts(ctx.user.id),
+      db.sumWindowTotals(ctx.user.id, start, end),
+      db.sumPaidTransactions(ctx.user.id),
+      db.sumOpenTitles(ctx.user.id, start, end, todayString),
+      db.sumMonthlyTotals(ctx.user.id, monthlyStart, monthlyEnd),
+      db.topRevenueCategories(ctx.user.id, start, end, 4),
+      db.listRecentTransactions(ctx.user.id, todayString, 5),
+    ]);
+
+    const currentSummary = {
+      incoming: roundCurrency(windowTotals.incoming),
+      outgoing: roundCurrency(windowTotals.outgoing),
+      balance: roundCurrency(roundCurrency(windowTotals.incoming) - roundCurrency(windowTotals.outgoing)),
+    };
     const paidBalance = roundCurrency(
-      accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + records
-        .filter(record => record.status === "Pago")
-        .reduce((sum, record) => sum + Number(record.amount), 0)
+      accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0) + paidTotal
     );
-    const open = records.filter(record =>
-      isOpenInWindow(record, { start, end, todayIso: todayString })
-    );
-    const pendingReceivable = open.filter(record => Number(record.amount) > 0);
-    const pendingPayable = open.filter(record => Number(record.amount) < 0);
-    const overdue = pendingPayable.filter(record => record.transactionDate < todayString);
-    const dueToday = pendingReceivable.filter(record => record.transactionDate === todayString);
     const margin = currentSummary.incoming > 0
       ? ((currentSummary.incoming - currentSummary.outgoing) / currentSummary.incoming) * 100
       : 0;
 
-    const months = Array.from({ length: 9 }, (_, index) => {
-      const date = new Date(Date.UTC(year, month - 9 + index, 1));
-      const period = periodBounds(date.getUTCFullYear(), date.getUTCMonth() + 1);
-      const monthRecords = records.filter(record => record.transactionDate >= period.start && record.transactionDate < period.end);
+    const months = monthColumns.map(date => {
+      const chave = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+      const totais = monthlyTotals.get(chave) ?? { incoming: 0, outgoing: 0 };
+      const incoming = roundCurrency(totais.incoming);
+      const outgoing = roundCurrency(totais.outgoing);
       return {
         label: new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(date).replace(".", ""),
-        ...summarize(monthRecords),
+        incoming,
+        outgoing,
+        balance: roundCurrency(incoming - outgoing),
       };
     });
-
-    const revenueByCategory = Array.from(
-      current
-        .filter(record => isCashFlow(record) && Number(record.amount) > 0)
-        .reduce((groups, record) => {
-          groups.set(record.category, (groups.get(record.category) ?? 0) + Number(record.amount));
-          return groups;
-        }, new Map<string, number>())
-    )
-      .map(([label, amount]) => ({ label, amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 4);
 
     return {
       cashAvailable: paidBalance,
       current: currentSummary,
       pendingReceivable: {
-        count: pendingReceivable.length,
-        amount: roundCurrency(pendingReceivable.reduce((sum, record) => sum + Number(record.amount), 0)),
+        count: openTitles.receivable.count,
+        amount: roundCurrency(openTitles.receivable.amount),
       },
       pendingPayable: {
-        count: pendingPayable.length,
-        amount: roundCurrency(pendingPayable.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0)),
+        count: openTitles.payable.count,
+        amount: roundCurrency(openTitles.payable.amount),
       },
       overdue: {
-        count: overdue.length,
-        amount: roundCurrency(overdue.reduce((sum, record) => sum + Math.abs(Number(record.amount)), 0)),
+        count: openTitles.overdue.count,
+        amount: roundCurrency(openTitles.overdue.amount),
       },
       dueToday: {
-        count: dueToday.length,
-        amount: roundCurrency(dueToday.reduce((sum, record) => sum + Number(record.amount), 0)),
+        count: openTitles.dueToday.count,
+        amount: roundCurrency(openTitles.dueToday.amount),
       },
       margin,
       months,
       // "Últimos" é o que já aconteceu: parcela de recorrência marcada para 2027
       // não é lançamento recente, por mais que ela lidere a ordenação por data.
-      recent: records.filter(record => record.transactionDate <= todayString).slice(0, 5).map(toTransaction),
-      revenueByCategory,
+      recent: recent.map(toTransaction),
+      revenueByCategory: revenueByCategory.map(linha => ({ ...linha, amount: roundCurrency(linha.amount) })),
       range,
     };
   }),
