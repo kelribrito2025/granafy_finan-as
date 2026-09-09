@@ -91,8 +91,8 @@ function fileToBase64(file: File) {
 const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
 const fieldLabelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
-export function TransactionModal({ transaction, defaultDate, pending, options, onManageOrganization, onClose, onSave }: { transaction?: Transaction | null; defaultDate: string; pending: boolean; options: OrganizationOptions; onManageOrganization: () => void; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
-  const [type, setType] = useState<TransactionType>(transaction?.type ?? "entrada");
+export function TransactionModal({ transaction, defaultType, defaultDate, pending, options, onManageOrganization, onClose, onSave }: { transaction?: Transaction | null; /** Natureza já escolhida por quem abriu — "nova despesa" não deveria abrir em entrada. */ defaultType?: TransactionType; defaultDate: string; pending: boolean; options: OrganizationOptions; onManageOrganization: () => void; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
+  const [type, setType] = useState<TransactionType>(transaction?.type ?? defaultType ?? "entrada");
   const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? defaultDate);
   const [description, setDescription] = useState(transaction?.description ?? "");
   const [contact, setContact] = useState(transaction?.contact ?? "");

@@ -1,4 +1,5 @@
 import { Hint } from "@/components/Hint";
+import { TransactionModal } from "@/components/TransactionModal";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
@@ -17,8 +18,9 @@ import {
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatDate, formatMoney } from "@/lib/appFormat";
+import { formatDate, formatMoney, today } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import type { TransactionInput, TransactionType } from "@/lib/transactionTypes";
 import { STATUS_LABELS, type Title, type TitleStatus } from "@shared/payables";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
@@ -317,6 +319,7 @@ export default function PagarReceberPage() {
 
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.payables.overview.useQuery(period);
+  const organizationQuery = trpc.organization.options.useQuery();
   const utils = trpc.useUtils();
   const settle = trpc.transactions.toggleStatus.useMutation({
     onSuccess: async () => {
@@ -370,7 +373,37 @@ export default function PagarReceberPage() {
   };
 
   const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
-  const goToNew = () => setLocation("/lancamentos");
+  /*
+   * O lançamento nasce aqui, não em outra tela.
+   *
+   * Antes estes botões navegavam para Lançamentos: a pessoa clicava em "Nova
+   * despesa" olhando os títulos de setembro e era levada para outra página,
+   * onde ainda precisava clicar de novo. O modal é o mesmo da Visão geral, e
+   * abre já na natureza que o botão promete.
+   */
+  const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(null);
+  const createMutation = trpc.transactions.create.useMutation();
+  const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
+
+  const salvarLancamento = async (input: TransactionInput) => {
+    try {
+      const resultado = await createMutation.mutateAsync(input);
+      await Promise.all([
+        utils.payables.invalidate(),
+        utils.transactions.invalidate(),
+        utils.cashflow.invalidate(),
+        utils.organization.invalidate(),
+        utils.dre.invalidate(),
+        utils.settled.invalidate(),
+      ]);
+      toast.success(resultado.monthCount > 1
+        ? `${resultado.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
+        : "Lançamento salvo");
+      setNovoLancamento(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+    }
+  };
 
   const tabs: Array<{ key: Tab; label: string; count: number; danger?: boolean }> = data
     ? [
@@ -429,7 +462,7 @@ export default function PagarReceberPage() {
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             <button
               type="button"
-              onClick={goToNew}
+              onClick={() => setNovoLancamento("entrada")}
               title="Abre a tela de lançamentos, onde a conta é cadastrada"
               className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98]"
             >
@@ -546,7 +579,7 @@ export default function PagarReceberPage() {
                       }
                       onSettle={id => settle.mutate({ id })}
                       pending={settle.isPending}
-                      onNew={goToNew}
+                      onNew={() => setNovoLancamento("entrada")}
                     />
                     <SideColumn
                       side="pagar"
@@ -562,7 +595,7 @@ export default function PagarReceberPage() {
                       }
                       onSettle={id => settle.mutate({ id })}
                       pending={settle.isPending}
-                      onNew={goToNew}
+                      onNew={() => setNovoLancamento("saida")}
                     />
                   </section>
                   <div className="rounded-[20px] bg-white px-5 py-1 ring-1 ring-[#E1E8E3] sm:px-6">
@@ -579,6 +612,17 @@ export default function PagarReceberPage() {
           )}
         </section>
       </div>
+      {novoLancamento && (
+        <TransactionModal
+          defaultType={novoLancamento}
+          defaultDate={today()}
+          pending={createMutation.isPending}
+          options={organizationOptions}
+          onManageOrganization={() => setLocation("/organizacao")}
+          onClose={() => setNovoLancamento(null)}
+          onSave={salvarLancamento}
+        />
+      )}
     </main>
   );
 }
