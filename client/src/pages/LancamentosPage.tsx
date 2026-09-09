@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { roundCurrency } from "@shared/currency";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
   ArrowDownIcon,
@@ -115,12 +116,14 @@ const STATUS_TONE: Record<RowStatus["tone"], string> = {
  * caixa disponível na visão geral. Sobre esse fundo as cores de sinal saem de
  * cena: verde ou vermelho sobre verde escuro não se lê.
  */
-function KpiCard({ label, value, valueClass, hint, hintClass, highlight = false }: {
+function KpiCard({ label, value, valueClass, hint, hintClass, note, highlight = false }: {
   label: string;
   value: string;
   valueClass?: string;
   hint: string;
   hintClass?: string;
+  /** Linha de rodapé do cartão: o total do mês quando há filtro de pé. */
+  note?: string;
   highlight?: boolean;
 }) {
   const content = (
@@ -132,6 +135,9 @@ function KpiCard({ label, value, valueClass, hint, hintClass, highlight = false 
         {value}
       </strong>
       <span className={`text-[12px] ${highlight ? "text-[#C5DACE]" : hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
+      {note && (
+        <span className={`text-[11.5px] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>{note}</span>
+      )}
     </>
   );
 
@@ -541,6 +547,24 @@ export default function LancamentosPage() {
     });
   }, [accountFilter, categoryFilter, search, statusFilter, transactions, typeFilter]);
 
+  /*
+   * Os totais do que está na tela.
+   *
+   * Item 2.6 da auditoria: os cartões somavam o mês inteiro enquanto a lista
+   * mostrava o recorte, e o cartão de entradas chegava a misturar os dois —
+   * valor do mês em cima da contagem do filtro. Filtrar por "Em aberto" dava
+   * "R$ 70.354,58" sobre "3 lançamentos".
+   *
+   * Transferência fica de fora, como no `summarize` do servidor: mover dinheiro
+   * entre contas próprias não é entrada nem saída.
+   */
+  const filteredSummary = useMemo(() => {
+    const caixa = filtered.filter(item => item.type !== "transferencia");
+    const incoming = roundCurrency(caixa.reduce((soma, item) => soma + Math.max(0, item.amount), 0));
+    const outgoing = roundCurrency(caixa.reduce((soma, item) => soma + Math.abs(Math.min(0, item.amount)), 0));
+    return { incoming, outgoing, balance: roundCurrency(incoming - outgoing) };
+  }, [filtered]);
+
   /** Se algum filtro está de pé — muda o nome do CSV e a mensagem de vazio. */
   const filtrosAtivos = Boolean(search.trim())
     || typeFilter !== "todos"
@@ -787,24 +811,30 @@ export default function LancamentosPage() {
           </header>
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* Valor e contagem saem os dois do recorte: era aqui que a tela
+                misturava o total do mês com a contagem do filtro. Com filtro de
+                pé, o total do mês vira a linha de baixo, para não sumir. */}
             <KpiCard
               highlight
               label="Entradas do período"
-              value={formatMoney(summary.incoming)}
+              value={formatMoney(filteredSummary.incoming)}
               valueClass="text-[#0A7A42]"
               hint={`${counts.incoming.toLocaleString("pt-BR")} ${counts.incoming === 1 ? "lançamento" : "lançamentos"}`}
+              note={filtrosAtivos ? `mês inteiro: ${formatMoney(summary.incoming)}` : undefined}
             />
             <KpiCard
               label="Saídas do período"
-              value={formatMoney(summary.outgoing)}
+              value={formatMoney(filteredSummary.outgoing)}
               valueClass="text-[#B3261E]"
               hint={`${counts.outgoing.toLocaleString("pt-BR")} ${counts.outgoing === 1 ? "lançamento" : "lançamentos"}`}
+              note={filtrosAtivos ? `mês inteiro: ${formatMoney(summary.outgoing)}` : undefined}
             />
             <KpiCard
               label="Resultado"
-              value={formatMoney(summary.balance)}
-              hint={summary.incoming > 0 ? `margem ${formatPercent((summary.balance / summary.incoming) * 100)}` : "sem entradas no período"}
-              hintClass={summary.balance >= 0 ? "font-semibold text-[#0A7A42]" : "font-semibold text-[#B3261E]"}
+              value={formatMoney(filteredSummary.balance)}
+              hint={filteredSummary.incoming > 0 ? `margem ${formatPercent((filteredSummary.balance / filteredSummary.incoming) * 100)}` : "sem entradas no período"}
+              hintClass={filteredSummary.balance >= 0 ? "font-semibold text-[#0A7A42]" : "font-semibold text-[#B3261E]"}
+              note={filtrosAtivos ? `mês inteiro: ${formatMoney(summary.balance)}` : undefined}
             />
             <KpiCard
               label="Pendentes"
@@ -973,7 +1003,22 @@ export default function LancamentosPage() {
           </section>
 
 
-          <footer className="sticky bottom-1 z-20 grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
+          <div className="sticky bottom-1 z-20 flex flex-col gap-1">
+            {/*
+              O rodapé é a posição da conta, não o subtotal do recorte.
+              "Saldo anterior" é o que a conta tinha antes do mês e "saldo final"
+              é onde ela fecha. Recalcular os dois com o filtro daria
+              "posição real + subtotal de um pedaço" — número que não é o saldo
+              da conta nem o total do filtro, numa tela que vai para o contador.
+              Com filtro de pé, o rótulo diz de que ele está falando.
+            */}
+            {filtrosAtivos && (
+              <span className="self-center rounded-full bg-[#FFF3E6] px-3 py-1 text-[10.5px] font-semibold text-[#8A4B00]">
+                Posição da conta no mês inteiro — o filtro não altera estes valores
+              </span>
+            )}
+            <footer className="grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
+          </div>
         </section>
       </div>
 
