@@ -11,6 +11,7 @@ import LegalPage from "@/pages/LegalPage";
 import NotFound from "@/pages/NotFound";
 import OrganizationPage from "@/pages/OrganizationPage";
 import PagarReceberPage from "@/pages/PagarReceberPage";
+import PagasRecebidasPage from "@/pages/PagasRecebidasPage";
 import SettingsPage from "@/pages/SettingsPage";
 import { type ReactNode, useEffect, useRef } from "react";
 import { Route, Switch, useLocation } from "wouter";
@@ -76,6 +77,7 @@ function Router() {
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
       <Route path="/configuracoes"><ProtectedPage><SettingsPage /></ProtectedPage></Route>
+      <Route path="/pagas-e-recebidas"><ProtectedPage><PagasRecebidasPage /></ProtectedPage></Route>
       <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
       <Route path="/"><ProtectedPage><Home /></ProtectedPage></Route>
       <Route path={"/404"} component={NotFound} />
