@@ -48,14 +48,11 @@ export function OnboardingStepper({ atual }: { atual: PassoIndice }) {
  * A saída fica em toda tela de propósito — a promessa da abertura é que dá para
  * configurar depois, e a promessa vale até o último passo.
  */
-export function OnboardingShell({ atual, titulo, apoio, children, rodape, onSkip, skipping }: {
+export function OnboardingShell({ atual, titulo, apoio, children }: {
   atual: PassoIndice;
   titulo: string;
   apoio: string;
   children: React.ReactNode;
-  rodape: React.ReactNode;
-  onSkip: () => void;
-  skipping: boolean;
 }) {
   return (
     <div className="flex min-h-screen w-full items-start justify-center bg-[#E9EEEB] p-4 sm:p-8">
@@ -65,19 +62,12 @@ export function OnboardingShell({ atual, titulo, apoio, children, rodape, onSkip
         <h1 className="mt-8 text-[24px] font-bold tracking-[-.02em] text-[#0B1F14] sm:text-[28px]">{titulo}</h1>
         <p className="mt-1.5 max-w-[58ch] text-[13.5px] leading-relaxed text-[#4C6355]">{apoio}</p>
 
+        {/*
+          O conteúdo traz o próprio rodapé como último filho: os botões
+          dependem do que está acontecendo dentro do passo — se está salvando,
+          se falta preencher — e essa informação não sai de lá.
+        */}
         <div className="mt-7 flex flex-col gap-5">{children}</div>
-
-        <div className="mt-8 flex flex-col gap-3 border-t border-[#E3EBE6] pt-6 sm:flex-row sm:items-center">
-          {rodape}
-          <button
-            type="button"
-            onClick={onSkip}
-            disabled={skipping}
-            className="h-[46px] px-2 text-[13px] text-[#8A968D] transition hover:text-[#0B1F14] disabled:opacity-50 sm:ml-auto"
-          >
-            {skipping ? "Abrindo o painel…" : "Configurar depois"}
-          </button>
-        </div>
       </div>
     </div>
   );

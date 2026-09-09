@@ -12,6 +12,12 @@ const accountValuesSchema = z.object({
   accountType: z.enum(["corrente", "poupanca", "carteira", "cartao", "gateway", "outro"]),
   color: colorSchema,
   initialBalance: z.number().finite().min(-999_999_999_999.99).max(999_999_999_999.99),
+  /*
+   * A data a que o saldo inicial se refere — o dia anterior à primeira
+   * movimentação. Opcional: as contas que já existem não têm, e continuam
+   * funcionando como antes.
+   */
+  initialBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida").nullable().optional(),
 });
 const categoryValuesSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome").max(120),
