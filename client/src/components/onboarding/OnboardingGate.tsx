@@ -1,4 +1,5 @@
 import { GranafyLoader } from "@/components/GranafyLoader";
+import { ConviteAoTour } from "@/components/onboarding/ConviteAoTour";
 import { OnboardingRodape, OnboardingShell, type PassoIndice } from "@/components/onboarding/OnboardingStepper";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { OnboardingWelcome } from "@/components/onboarding/OnboardingWelcome";
@@ -26,7 +27,14 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const status = trpc.onboarding.status.useQuery();
   const utils = trpc.useUtils();
   const [passo, setPasso] = useState<PassoIndice | null>(null);
-  const [tourAberto, setTourAberto] = useState(false);
+  /*
+   * O convite ao tour, oferecido uma vez quando o fluxo termina.
+   *
+   * "pendente" enquanto ninguém respondeu; "no-tour" com o tour aberto;
+   * "fechado" depois de responder — ou quando nem chega a ser feito, que é o
+   * caso de quem sai do resumo por um atalho com destino.
+   */
+  const [convite, setConvite] = useState<"pendente" | "no-tour" | "fechado">("pendente");
   /*
    * O que o fluxo aprendeu pelo caminho.
    *
@@ -66,26 +74,52 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
    * Depois de começar, só duas coisas tiram alguém daqui: terminar ou pular.
    */
   const emFluxo = passo !== null;
-  if (concluir.isSuccess || (!emFluxo && (status.isError || !status.data?.show))) {
+
+  /*
+   * Acabou de terminar aqui dentro: o painel abre com o convite por cima.
+   *
+   * É o único momento em que o convite aparece — quem já usa o sistema cai no
+   * ramo de baixo e não leva modal nenhum na cara.
+   */
+  if (concluir.isSuccess) {
+    return (
+      <>
+        {children}
+        {convite === "pendente" && (
+          <ConviteAoTour
+            onTour={() => setConvite("no-tour")}
+            onExplorar={() => setConvite("fechado")}
+          />
+        )}
+        {convite === "no-tour" && <OnboardingTour onClose={() => setConvite("fechado")} />}
+      </>
+    );
+  }
+
+  if (!emFluxo && (status.isError || !status.data?.show)) {
     return <>{children}</>;
   }
 
-  const pular = () => concluir.mutate();
+  /*
+   * Encerrar o fluxo, por qualquer porta.
+   *
+   * Com destino escolhido — os três atalhos do resumo e o "Ver os planos" — o
+   * convite não chega a aparecer: a pessoa acabou de dizer para onde quer ir,
+   * e um modal no meio do caminho seria justamente o que ela não pediu.
+   */
+  const encerrar = (comDestino = false) => {
+    if (comDestino) setConvite("fechado");
+    concluir.mutate();
+  };
 
   if (passo === null) {
     return (
-      <>
-        <OnboardingWelcome
-          name={status.data?.name ?? ""}
-          skipping={concluir.isPending}
-          onStart={() => setPasso(0)}
-          onTour={() => setTourAberto(true)}
-          onSkip={pular}
-        />
-        {/* Fechar o tour volta para as boas-vindas, não para o painel: quem
-            olhou a apresentação ainda não configurou nada. */}
-        {tourAberto && <OnboardingTour onClose={() => setTourAberto(false)} />}
-      </>
+      <OnboardingWelcome
+        name={status.data?.name ?? ""}
+        skipping={concluir.isPending}
+        onStart={() => setPasso(0)}
+        onSkip={() => encerrar()}
+      />
     );
   }
 
@@ -146,7 +180,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       titulo={CONTEUDO[passo].titulo}
       apoio={CONTEUDO[passo].apoio}
       dica={DICAS[passo]}
-      onSair={pular}
+      onSair={() => encerrar()}
       sairPending={concluir.isPending}
     >
       {passo === 0 && (
@@ -186,7 +220,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
           importados={importados}
           divergencia={divergencia}
           pending={concluir.isPending}
-          onFinish={pular}
+          onFinish={encerrar}
         />
       )}
     </OnboardingShell>

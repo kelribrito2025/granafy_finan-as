@@ -48,7 +48,8 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
   importados: number;
   /** Preenchida só quando a pessoa manteve um saldo diferente do do arquivo. */
   divergencia: OpeningComparison | null;
-  onFinish: () => void;
+  /** `true` quando a pessoa já escolheu para onde ir — os atalhos daqui. */
+  onFinish: (comDestino?: boolean) => void;
   pending: boolean;
 }) {
   const [, setLocation] = useLocation();
@@ -152,7 +153,7 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
           <button
             key={acao.destino}
             type="button"
-            onClick={() => { onFinish(); setLocation(acao.destino); }}
+            onClick={() => { onFinish(true); setLocation(acao.destino); }}
             className="flex items-center gap-3 rounded-[14px] border border-[#E3EBE6] p-4 text-left transition hover:border-[#12B85C] hover:bg-[#F1FBF6]"
           >
             <span className="min-w-0 flex-1">
@@ -174,7 +175,7 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
             </span>
             <button
               type="button"
-              onClick={() => { onFinish(); setLocation("/configuracoes?aba=planos"); }}
+              onClick={() => { onFinish(true); setLocation("/configuracoes?aba=planos"); }}
               className="mt-1.5 h-[42px] rounded-[12px] border border-[#1F4230] px-4 text-[13px] font-semibold text-[#C5DACE] transition hover:bg-[#1F3D2B]"
             >
               Ver os planos
@@ -188,7 +189,10 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
       <OnboardingRodape>
         <button
           type="button"
-          onClick={onFinish}
+          /* `() => onFinish()` e não `onFinish`: passar o handler direto
+             entregaria o evento do clique como `comDestino`, e um MouseEvent é
+             verdadeiro — o convite ao tour nunca apareceria. */
+          onClick={() => onFinish()}
           disabled={pending}
           className="h-[46px] rounded-[12px] bg-[#12B85C] px-6 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:opacity-50"
         >
