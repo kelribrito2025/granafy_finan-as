@@ -10,8 +10,8 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
-  MenuIcon,
   SearchIcon,
+  SidebarMenuIcon,
   SwapIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -25,6 +25,7 @@ import { formatDate, formatMoney } from "@/lib/appFormat";
 import { roundCurrency } from "@shared/currency";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
+import { buildSettledDayGroups, type SettledSortKey, type SettledSortState } from "@/lib/settledSort";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { AppRouter } from "../../../server/routers";
@@ -203,6 +204,42 @@ function ConfirmarEstorno({ item, pending, onCancel, onConfirm }: {
 const ROW_GRID = "grid grid-cols-[76px_minmax(0,1.5fr)_minmax(0,1fr)_132px_112px_120px_28px] items-center gap-3";
 const COLUMN_GRID = "grid grid-cols-[52px_minmax(0,1fr)_100px] items-center gap-3";
 
+/*
+ * O cabeçalho que ordena, igual ao de Lançamentos.
+ *
+ * A seta dupla marca a coluna clicável mesmo em repouso: sem ela, descobrir
+ * que o cabeçalho ordena depende de a pessoa passar o mouse por cima e
+ * reparar. O `aria-sort` é o que anuncia o estado para o leitor de tela.
+ */
+function ColunaOrdenavel({ label, sortKey, sort, onSort, className = "" }: {
+  label: string;
+  sortKey: SettledSortKey;
+  sort: SettledSortState;
+  onSort: (key: SettledSortKey) => void;
+  className?: string;
+}) {
+  const ativa = sort?.key === sortKey;
+  return (
+    <button
+      type="button"
+      aria-sort={ativa ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+      onClick={() => onSort(sortKey)}
+      className={`flex items-center gap-1 text-left uppercase tracking-[.1em] transition hover:text-[#0A7A42] ${ativa ? "text-[#0A7A42]" : ""} ${className}`}
+    >
+      {label}
+      <span aria-hidden="true" className={ativa ? "" : "text-[#B3BFB7]"}>
+        {ativa ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </button>
+  );
+}
+
+/** Clicar de novo inverte; na terceira volta a ordem natural da tela. */
+function proximaOrdem(atual: SettledSortState, key: SettledSortKey): SettledSortState {
+  if (atual?.key !== key) return { key, direction: "asc" };
+  return atual.direction === "asc" ? { key, direction: "desc" } : null;
+}
+
 /**
  * Pagas e recebidas: o que já se moveu, pela data em que se moveu.
  *
@@ -311,17 +348,12 @@ export default function PagasRecebidasPage() {
   const pagas = useMemo(() => filtered.filter(item => item.amount < 0), [filtered]);
 
   /** Grupos por dia da liquidação, com o líquido de cada dia. */
-  const porDia = useMemo(() => {
-    const grupos = new Map<string, Settled[]>();
-    for (const item of filtered) {
-      grupos.set(item.settledAt!, [...(grupos.get(item.settledAt!) ?? []), item]);
-    }
-    return Array.from(grupos, ([date, linhas]) => ({
-      date,
-      linhas,
-      liquido: roundCurrency(linhas.reduce((soma, item) => soma + item.amount, 0)),
-    }));
-  }, [filtered]);
+  /*
+   * Com uma coluna ordenada, o agrupamento por dia sai de cena — a regra mora
+   * em `buildSettledDayGroups`, testada fora da tela.
+   */
+  const [sort, setSort] = useState<SettledSortState>(null);
+  const porDia = useMemo(() => buildSettledDayGroups(filtered, sort), [filtered, sort]);
 
   const exportCsv = () => {
     if (filtered.length === 0) {
@@ -369,7 +401,7 @@ export default function PagasRecebidasPage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ArrowsUpDownIcon} />
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Pagas e recebidas</h1>
@@ -543,7 +575,11 @@ export default function PagasRecebidasPage() {
                   </div>
 
                   <div className={`${ROW_GRID} border-b border-[#E3EBE6] px-1 pb-2 text-[11px] font-semibold uppercase tracking-[.1em] text-[#4C6355]`}>
-                    <span>Liquidado</span><span>Título</span><span>Contato</span><span>Categoria</span><span>Conta</span><span className="text-right">Valor</span><span />
+                    <ColunaOrdenavel label="Liquidado" sortKey="settledAt" sort={sort} onSort={key => setSort(atual => proximaOrdem(atual, key))} />
+                    <ColunaOrdenavel label="Título" sortKey="description" sort={sort} onSort={key => setSort(atual => proximaOrdem(atual, key))} />
+                    <span>Contato</span><span>Categoria</span><span>Conta</span>
+                    <ColunaOrdenavel label="Valor" sortKey="amount" sort={sort} onSort={key => setSort(atual => proximaOrdem(atual, key))} className="justify-end" />
+                    <span />
                   </div>
 
                   {filtered.length === 0 && (
@@ -553,14 +589,18 @@ export default function PagasRecebidasPage() {
                   )}
 
                   {porDia.map(grupo => (
-                    <div key={grupo.date}>
-                      <div className="mt-1.5 flex items-center gap-3 border-b border-[#E3EBE6] px-1 pb-2.5 pt-3.5">
-                        <span className="text-[12.5px] font-bold tracking-[.02em]">{dayLabel(grupo.date)}</span>
-                        <span className="ml-auto text-[12.5px] text-[#4C6355]">líquido do dia</span>
-                        <span className={`text-[13.5px] font-bold ${grupo.liquido >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
-                          {grupo.liquido >= 0 ? "+ " : "− "}{formatMoney(Math.abs(grupo.liquido))}
-                        </span>
-                      </div>
+                    <div key={grupo.date ?? "ordenado"}>
+                      {/* Sem `date` a lista está ordenada por coluna: a faixa
+                          "líquido do dia" não teria dia a que se referir. */}
+                      {grupo.date && (
+                        <div className="mt-1.5 flex items-center gap-3 border-b border-[#E3EBE6] px-1 pb-2.5 pt-3.5">
+                          <span className="text-[12.5px] font-bold tracking-[.02em]">{dayLabel(grupo.date)}</span>
+                          <span className="ml-auto text-[12.5px] text-[#4C6355]">líquido do dia</span>
+                          <span className={`text-[13.5px] font-bold ${grupo.liquido >= 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
+                            {grupo.liquido >= 0 ? "+ " : "− "}{formatMoney(Math.abs(grupo.liquido))}
+                          </span>
+                        </div>
+                      )}
                       {grupo.linhas.map(item => (
                         <div
                           key={item.id}
@@ -647,6 +687,16 @@ export default function PagasRecebidasPage() {
 /** Uma das duas colunas do modo "duas colunas". */
 function ColunaDeTitulos({ titulo, itens, incoming }: { titulo: string; itens: Settled[]; incoming: boolean }) {
   const total = roundCurrency(itens.reduce((soma, item) => soma + Math.abs(item.amount), 0));
+  /*
+   * Cada cartão ordena o seu.
+   *
+   * Um estado só para os dois faria clicar em "Valor" nas recebidas reordenar
+   * as pagas junto — e o motivo de existirem dois cartões é justamente poder
+   * olhar um sem mexer no outro.
+   */
+  const [sort, setSort] = useState<SettledSortState>(null);
+  const ordenados = useMemo(() => buildSettledDayGroups(itens, sort)[0]?.linhas ?? [], [itens, sort]);
+  const ordenar = (key: SettledSortKey) => setSort(atual => proximaOrdem(atual, key));
   return (
     <section className="flex flex-col gap-0.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
       <div className="flex items-center gap-3 pb-3.5">
@@ -661,14 +711,16 @@ function ColunaDeTitulos({ titulo, itens, incoming }: { titulo: string; itens: S
       </div>
 
       <div className={`${COLUMN_GRID} border-b border-[#E3EBE6] pb-2 text-[11px] font-semibold uppercase tracking-[.1em] text-[#4C6355]`}>
-        <span>Data</span><span>Título</span><span className="text-right">Valor</span>
+        <ColunaOrdenavel label="Data" sortKey="settledAt" sort={sort} onSort={ordenar} />
+        <ColunaOrdenavel label="Título" sortKey="description" sort={sort} onSort={ordenar} />
+        <ColunaOrdenavel label="Valor" sortKey="amount" sort={sort} onSort={ordenar} className="justify-end" />
       </div>
 
       {itens.length === 0 && (
         <p className="py-12 text-center text-[13px] text-[#8A968D]">Nada liquidado neste recorte.</p>
       )}
 
-      {itens.map(item => (
+      {ordenados.map(item => (
         <div
           key={item.id}
           className={`${COLUMN_GRID} border-b border-[#F1F4F2] py-3 transition hover:bg-[#F8FAF9]`}
