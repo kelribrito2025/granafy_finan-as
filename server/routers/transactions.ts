@@ -103,6 +103,14 @@ export function shouldMaterializeRecurrence(
     && Boolean(values.recurringMonths);
 }
 
+/*
+ * O lançamento como a tela precisa dele.
+ *
+ * Saíram `createdAt`, `updatedAt` e `importBatchId`: nenhuma tela lia os três,
+ * e num mês cheio eram dois `Date` — que o superjson serializa com metadado de
+ * tipo — mais um UUID de 36 caracteres, multiplicados por 6.692 linhas. O
+ * extrato de setembro trafegava 4,22 MB por causa disso.
+ */
 function toTransaction(record: TransactionRecord) {
   return {
     id: record.id,
@@ -117,7 +125,6 @@ function toTransaction(record: TransactionRecord) {
     categoryId: record.categoryId,
     costCenter: record.costCenter,
     costCenterId: record.costCenterId,
-    importBatchId: record.importBatchId,
     status: record.status,
     recurring: record.recurring,
     recurringMonths: record.recurringMonths,
@@ -126,8 +133,6 @@ function toTransaction(record: TransactionRecord) {
     attachmentKey: record.attachmentKey,
     attachmentName: record.attachmentName,
     transferGroupId: record.transferGroupId,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
   };
 }
 

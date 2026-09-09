@@ -21,7 +21,6 @@ export type Transaction = {
   categoryId: number | null;
   costCenter: string;
   costCenterId: number | null;
-  importBatchId: string | null;
   status: "Pago" | "Pendente";
   recurring: boolean;
   recurringMonths: number | null;
@@ -30,14 +29,22 @@ export type Transaction = {
   attachmentKey: string | null;
   attachmentName: string | null;
   transferGroupId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
 };
+
+/*
+ * `createdAt`, `updatedAt` e `importBatchId` saíram daqui.
+ *
+ * Nenhuma tela lia os três, e eles custavam caro no extrato: são dois `Date`,
+ * que o superjson serializa com metadado de tipo, mais um UUID de 36 caracteres,
+ * multiplicados por 6.692 linhas de um mês cheio. Se algum dia uma tela precisar
+ * de "criado em", o caminho é pedir o campo na rota daquela tela, não voltar a
+ * mandar o razão inteiro com ele.
+ */
 
 export type SeriesScope = "single" | "following";
 
 export type TransactionInput =
-  Omit<Transaction, "id" | "createdAt" | "updatedAt" | "importBatchId" | "transferGroupId" | "recurrenceGroupId" | "recurrenceIndex">
+  Omit<Transaction, "id" | "transferGroupId" | "recurrenceGroupId" | "recurrenceIndex">
   & { amount: number; destinationAccountId: number | null; recurrenceStart: "este_mes" | "proximo_mes" };
 
 export type OrganizationOptions = {

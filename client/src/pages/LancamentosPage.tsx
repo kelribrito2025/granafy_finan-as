@@ -246,7 +246,27 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       : "bg-[#FDECEA] text-[#8E1F16]";
 
   return (
-    <div className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}>
+    /*
+     * `content-visibility: auto` deixa o navegador pular o desenho da linha
+     * enquanto ela está fora da tela. Um mês cheio tem 6.692 linhas, e montar
+     * todas de uma vez é o que trava o extrato.
+     *
+     * O DOM continua inteiro: filtro, KPI, seleção em massa e a exportação do
+     * item 2.5 trabalham sobre o array em memória, não sobre o que está
+     * desenhado, então nenhum deles enxerga diferença. Ctrl+F do navegador
+     * também continua achando texto de linha fora da tela.
+     *
+     * `contain-intrinsic-size` é obrigatório junto: sem ele a linha não
+     * desenhada mede zero, a barra de rolagem encolhe e volta, e a página
+     * pula sozinha enquanto se rola. 46px é a altura real desta linha.
+     *
+     * `menuOpen` desliga a otimização na linha aberta — o menu de ações
+     * escapa dos limites dela, e `contain` cortaria o balão.
+     */
+    <div
+      className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}
+      style={menuOpen ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 46px" }}
+    >
       <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} />
       <div className="flex min-w-0 items-center gap-3">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[12px] font-bold ${monogramClass}`}>
