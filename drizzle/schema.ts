@@ -148,10 +148,26 @@ export const companyProfiles = mysqlTable("companyProfiles", {
   city: varchar("city", { length: 120 }).default("").notNull(),
   state: varchar("state", { length: 2 }).default("").notNull(),
   country: varchar("country", { length: 60 }).default("Brasil").notNull(),
+  /*
+   * A partir daqui esta tabela é a lista de empresas do login, não mais um
+   * perfil único. Os dois campos abaixo são o que uma lista precisa e o
+   * cadastro de empresa não tinha.
+   *
+   * O `company_profiles_user_uidx` continua de pé de propósito: enquanto o
+   * `saveCompanyProfile` for um lê-depois-escreve, ele é a única coisa que
+   * impede duas gravações simultâneas de criarem dois perfis para o mesmo
+   * login. Ele cai junto dos outros únicos, quando as consultas já filtrarem
+   * por empresa e houver o que colocar no lugar.
+   */
+  /** Arquivar em vez de excluir: empresa guarda razão contábil. */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** A ordem escolhida na lista. Empate resolve pelo id. */
+  sortOrder: int("sortOrder").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
   uniqueIndex("company_profiles_user_uidx").on(table.userId),
+  index("company_profiles_user_order_idx").on(table.userId, table.sortOrder),
 ]);
 
 /**

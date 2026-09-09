@@ -148,6 +148,13 @@
       "when": 1788919981252,
       "tag": "0020_huge_dragon_man",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1788969519877,
+      "tag": "0021_happy_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }
