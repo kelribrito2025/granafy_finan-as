@@ -115,6 +115,8 @@ export function registerGoogleAuthRoutes(app: Express) {
       await Promise.all([
         db.updateLastSignedIn(user.id),
         db.ensureDefaultTransactionCategories(user.id),
+        // O mesmo conserto do login por senha: entrar recria a empresa que faltar.
+        db.ensureDefaultCompany(user.id),
       ]);
       await setLocalSession(req, res, user.id);
       return res.redirect("/");

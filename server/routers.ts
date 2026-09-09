@@ -184,10 +184,17 @@ export const appRouter = router({
           throw await recusar();
         }
 
+        /*
+         * As quatro saem juntas: em paralelo custam uma ida ao banco, não
+         * quatro. A empresa padrão entra aqui para que a conta que por algum
+         * motivo ficar sem empresa se conserte no próximo login — é o que faz
+         * SEM_EMPRESA_ERR_MSG poder mandar sair e entrar.
+         */
         await Promise.all([
           db.clearLoginFailures(email),
           db.updateLastSignedIn(record.id),
           db.ensureDefaultTransactionCategories(record.id),
+          db.ensureDefaultCompany(record.id),
         ]);
         await setLocalSession(ctx.req, ctx.res, record.id, input.remember);
         return db.toPublicUser({ ...record, lastSignedIn: new Date() });
