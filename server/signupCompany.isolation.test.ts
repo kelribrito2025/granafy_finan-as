@@ -1,6 +1,9 @@
 import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { appRouter } from "./routers";
+import { hashPassword } from "./auth";
 import { createLocalUser, esquecerBancoDeTeste, usarBancoDeTesteEm } from "./db";
+import type { TrpcContext } from "./_core/context";
 import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste } from "./testDatabase";
 
 /*
@@ -28,7 +31,7 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
   }, 60_000);
 
   afterAll(async () => {
-    esquecerBancoDeTeste();
+    await esquecerBancoDeTeste();
     await c?.end();
   });
 
@@ -91,6 +94,35 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
       );
       expect((linhas as Array<{ dono: number }>).map(l => l.dono)).toEqual([usuario.id]);
     }
+  });
+
+  it("entrar de novo recria a empresa que faltar — a promessa da mensagem de erro", async () => {
+    /*
+     * SEM_EMPRESA_ERR_MSG manda "sair e entrar de novo". Esta é a prova de que
+     * o conselho funciona: uma conta fica sem empresa, o login roda, a empresa
+     * volta. Se alguém tirar `ensureDefaultCompany` do login, este teste cai —
+     * e é ele que impede a mensagem de virar mentira.
+     */
+    const senha = "Granafy!2026";
+    const usuario = await createLocalUser({
+      email: "volta@teste.local",
+      name: "Volta",
+      passwordHash: await hashPassword(senha),
+    });
+
+    await c.query("DELETE FROM companyProfiles WHERE userId = ?", [usuario.id]);
+    const [antes] = await c.query("SELECT COUNT(*) AS n FROM companyProfiles WHERE userId = ?", [usuario.id]);
+    expect(Number((antes as Array<{ n: number }>)[0]!.n)).toBe(0);
+
+    const ctx = {
+      user: null, companies: [], activeCompanyId: null, companyRequestHonored: true,
+      req: { protocol: "https", headers: {} },
+      res: { cookie: () => {}, clearCookie: () => {} },
+    } as unknown as TrpcContext;
+    await appRouter.createCaller(ctx).auth.login({ email: "volta@teste.local", password: senha, remember: false });
+
+    const [depois] = await c.query("SELECT COUNT(*) AS n FROM companyProfiles WHERE userId = ?", [usuario.id]);
+    expect(Number((depois as Array<{ n: number }>)[0]!.n)).toBe(1);
   });
 
   it("todas as 50 categorias-padrão da conta carregam a mesma empresa", async () => {

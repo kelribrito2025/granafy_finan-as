@@ -61,7 +61,7 @@ describe.runIf(temBancoDeTeste())("isolamento de listCompanies", () => {
   }, 60_000);
 
   afterAll(async () => {
-    esquecerBancoDeTeste();
+    await esquecerBancoDeTeste();
     await conexao?.end();
   });
 

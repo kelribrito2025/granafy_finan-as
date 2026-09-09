@@ -45,6 +45,20 @@ import { chunkImportRows } from "./importers";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/*
+ * O desvio de teste vive separado do de produção, e não por elegância.
+ *
+ * Quando os dois compartilhavam a mesma variável, cada arreio que terminava
+ * deixava DOIS pools para trás: o de teste, que ninguém fechava, e o de
+ * produção, que era recriado do zero na chamada seguinte. Com
+ * `connectionLimit: 10`, `keepAlive` e meia hora de ocioso, as conexões
+ * ficavam abertas e se somavam a cada arquivo de arreio — até o TiDB parar de
+ * aceitar e os testes começarem a estourar por tempo, sem nunca falhar por
+ * asserção. Medido: uma conexão a mais por ciclo, monotônico.
+ */
+let _dbTeste: ReturnType<typeof drizzle> | null = null;
+let _poolTeste: mysql.Pool | null = null;
+
 function createTiDbClient(databaseUrl: string) {
   const url = new URL(databaseUrl);
   const pool = mysql.createPool({
@@ -70,7 +84,7 @@ function createTiDbClient(databaseUrl: string) {
     maxIdle: 10,
   });
 
-  return drizzle(pool);
+  return { db: drizzle(pool), pool };
 }
 
 /*
@@ -88,16 +102,30 @@ function createTiDbClient(databaseUrl: string) {
 export async function usarBancoDeTesteEm(url: string) {
   const { conferirAlvoDeTeste } = await import("./testDatabase");
   conferirAlvoDeTeste(url, process.env.TIDB_DATABASE_URL);
-  _db = createTiDbClient(url);
-  return _db;
+  await esquecerBancoDeTeste();
+  const { db, pool } = createTiDbClient(url);
+  _dbTeste = db;
+  _poolTeste = pool;
+  return _dbTeste;
 }
 
-/** Devolve o `getDb` ao normal depois de um teste. */
-export function esquecerBancoDeTeste() {
-  _db = null;
+/**
+ * Devolve o `getDb` ao normal e FECHA o pool de teste.
+ *
+ * O `end()` é o ponto todo: sem ele a referência some e as conexões ficam. É
+ * `await`-ável de propósito — um `afterAll` que não espera o fechamento
+ * devolve o mesmo vazamento por outro caminho.
+ */
+export async function esquecerBancoDeTeste() {
+  _dbTeste = null;
+  const pool = _poolTeste;
+  _poolTeste = null;
+  if (pool) await pool.end();
 }
 
 export async function getDb() {
+  // O desvio de teste tem precedência, e o de produção nunca é descartado.
+  if (_dbTeste) return _dbTeste;
   if (_db) return _db;
 
   const tiDbUrl = process.env.TIDB_DATABASE_URL;
@@ -105,7 +133,7 @@ export async function getDb() {
 
   try {
     _db = tiDbUrl
-      ? createTiDbClient(tiDbUrl)
+      ? createTiDbClient(tiDbUrl).db
       : defaultUrl
         ? drizzle(defaultUrl)
         : null;
@@ -126,7 +154,9 @@ export function toPublicUser(record: UserRecord): User {
   return user;
 }
 
-type Transacao = Parameters<Parameters<NonNullable<Awaited<ReturnType<typeof getDb>>>["transaction"]>[0]>[0];
+type Conexao = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+/** Serve para o `db` solto e para uma transação: os dois têm select e insert. */
+type ComEscrita = Pick<Conexao, "select" | "insert">;
 
 /**
  * Toda conta tem pelo menos uma empresa, desde o instante do cadastro.
@@ -139,7 +169,7 @@ type Transacao = Parameters<Parameters<NonNullable<Awaited<ReturnType<typeof get
  * A empresa nasce com os campos vazios: o rótulo da tela sai de
  * `companyDisplayName`, e razão social inventada não entra no banco.
  */
-async function garantirEmpresaPadrao(tx: Transacao, userId: number): Promise<number> {
+async function garantirEmpresaPadrao(tx: ComEscrita, userId: number): Promise<number> {
   const [existente] = await tx
     .select({ id: companyProfiles.id })
     .from(companyProfiles)
@@ -150,6 +180,22 @@ async function garantirEmpresaPadrao(tx: Transacao, userId: number): Promise<num
 
   const criada = await tx.insert(companyProfiles).values({ userId });
   return Number(criada[0].insertId);
+}
+
+/**
+ * A empresa padrão, garantida fora de transação.
+ *
+ * Chamada no login. Antes disso, a única coisa que criava empresa era o
+ * cadastro — então um login que por qualquer motivo ficasse sem empresa não
+ * tinha como voltar sozinho, e a mensagem de erro não teria caminho nenhum a
+ * apontar. Com isto, "saia e entre de novo" vira conselho verdadeiro.
+ *
+ * Custa uma consulta que sai em paralelo com as outras três do login.
+ */
+export async function ensureDefaultCompany(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return garantirEmpresaPadrao(db, userId);
 }
 
 export async function createLocalUser(input: {
