@@ -82,23 +82,30 @@ export function StepEmpresa({ onDone, renderFooter }: {
 
   return (
     <>
-      <label className="block">
-        <span className={rotulo}>Razão social</span>
-        <input value={legalName} onChange={e => setLegalName(e.target.value)} maxLength={180} placeholder="Número Virtual LTDA" className={campo} />
-      </label>
+      {/*
+        Dois pares, e não um campo largo seguido de dois estreitos.
 
+        Os dois nomes da empresa ficam lado a lado porque é assim que se
+        confere um contra o outro — quem digita a razão social já sabe o
+        fantasia. Embaixo sobra o par CNPJ + exercício, que enche a linha que
+        antes ficava metade vazia.
+      */}
       <div className="grid gap-5 sm:grid-cols-2">
+        <label className="block">
+          <span className={rotulo}>Razão social</span>
+          <input value={legalName} onChange={e => setLegalName(e.target.value)} maxLength={180} placeholder="Número Virtual LTDA" className={campo} />
+        </label>
         <label className="block">
           <span className={rotulo}>Nome fantasia</span>
           <input value={tradeName} onChange={e => setTradeName(e.target.value)} maxLength={180} placeholder="Como todo mundo chama" className={campo} />
         </label>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className={rotulo}>CNPJ</span>
           <input value={taxId} onChange={e => setTaxId(mascaraCnpj(e.target.value))} inputMode="numeric" placeholder="00.000.000/0000-00" className={campo} />
         </label>
-      </div>
-
-      <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className={rotulo}>O exercício começa em</span>
           <select value={fiscalMonth} onChange={e => setFiscalMonth(Number(e.target.value))} className={campo}>
