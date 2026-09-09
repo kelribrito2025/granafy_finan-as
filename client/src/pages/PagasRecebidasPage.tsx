@@ -11,16 +11,21 @@ import {
   DownloadIcon,
   MenuIcon,
   SearchIcon,
+  SwapIcon,
 } from "@/components/IconlyIcons";
+import { ModalIcon } from "@/components/ModalIcon";
 import { PageIcon } from "@/components/PageIcon";
 import { KpiRowSkeleton } from "@/components/PageSkeleton";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
-import { formatMoney } from "@/lib/appFormat";
+
 import { trpc } from "@/lib/trpc";
+import { formatDate, formatMoney } from "@/lib/appFormat";
 import { roundCurrency } from "@shared/currency";
 import type { inferRouterOutputs } from "@trpc/server";
-import { useMemo, useState, type ReactNode } from "react";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import type { AppRouter } from "../../../server/routers";
 
 type Arrangement = "lista" | "colunas";
@@ -94,7 +99,107 @@ function SideMark({ incoming, size = 28 }: { incoming: boolean; size?: number })
   );
 }
 
-const ROW_GRID = "grid grid-cols-[76px_minmax(0,1.5fr)_minmax(0,1fr)_132px_112px_120px] items-center gap-3";
+/** O "⋮" da linha. A única ação é estornar — nada se cria nesta tela. */
+function RowActions({ open, onOpen, onClose, onEstornar }: {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onEstornar: () => void;
+}) {
+  const anchor = useRef<HTMLDivElement>(null);
+  useDismissOnOutside(open, anchor, useCallback(() => onClose(), [onClose]));
+  return (
+    <div ref={anchor} className="relative justify-self-end">
+      <button
+        type="button"
+        aria-label="Ações do título"
+        aria-expanded={open}
+        onClick={onOpen}
+        className="flex h-7 w-7 items-center justify-center rounded-[9px] text-[#8A968D] transition hover:bg-[#F1F4F2] hover:text-[#0B1F14]"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 w-[176px] rounded-[12px] bg-white p-1 shadow-[0_12px_30px_rgba(11,31,20,.16)] ring-1 ring-[#E3EBE6]">
+          <button
+            type="button"
+            onClick={onEstornar}
+            className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[12.5px] font-medium text-[#8E1F16] transition hover:bg-[#FDECEA]"
+          >
+            <SwapIcon size={15} />
+            Estornar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A confirmação do estorno.
+ *
+ * Mostra título e valor antes de agir porque estornar tira dinheiro do caixa
+ * realizado do mês: o título volta para os abertos, sai desta tela e some dos
+ * totais. Errar a linha num extrato de milhares é fácil demais para um clique
+ * só resolver.
+ */
+function ConfirmarEstorno({ item, pending, onCancel, onConfirm }: {
+  item: Settled;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="estorno-title"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]"
+      onMouseDown={event => event.target === event.currentTarget && onCancel()}
+    >
+      <div className="modal-enter w-full max-w-[440px] rounded-[20px] bg-white p-6 text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.16)]">
+        <div className="flex items-start gap-3">
+          <ModalIcon icon={SwapIcon} />
+          <div className="min-w-0">
+            <h2 id="estorno-title" className="text-[18px] font-bold tracking-[-.01em]">Estornar liquidação</h2>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A968D]">
+              O título volta para <strong className="font-semibold text-[#4C6355]">A pagar e receber</strong> e sai desta tela.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-1.5 rounded-[14px] bg-[#F8FAF9] p-4">
+          <strong className="text-[14px] leading-snug">{item.description}</strong>
+          <span className="text-[12.5px] text-[#4C6355]">
+            {item.account} · {item.category}{item.contact ? ` · ${item.contact}` : ""}
+          </span>
+          <div className="mt-1 flex items-baseline justify-between gap-3">
+            <span className="text-[12.5px] text-[#4C6355]">
+              Liquidado em {formatDate(item.settledAt!)}
+              {item.settledAt !== item.transactionDate && ` · vencia em ${formatDate(item.transactionDate)}`}
+            </span>
+            <strong className={`text-[17px] ${item.amount > 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
+              {item.amount > 0 ? "+ " : "− "}{formatMoney(Math.abs(item.amount))}
+            </strong>
+          </div>
+        </div>
+
+        <div className="mt-5 flex gap-2.5">
+          <button type="button" disabled={pending} onClick={onCancel} className="h-11 flex-1 rounded-[12px] border border-[#E3EAE5] text-[13px] font-semibold text-[#4C6355] transition hover:bg-[#F8FAF9] disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" disabled={pending} onClick={onConfirm} className="h-11 flex-1 rounded-[12px] bg-[#B3261E] text-[13px] font-bold text-white transition hover:bg-[#8E1F16] disabled:opacity-50">
+            {pending ? "Estornando…" : "Estornar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ROW_GRID = "grid grid-cols-[76px_minmax(0,1.5fr)_minmax(0,1fr)_132px_112px_120px_28px] items-center gap-3";
 const COLUMN_GRID = "grid grid-cols-[52px_minmax(0,1fr)_100px] items-center gap-3";
 
 /**
@@ -113,6 +218,27 @@ export default function PagasRecebidasPage() {
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState("todos");
   const [categoryFilter, setCategoryFilter] = useState("todos");
+  const [menuAberto, setMenuAberto] = useState<number | null>(null);
+  const [estornando, setEstornando] = useState<Settled | null>(null);
+
+  const utils = trpc.useUtils();
+  /*
+   * O estorno é o mesmo `toggleStatus` do extrato: aqui todo título está pago,
+   * então o botão só desfaz. A etapa anterior fez o toggle limpar o `settledAt`
+   * junto, e é isso que tira a linha desta tela — sem limpar, ela voltaria para
+   * os abertos e continuaria aparecendo aqui com uma liquidação que não
+   * aconteceu mais.
+   */
+  const estorno = trpc.transactions.toggleStatus.useMutation({
+    onSuccess: async (_registro, variables) => {
+      const item = items.find(linha => linha.id === variables.id);
+      setEstornando(null);
+      // As duas telas mudam: o título sai daqui e reaparece nos abertos.
+      await Promise.all([utils.settled.overview.invalidate(), utils.payables.overview.invalidate()]);
+      toast.success(item ? `"${item.description}" voltou para A pagar e receber` : "Liquidação estornada");
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.settled.overview.useQuery(period);
@@ -416,7 +542,7 @@ export default function PagasRecebidasPage() {
                   </div>
 
                   <div className={`${ROW_GRID} border-b border-[#E3EBE6] px-1 pb-2 text-[11px] font-semibold uppercase tracking-[.1em] text-[#4C6355]`}>
-                    <span>Liquidado</span><span>Título</span><span>Contato</span><span>Categoria</span><span>Conta</span><span className="text-right">Valor</span>
+                    <span>Liquidado</span><span>Título</span><span>Contato</span><span>Categoria</span><span>Conta</span><span className="text-right">Valor</span><span />
                   </div>
 
                   {filtered.length === 0 && (
@@ -442,7 +568,9 @@ export default function PagasRecebidasPage() {
                              pula o desenho do que está fora da tela e o DOM
                              continua inteiro, então filtro, KPI e exportação
                              seguem lendo o array em memória. */
-                          style={{ contentVisibility: "auto", containIntrinsicSize: "auto 48px" }}
+                          /* Com o menu aberto a otimização sai de cena: `contain`
+                             cortaria o balão, que escapa dos limites da linha. */
+                          style={menuAberto === item.id ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 48px" }}
                         >
                           <span className="text-[#4C6355]">{shortDate(item.settledAt!)}</span>
                           <div className="flex min-w-0 items-center gap-2.5">
@@ -455,6 +583,12 @@ export default function PagasRecebidasPage() {
                           <span className={`whitespace-nowrap text-right text-[14px] font-bold ${item.amount > 0 ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
                             {item.amount > 0 ? "+ " : "− "}{formatMoney(Math.abs(item.amount))}
                           </span>
+                          <RowActions
+                            open={menuAberto === item.id}
+                            onOpen={() => setMenuAberto(menuAberto === item.id ? null : item.id)}
+                            onClose={() => setMenuAberto(null)}
+                            onEstornar={() => { setMenuAberto(null); setEstornando(item); }}
+                          />
                         </div>
                       ))}
                     </div>
@@ -462,7 +596,14 @@ export default function PagasRecebidasPage() {
                 </section>
               )}
 
-              <footer className="grid grid-cols-1 overflow-hidden rounded-[20px] bg-white ring-1 ring-[#E1E8E3] sm:grid-cols-3">
+              {/*
+                A barra dos três totais gruda no rodapé da janela.
+                Num mês cheio a lista passa de seis mil linhas: sem o sticky, o
+                total só aparece para quem rolar até o fim, e o número que
+                resume a tela é justamente o que não pode exigir uma viagem.
+                É o mesmo comportamento da barra de saldos do extrato.
+              */}
+              <footer className="sticky bottom-1 z-20 grid grid-cols-1 overflow-hidden rounded-[20px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-3">
                 <div className="flex items-baseline justify-center gap-2.5 p-5">
                   <span className="text-[14px] text-[#4C6355]">Recebido</span>
                   <strong className="text-[16px] text-[#0A7A42]">{formatMoney(resumo.received)}</strong>
@@ -489,6 +630,15 @@ export default function PagasRecebidasPage() {
           )}
         </section>
       </div>
+
+      {estornando && (
+        <ConfirmarEstorno
+          item={estornando}
+          pending={estorno.isPending}
+          onCancel={() => setEstornando(null)}
+          onConfirm={() => estorno.mutate({ id: estornando.id })}
+        />
+      )}
     </main>
   );
 }
