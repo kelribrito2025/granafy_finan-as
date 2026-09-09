@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import {
   BuildingIcon,
   CardIcon,
+  CheckIcon,
   ChevronRightIcon,
   MenuIcon,
   SettingsIcon,
@@ -12,6 +13,7 @@ import {
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { AssinaturaPanel, PlanosPanel } from "@/components/PlanoCobranca";
+import { PrimeiroAcessoPanel } from "@/components/onboarding/PrimeiroAcessoPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import {
@@ -33,7 +35,7 @@ import { useLocation, useSearch } from "wouter";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
-type SettingsTab = "company" | "preferences" | "plans" | "subscription";
+type SettingsTab = "company" | "preferences" | "onboarding" | "plans" | "subscription";
 
 /*
  * O menu do perfil aponta direto para uma aba (`?aba=plano`). O estado mora
@@ -44,6 +46,7 @@ type SettingsTab = "company" | "preferences" | "plans" | "subscription";
 const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
   empresa: "company",
   preferencias: "preferences",
+  "primeiro-acesso": "onboarding",
   planos: "plans",
   assinatura: "subscription",
 };
@@ -51,6 +54,7 @@ const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
 const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
   company: "empresa",
   preferences: "preferencias",
+  onboarding: "primeiro-acesso",
   plans: "planos",
   subscription: "assinatura",
 };
@@ -58,6 +62,7 @@ const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
 const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
   company: "Dados cadastrais e endereço da empresa",
   preferences: "Como o sistema mostra períodos, valores e datas",
+  onboarding: "Os passos da configuração inicial, para refazer quando quiser",
   plans: "O que cada plano inclui e quanto custa",
   subscription: "Plano em vigor, uso do ciclo, faturas e forma de pagamento",
 };
@@ -65,6 +70,7 @@ const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
 const ABAS: Array<{ value: SettingsTab; label: string; icon: IconlyIcon }> = [
   { value: "company", label: "Empresa", icon: BuildingIcon },
   { value: "preferences", label: "Preferências", icon: SettingsIcon },
+  { value: "onboarding", label: "Primeiro acesso", icon: CheckIcon },
   { value: "plans", label: "Planos", icon: TagIcon },
   { value: "subscription", label: "Assinatura", icon: CardIcon },
 ];
@@ -184,7 +190,9 @@ export default function SettingsPage() {
             </nav>
 
             <div className="min-w-0 flex-1">
-              {tab === "plans" ? (
+              {tab === "onboarding" ? (
+                <PrimeiroAcessoPanel />
+              ) : tab === "plans" ? (
                 <PlanosPanel />
               ) : tab === "subscription" ? (
                 <AssinaturaPanel onVerPlanos={() => {
