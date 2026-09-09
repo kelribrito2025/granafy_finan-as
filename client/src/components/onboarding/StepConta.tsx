@@ -23,7 +23,7 @@ const campo = "h-[46px] w-full rounded-[12px] border border-[#E3EBE6] bg-white p
 const rotulo = "mb-1.5 block text-[12px] font-semibold text-[#4C6355]";
 
 export function StepConta({ onDone, onSkip, renderFooter }: {
-  onDone: (contaId: number) => void;
+  onDone: (contaId: number, saldo: number, data: string) => void;
   onSkip: () => void;
   renderFooter: (props: { onContinue: () => void; pending: boolean; label: string; extra?: React.ReactNode }) => React.ReactNode;
 }) {
@@ -50,7 +50,7 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
         initialBalanceDate: data,
       });
       await utils.organization.invalidate();
-      onDone(conta!.id);
+      onDone(conta!.id, currencyInputToNumber(saldo), data);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível criar a conta");
     }

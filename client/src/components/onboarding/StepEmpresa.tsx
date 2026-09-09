@@ -30,7 +30,7 @@ function mascaraCnpj(valor: string) {
 
 export function StepEmpresa({ onDone, renderFooter }: {
   onDone: () => void;
-  renderFooter: (props: { onContinue: () => void; pending: boolean; label: string }) => React.ReactNode;
+  renderFooter: (props: { onContinue: () => void; pending: boolean; label: string; disabled?: boolean }) => React.ReactNode;
 }) {
   const [legalName, setLegalName] = useState("");
   const [tradeName, setTradeName] = useState("");

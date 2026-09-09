@@ -7,7 +7,7 @@ import {
   UploadIcon,
 } from "@/components/IconlyIcons";
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
-import { countsInResult, normalizeName, rootOf } from "@shared/dre";
+import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory";
 import { trpc } from "@/lib/trpc";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -22,9 +22,6 @@ type SortState = { key: SortKey; direction: "asc" | "desc" } | null;
 
 /* "Pão" antes de "Pagamento" só com collator: em pt-BR o acento não é letra nova. */
 const COLLATOR = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
-
-/** A raiz que um extrato bancário quase sempre quer do lado da receita. */
-const PREFERRED_INCOME_ROOT = "receitas operacionais";
 
 type PreviewRow = {
   sourceIndex: number;
@@ -94,28 +91,6 @@ function SortableHeader({ column, label, sort, onSort, className }: {
       </button>
     </th>
   );
-}
-
-/**
- * A categoria que já vem escolhida no formulário.
- *
- * Era a primeira da lista, que é a primeira em ordem alfabética. Quando
- * "Aportes de Capital" entrou no plano padrão, ela virou a primeira receita —
- * e um extrato inteiro de Pix recebido nascia classificado como aporte de
- * sócio, fora do resultado da DRE, sem ninguém ter escolhido isso. Numa
- * importação de 842 linhas o padrão errado não é um detalhe: é o valor que
- * fica, porque quase ninguém revisa linha a linha.
- *
- * A ordem é explícita: a raiz preferida primeiro, depois qualquer raiz que a
- * DRE conte no resultado. Se nada servir, o campo fica vazio e a pessoa
- * escolhe — a tela já exige as duas categorias antes da prévia.
- */
-function defaultCategoryId(categories: readonly { id: number; name: string }[], preferredRoot?: string) {
-  const preferida = preferredRoot
-    ? categories.find(category => normalizeName(rootOf(category.name)) === preferredRoot)
-    : undefined;
-  const escolhida = preferida ?? categories.find(category => countsInResult(category.name));
-  return escolhida ? String(escolhida.id) : "";
 }
 
 export default function ImportTransactionsModal({ onClose, onImported, onManageOrganization }: ImportTransactionsModalProps) {
