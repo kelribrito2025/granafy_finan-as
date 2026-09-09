@@ -1,5 +1,6 @@
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { OnboardingShell, type PassoIndice } from "@/components/onboarding/OnboardingStepper";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { OnboardingWelcome } from "@/components/onboarding/OnboardingWelcome";
 import { StepConta } from "@/components/onboarding/StepConta";
 import { StepEmpresa } from "@/components/onboarding/StepEmpresa";
@@ -24,6 +25,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   const status = trpc.onboarding.status.useQuery();
   const utils = trpc.useUtils();
   const [passo, setPasso] = useState<PassoIndice | null>(null);
+  const [tourAberto, setTourAberto] = useState(false);
   /*
    * O que o fluxo aprendeu pelo caminho.
    *
@@ -71,13 +73,18 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   if (passo === null) {
     return (
-      <OnboardingWelcome
-        name={status.data?.name ?? ""}
-        skipping={concluir.isPending}
-        onStart={() => setPasso(0)}
-        onTour={() => setPasso(0)}
-        onSkip={pular}
-      />
+      <>
+        <OnboardingWelcome
+          name={status.data?.name ?? ""}
+          skipping={concluir.isPending}
+          onStart={() => setPasso(0)}
+          onTour={() => setTourAberto(true)}
+          onSkip={pular}
+        />
+        {/* Fechar o tour volta para as boas-vindas, não para o painel: quem
+            olhou a apresentação ainda não configurou nada. */}
+        {tourAberto && <OnboardingTour onClose={() => setTourAberto(false)} />}
+      </>
     );
   }
 

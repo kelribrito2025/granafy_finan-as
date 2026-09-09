@@ -105,6 +105,25 @@ export function ClockIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Relatório: uma folha com uma linha de resultado subindo dentro.
+ *
+ * O DRE usava o mesmo documento de linhas de Lançamentos. A folha é a mesma
+ * porque os dois são papel; o que muda é o que está escrito nela — lá é uma
+ * lista, aqui é um resultado.
+ */
+export function ReportIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 4.75h8.5L18.5 8.75V19.25a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V6.25a1.5 1.5 0 0 1 1.5-1.5Z" />
+        <path d="M14.25 4.75v4h4" />
+        <path d="M7.75 16.25l2.5-2.75 2 1.75 3-3.5" />
+      </g>
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Chart (ID 38981), master canvas 48 px.
 export function ChartIcon(props: IconlyIconProps) {
   return (
