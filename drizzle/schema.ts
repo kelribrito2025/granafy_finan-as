@@ -363,6 +363,18 @@ export const transactions = mysqlTable("transactions", {
   costCenter: varchar("costCenter", { length: 120 }).default("").notNull(),
   costCenterId: int("costCenterId"),
   status: mysqlEnum("status", ["Pago", "Pendente"]).default("Pendente").notNull(),
+  /**
+   * Quando o dinheiro se moveu de verdade.
+   *
+   * `transactionDate` é o vencimento; esta é a liquidação. As duas coincidem na
+   * maioria das linhas — extrato bancário é dinheiro que já se moveu —, mas um
+   * título vencido em agosto e pago em setembro pertence a setembro no caixa e a
+   * agosto na competência, e sem esta coluna não havia como dizer isso.
+   *
+   * Nula enquanto o título está pendente. Ao marcar como pago, recebe o dia de
+   * hoje no fuso do usuário, e a tela de edição permite corrigir.
+   */
+  settledAt: date("settledAt", { mode: "string" }),
   recurring: boolean("recurring").default(false).notNull(),
   /** Quantos meses a recorrência cobre. Null quando `recurring` é falso. */
   recurringMonths: int("recurringMonths"),
@@ -391,6 +403,9 @@ export const transactions = mysqlTable("transactions", {
 }, table => [
   index("transactions_user_date_idx").on(table.userId, table.transactionDate),
   index("transactions_user_status_idx").on(table.userId, table.status),
+  // A tela de liquidadas filtra por usuário, status e mês de liquidação, nesta
+  // ordem — o índice acompanha a consulta para ela não varrer o razão.
+  index("transactions_user_settled_idx").on(table.userId, table.status, table.settledAt),
   index("transactions_user_account_idx").on(table.userId, table.accountId),
   index("transactions_user_category_idx").on(table.userId, table.categoryId),
   index("transactions_user_cost_center_idx").on(table.userId, table.costCenterId),
