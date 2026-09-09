@@ -50,8 +50,15 @@ export function CartaoDeApoio({ titulo, children, tom = "claro" }: {
   );
 }
 
-export const PASSOS = ["Empresa", "Conta", "Extrato", "Pronto"] as const;
-export type PassoIndice = 0 | 1 | 2 | 3;
+/*
+ * O tema vem primeiro de propósito.
+ *
+ * É a única pergunta sem consequência: nada do que a pessoa responder aqui
+ * altera um número. Começar por ela dá um passo fácil antes dos que exigem
+ * documento e saldo — e o resto do fluxo já acontece no tema escolhido.
+ */
+export const PASSOS = ["Tema", "Empresa", "Conta", "Extrato", "Pronto"] as const;
+export type PassoIndice = 0 | 1 | 2 | 3 | 4;
 
 /**
  * A faixa de passos, agora na barra do topo.

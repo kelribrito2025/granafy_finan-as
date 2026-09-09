@@ -6,6 +6,7 @@ import { StepConta } from "@/components/onboarding/StepConta";
 import { StepEmpresa } from "@/components/onboarding/StepEmpresa";
 import { StepExtrato } from "@/components/onboarding/StepExtrato";
 import { StepResumo } from "@/components/onboarding/StepResumo";
+import { StepTema } from "@/components/onboarding/StepTema";
 import type { OpeningComparison } from "@shared/openingBalance";
 import { trpc } from "@/lib/trpc";
 import { useState, type ReactNode } from "react";
@@ -122,6 +123,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   /** O texto pequeno do canto esquerdo do rodapé, um por passo. */
   const DICAS = [
+    "Você pode trocar a qualquer momento, pelo botão de tema",
     "Leva menos de um minuto",
     "Você adiciona as outras contas depois, em Contas e categorias",
     "O extrato pode entrar depois, em Lançamentos",
@@ -129,6 +131,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   ];
 
   const CONTEUDO = [
+    { titulo: "Escolha a aparência", apoio: "Vale para este navegador e dá para trocar quando quiser. Nada aqui muda os seus números." },
     { titulo: "Confirme a empresa", apoio: "Razão social, CNPJ e regime tributário. O regime só rotula relatórios — o GranaFy não calcula impostos." },
     { titulo: "Cadastre a primeira conta", apoio: "Banco, tipo e o saldo inicial. Você pode somar as outras contas depois." },
     { titulo: "Importe o extrato", apoio: "Um arquivo OFX ou CSV do internet banking. Se preferir, comece sem nada." },
@@ -146,15 +149,23 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
       onSair={pular}
       sairPending={concluir.isPending}
     >
-      {passo === 0 && <StepEmpresa onDone={avancar} renderFooter={rodapeDe} />}
-      {passo === 1 && (
+      {passo === 0 && (
+        <>
+          <StepTema />
+          {/* O tema não tem o que salvar — vale no clique — então o rodapé vem
+              daqui em vez de de dentro do passo. */}
+          {rodapeDe({ onContinue: avancar, pending: false, label: "Continuar" })}
+        </>
+      )}
+      {passo === 1 && <StepEmpresa onDone={avancar} renderFooter={rodapeDe} />}
+      {passo === 2 && (
         <StepConta
           onDone={(id, saldo, data) => { setConta({ id, saldo, data }); avancar(); }}
           onSkip={avancar}
           renderFooter={rodapeDe}
         />
       )}
-      {passo === 2 && (
+      {passo === 3 && (
         <StepExtrato
           contaId={conta?.id ?? null}
           saldoInformado={conta?.saldo ?? null}
@@ -168,7 +179,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
           renderFooter={rodapeDe}
         />
       )}
-      {passo === 3 && (
+      {passo === 4 && (
         <StepResumo
           nome={status.data?.name ?? ""}
           criadoEm={status.data?.createdAt ?? null}
