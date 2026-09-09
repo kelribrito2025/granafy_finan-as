@@ -126,6 +126,32 @@ export function toPublicUser(record: UserRecord): User {
   return user;
 }
 
+type Transacao = Parameters<Parameters<NonNullable<Awaited<ReturnType<typeof getDb>>>["transaction"]>[0]>[0];
+
+/**
+ * Toda conta tem pelo menos uma empresa, desde o instante do cadastro.
+ *
+ * O cadastro insere 50 categorias-padrão na mesma transação, antes de existir
+ * qualquer empresa — e foi assim que dois logins "vazios" apareceram com 50
+ * linhas cada. Sem esta função, cada conta nova nasceria com 50 linhas de
+ * `companyId` nulo, e a última fase nunca conseguiria pôr a coluna em NOT NULL.
+ *
+ * A empresa nasce com os campos vazios: o rótulo da tela sai de
+ * `companyDisplayName`, e razão social inventada não entra no banco.
+ */
+async function garantirEmpresaPadrao(tx: Transacao, userId: number): Promise<number> {
+  const [existente] = await tx
+    .select({ id: companyProfiles.id })
+    .from(companyProfiles)
+    .where(eq(companyProfiles.userId, userId))
+    .orderBy(asc(companyProfiles.sortOrder), asc(companyProfiles.id))
+    .limit(1);
+  if (existente) return existente.id;
+
+  const criada = await tx.insert(companyProfiles).values({ userId });
+  return Number(criada[0].insertId);
+}
+
 export async function createLocalUser(input: {
   email: string;
   name: string;
@@ -147,7 +173,9 @@ export async function createLocalUser(input: {
       lastSignedIn: new Date(),
     });
     const userId = Number(result[0].insertId);
-    await tx.insert(transactionCategories).values(defaultCategoryValues(userId));
+    // A empresa vem antes das categorias: elas já nascem carimbadas.
+    const companyId = await garantirEmpresaPadrao(tx, userId);
+    await tx.insert(transactionCategories).values(defaultCategoryValues(userId, companyId));
     return userId;
   });
 
@@ -195,7 +223,13 @@ export async function ensureDefaultTransactionCategories(userId: number) {
   }
 
   await db.transaction(async tx => {
-    const upgradeValues = defaultCategoryUpgradeValues(userId, record.version);
+    /*
+     * O outro caminho que insere categoria. Passou despercebido na primeira
+     * leitura e vazaria do mesmo jeito: conta antiga recebendo categoria nova
+     * gravaria linha sem empresa.
+     */
+    const companyId = await garantirEmpresaPadrao(tx, userId);
+    const upgradeValues = defaultCategoryUpgradeValues(userId, companyId, record.version);
     if (upgradeValues.length > 0) {
       await tx
         .insert(transactionCategories)

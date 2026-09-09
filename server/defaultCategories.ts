@@ -121,15 +121,16 @@ export const DEFAULT_TRANSACTION_CATEGORIES: readonly DefaultTransactionCategory
   ]),
 ];
 
-export function defaultCategoryValues(userId: number) {
+export function defaultCategoryValues(userId: number, companyId: number) {
   return DEFAULT_TRANSACTION_CATEGORIES.map(category => ({
     userId,
+    companyId,
     ...category,
     isActive: true,
   }));
 }
 
-export function defaultCategoryUpgradeValues(userId: number, currentVersion: number) {
+export function defaultCategoryUpgradeValues(userId: number, companyId: number, currentVersion: number) {
   const categories = currentVersion < 1
     ? DEFAULT_TRANSACTION_CATEGORIES
     : currentVersion < 2
@@ -137,5 +138,5 @@ export function defaultCategoryUpgradeValues(userId: number, currentVersion: num
       : currentVersion < 3
         ? DEFAULT_CAPITAL_CATEGORIES
         : [];
-  return categories.map(category => ({ userId, ...category, isActive: true }));
+  return categories.map(category => ({ userId, companyId, ...category, isActive: true }));
 }

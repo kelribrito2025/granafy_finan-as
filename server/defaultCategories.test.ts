@@ -45,7 +45,7 @@ describe("default transaction categories", () => {
   });
 
   it("entrega as novas raízes a quem já estava na versão 2", () => {
-    const values = defaultCategoryUpgradeValues(42, 2);
+    const values = defaultCategoryUpgradeValues(42, 700, 2);
     const names = values.map(category => category.name);
     expect(names).toContain("Aportes de Capital");
     expect(names).toContain("Empréstimos e Financiamentos");
@@ -53,13 +53,19 @@ describe("default transaction categories", () => {
   });
 
   it("binds the catalog to a user without sharing mutable records", () => {
-    const values = defaultCategoryValues(42);
+    const values = defaultCategoryValues(42, 700);
+    /*
+     * O carimbo da empresa é o que impede o cadastro de continuar criando 50
+     * linhas órfãs por conta nova — foi o vazamento que a Fase 2 fecha na
+     * fonte.
+     */
+    expect(values.every(category => category.companyId === 700)).toBe(true);
     expect(values).toHaveLength(DEFAULT_TRANSACTION_CATEGORIES.length);
     expect(values.every(category => category.userId === 42 && category.isActive)).toBe(true);
   });
 
   it("entrega a uma conta na versão 1 só o que faltou desde então", () => {
-    const values = defaultCategoryUpgradeValues(42, 1);
+    const values = defaultCategoryUpgradeValues(42, 700, 1);
     // As receitas da v2 mais o capital da v3 — nunca o catálogo inteiro de novo.
     expect(values).toHaveLength(DEFAULT_INCOME_CATEGORIES.length + DEFAULT_CAPITAL_CATEGORIES.length);
     expect(values.every(category => category.userId === 42 && category.isActive)).toBe(true);
@@ -67,6 +73,6 @@ describe("default transaction categories", () => {
   });
 
   it("não repete nada para quem já está na versão corrente", () => {
-    expect(defaultCategoryUpgradeValues(42, DEFAULT_CATEGORY_CATALOG_VERSION)).toEqual([]);
+    expect(defaultCategoryUpgradeValues(42, 700, DEFAULT_CATEGORY_CATALOG_VERSION)).toEqual([]);
   });
 });
