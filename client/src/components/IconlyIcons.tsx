@@ -292,6 +292,27 @@ export function CardIcon(props: IconlyIconProps) {
  * dizia "avançar", que é outra coisa — quem clica ali quer trocar de conta,
  * não ir para a próxima tela.
  */
+/*
+ * Duas setas, uma subindo e outra descendo: dinheiro que já entrou e já saiu.
+ *
+ * "A pagar e receber" usa a seta única, e "Conciliação" usa o visto — este
+ * precisava ser o terceiro. O `SwapIcon` estaria semanticamente perto, mas ele
+ * já significa "trocar empresa" no menu de perfil e "estornar" na linha, e um
+ * mesmo desenho com três sentidos não ajuda ninguém.
+ */
+export function ArrowsUpDownIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8.5 20V5" />
+        <path d="M5.25 8.25 8.5 5l3.25 3.25" />
+        <path d="M15.5 4v15" />
+        <path d="M18.75 15.75 15.5 19l-3.25-3.25" />
+      </g>
+    </IconShell>
+  );
+}
+
 export function SwapIcon(props: IconlyIconProps) {
   return (
     <IconShell {...props}>

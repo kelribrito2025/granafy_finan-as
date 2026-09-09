@@ -1,6 +1,7 @@
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo, GranafySymbol } from "@/components/GranafyLogo";
 import {
+  ArrowsUpDownIcon,
   ArrowUpIcon,
   ChartIcon,
   CheckIcon,
@@ -41,7 +42,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
       { label: "Visão geral", icon: DashboardIcon, path: "/" },
       { label: "Fluxo de caixa", icon: TrendUpIcon, path: "/fluxo-de-caixa" },
       { label: "A pagar e receber", icon: ArrowUpIcon, path: "/a-pagar-e-receber", counter: true },
-      { label: "Pagas e recebidas", icon: CheckIcon, path: "/pagas-e-recebidas" },
+      { label: "Pagas e recebidas", icon: ArrowsUpDownIcon, path: "/pagas-e-recebidas" },
       { label: "Lançamentos", icon: DocumentIcon, path: "/lancamentos" },
       { label: "Conciliação", icon: CheckIcon, path: "/conciliacao" },
     ],
