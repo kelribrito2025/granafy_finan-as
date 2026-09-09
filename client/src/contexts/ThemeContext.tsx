@@ -1,17 +1,49 @@
-import React, { createContext, useCallback, useContext, useLayoutEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+/** O que está pintado na tela. */
 export type Theme = "light" | "dark";
+
+/*
+ * O que a pessoa escolheu — que não é a mesma coisa.
+ *
+ * "auto" segue o sistema operacional e muda sozinho quando ele muda, sem
+ * ninguém tocar em nada. Guardar só o resultado ("está escuro") perderia a
+ * intenção: no dia seguinte o sistema clareia e o GranaFy ficaria escuro à
+ * toa, porque foi assim que ele ficou salvo.
+ */
+export type ThemePreference = Theme | "auto";
 
 const THEME_STORAGE_KEY = "granafy-theme";
 
-function isTheme(value: string | null): value is Theme {
-  return value === "light" || value === "dark";
+function isPreference(value: string | null): value is ThemePreference {
+  return value === "light" || value === "dark" || value === "auto";
+}
+
+/**
+ * O tema que vale, dada a escolha e o que o sistema está pedindo.
+ *
+ * Uma linha, mas é a linha que define o modo automático — e errar nela deixa
+ * a pessoa presa no tema errado sem entender por quê. Fica separada para ter
+ * teste.
+ */
+export function resolveTheme(preference: ThemePreference, systemDark: boolean): Theme {
+  if (preference === "auto") return systemDark ? "dark" : "light";
+  return preference;
+}
+
+function systemPrefersDark() {
+  return typeof window !== "undefined"
+    && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 interface ThemeContextType {
+  /** O tema em vigor, já resolvido. */
   theme: Theme;
+  /** A escolha da pessoa, que pode ser "auto". */
+  preference: ThemePreference;
   setTheme?: (theme: Theme) => void;
+  setPreference?: (preference: ThemePreference) => void;
   toggleTheme?: () => void;
   switchable: boolean;
 }
@@ -20,7 +52,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 interface ThemeProviderProps {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultTheme?: ThemePreference;
   switchable?: boolean;
 }
 
@@ -85,13 +117,40 @@ export function ThemeProvider({
   defaultTheme = "light",
   switchable = false,
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() => {
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => {
     if (switchable) {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) ?? localStorage.getItem("theme");
-      return isTheme(stored) ? stored : defaultTheme;
+      return isPreference(stored) ? stored : defaultTheme;
     }
     return defaultTheme;
   });
+
+  /*
+   * O que o sistema está pedindo agora.
+   *
+   * Fica em estado próprio e escuta a mudança: quem escolheu "auto" e deixa a
+   * janela aberta ao anoitecer vê a tela acompanhar, sem recarregar.
+   */
+  const [sistemaEscuro, setSistemaEscuro] = useState(systemPrefersDark);
+
+  useEffect(() => {
+    const consulta = window.matchMedia("(prefers-color-scheme: dark)");
+    const aoMudar = (evento: MediaQueryListEvent) => setSistemaEscuro(evento.matches);
+    consulta.addEventListener("change", aoMudar);
+    return () => consulta.removeEventListener("change", aoMudar);
+  }, []);
+
+  const theme: Theme = resolveTheme(preference, sistemaEscuro);
+
+  /*
+   * O tema em vigor, legível de dentro do callback.
+   *
+   * `setPreference` é memorizado sem dependências para não recriar a cada
+   * render; sem esta referência ele leria o tema do primeiro render e
+   * compararia contra um valor velho.
+   */
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -103,21 +162,25 @@ export function ThemeProvider({
     );
 
     if (switchable) {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      // Guarda a escolha, não o resultado.
+      localStorage.setItem(THEME_STORAGE_KEY, preference);
     }
-  }, [theme, switchable]);
+  }, [theme, preference, switchable]);
 
-  const setTheme = useCallback((next: Theme) => {
+  const setPreference = useCallback((next: ThemePreference) => {
+    const resolvido = resolveTheme(next, systemPrefersDark());
     const doc = document as ViewTransitionDocument;
     const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!doc.startViewTransition || quieto) {
-      setThemeState(next);
+    if (!doc.startViewTransition || quieto || resolvido === themeRef.current) {
+      // Trocar de "escuro" para "auto" num sistema escuro não muda pixel
+      // nenhum: animar a revelação de uma tela idêntica só pisca à toa.
+      setPreferenceState(next);
       return;
     }
 
     const { card, full } = themeClipBounds();
     const root = document.documentElement;
-    const escurecendo = next === "dark";
+    const escurecendo = resolvido === "dark";
 
     /*
      * Escurecendo, o retângulo cresce e revela a foto nova. Clareando, ele
@@ -131,7 +194,7 @@ export function ThemeProvider({
     // O flushSync é o ponto do truque: sem ele o React pinta o tema novo
     // depois que a API já tirou as duas fotos, e as duas saem iguais.
     const transition = doc.startViewTransition(() => {
-      flushSync(() => setThemeState(next));
+      flushSync(() => setPreferenceState(next));
     });
 
     transition.finished
@@ -143,15 +206,20 @@ export function ThemeProvider({
       });
   }, []);
 
+  /** O olhinho do topo continua alternando entre claro e escuro explícitos. */
+  const setTheme = useCallback((next: Theme) => setPreference(next), [setPreference]);
+
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "light" ? "dark" : "light");
-  }, [setTheme, theme]);
+    setPreference(theme === "light" ? "dark" : "light");
+  }, [setPreference, theme]);
 
   return (
     <ThemeContext.Provider
       value={{
         theme,
+        preference,
         setTheme: switchable ? setTheme : undefined,
+        setPreference: switchable ? setPreference : undefined,
         toggleTheme: switchable ? toggleTheme : undefined,
         switchable,
       }}

@@ -468,3 +468,44 @@ html.tema-clareando::view-transition-new(root) { z-index: 0; }
 .dark .gf-loader-trilha { stroke: #1F3D2B; }
 .dark .gf-loader-arco { stroke: #FFFFFF; }
 .dark .gf-loader-barra-clara { background: #1F3D2B; }
+
+/*
+ * As cores claras que faltavam no escuro.
+ *
+ * A tabela acima cobria 80 das 147 combinações em uso. Das 67 que sobravam, a
+ * maioria não é buraco: o verde da marca deve continuar verde, e as tintas do
+ * cartão escuro (#8FB39E, #7EE2A8, #C5DACE) já nascem para fundo escuro. O que
+ * restava eram estes tons claros de superfície e borda, que no escuro viravam
+ * faixas brancas no meio da tela.
+ *
+ * Medido antes de escrever: varredura de 2.168 ocorrências nos .tsx cruzada
+ * com os seletores daqui. É assim que se descobre o que falta numa tabela
+ * escrita à mão — de olho não dá.
+ */
+
+/* Superfícies e bordas claras. */
+.dark .bg-\[\#E3EBE6\], .dark .bg-\[\#E3EAE5\],
+.dark .bg-\[\#E9EEEB\], .dark .bg-\[\#DFE6E1\] { background-color: #22362a !important; }
+.dark .bg-\[\#D8E2DB\], .dark .bg-\[\#C9D5CD\],
+.dark .bg-\[\#B9C7BE\] { background-color: #2a4133 !important; }
+.dark .bg-\[\#F0F6F2\], .dark .bg-\[\#FAFCFB\] { background-color: #192a20 !important; }
+
+.dark .ring-\[\#E3EAE5\] { --tw-ring-color: #2c503b !important; }
+.dark .border-\[\#C9D4CD\], .dark .border-\[\#B9C7BE\] { border-color: #2c503b !important; }
+.dark .border-\[\#C7E8D6\] { border-color: #1f4230 !important; }
+.dark .stroke-\[\#D8E2DB\] { stroke: #2a4133 !important; }
+
+/* Tintas de aviso e erro: o fundo escurece, a letra clareia. */
+.dark .bg-\[\#F9DDD9\], .dark .bg-\[\#FFF6F5\] { background-color: #2e1614 !important; }
+.dark .ring-\[\#F1C7C2\], .dark .ring-\[\#E8A39D\] { --tw-ring-color: #5c2b26 !important; }
+.dark .border-\[\#E8D3B8\] { border-color: #4a3a22 !important; }
+.dark .text-\[\#B08A4A\] { color: #e0a863 !important; }
+
+/* Cinzas de texto que sobraram de fora da tabela. */
+.dark .text-\[\#5C7A68\], .dark .text-\[\#668272\],
+.dark .text-\[\#93A59A\] { color: #9fb6a9 !important; }
+.dark .text-\[\#C9D4CD\], .dark .text-\[\#C2CDC6\],
+.dark .text-\[\#C8D5CD\] { color: #6c8578 !important; }
+
+/* Verde-claro do gráfico do loader e da barra de progresso. */
+.dark .bg-\[\#9BE3BC\], .dark .bg-\[\#CFEBDD\] { background-color: #1f4230 !important; }
