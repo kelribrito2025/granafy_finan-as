@@ -127,8 +127,18 @@ export function OnboardingShell({ atual, titulo, apoio, children, dica, onSair, 
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-white">
-      <header className="flex items-center gap-4 border-b border-[#E3EBE6] px-5 py-4 sm:px-8">
-        <GranafyLogo size={30} />
+      {/*
+        A barra fica grudada no topo.
+
+        Em tela baixa — notebook de 13", janela pela metade — o passo do
+        extrato rola, e sem isto a faixa de passos sumia junto: a pessoa perdia
+        de vista em que ponto do fluxo está justamente quando a tela é apertada
+        o bastante para ela precisar disso. `bg-white` e não `bg-white/[.92]`
+        de propósito: o modo escuro reescreve `.bg-white`, e a versão com
+        transparência escaparia da regra e voltaria branca no escuro.
+      */}
+      <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-[#E3EBE6] bg-white px-5 py-4 sm:px-8">
+        <GranafyLogo size={34} />
         <div className="ml-auto flex items-center gap-4">
           <OnboardingStepper atual={atual} />
           {/* A saída acompanha todo passo: a promessa da abertura é que dá para
