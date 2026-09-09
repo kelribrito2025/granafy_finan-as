@@ -1,0 +1,26 @@
+ALTER TABLE `balanceSheetSnapshots` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `bankMovements` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `categoryRules` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `costCenters` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `financialAccounts` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `patrimonialItems` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `reconciliationAudit` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `reconciliationLinks` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `reconciliationPeriods` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `statementBalances` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `transactionCategories` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `transactionImportBatches` ADD `companyId` int;--> statement-breakpoint
+ALTER TABLE `transactions` ADD `companyId` int;--> statement-breakpoint
+CREATE INDEX `balance_sheet_snapshots_company_idx` ON `balanceSheetSnapshots` (`companyId`);--> statement-breakpoint
+CREATE INDEX `bank_movements_company_idx` ON `bankMovements` (`companyId`);--> statement-breakpoint
+CREATE INDEX `category_rules_company_idx` ON `categoryRules` (`companyId`);--> statement-breakpoint
+CREATE INDEX `cost_centers_company_idx` ON `costCenters` (`companyId`);--> statement-breakpoint
+CREATE INDEX `financial_accounts_company_idx` ON `financialAccounts` (`companyId`);--> statement-breakpoint
+CREATE INDEX `patrimonial_items_company_idx` ON `patrimonialItems` (`companyId`);--> statement-breakpoint
+CREATE INDEX `reconciliation_audit_company_idx` ON `reconciliationAudit` (`companyId`);--> statement-breakpoint
+CREATE INDEX `reconciliation_links_company_idx` ON `reconciliationLinks` (`companyId`);--> statement-breakpoint
+CREATE INDEX `reconciliation_periods_company_idx` ON `reconciliationPeriods` (`companyId`);--> statement-breakpoint
+CREATE INDEX `statement_balances_company_idx` ON `statementBalances` (`companyId`);--> statement-breakpoint
+CREATE INDEX `transaction_categories_company_idx` ON `transactionCategories` (`companyId`);--> statement-breakpoint
+CREATE INDEX `transaction_import_batches_company_idx` ON `transactionImportBatches` (`companyId`);--> statement-breakpoint
+CREATE INDEX `transactions_company_idx` ON `transactions` (`companyId`);

@@ -71,6 +71,16 @@ export const loginAttempts = mysqlTable("loginAttempts", {
 export const financialAccounts = mysqlTable("financialAccounts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   name: varchar("name", { length: 80 }).notNull(),
   institution: varchar("institution", { length: 100 }).default("").notNull(),
   accountType: mysqlEnum("accountType", ["corrente", "poupanca", "carteira", "cartao", "gateway", "outro"]).default("corrente").notNull(),
@@ -95,11 +105,22 @@ export const financialAccounts = mysqlTable("financialAccounts", {
 }, table => [
   uniqueIndex("financial_accounts_user_name_uidx").on(table.userId, table.name),
   index("financial_accounts_user_active_idx").on(table.userId, table.isActive),
+  index("financial_accounts_company_idx").on(table.companyId),
 ]);
 
 export const transactionCategories = mysqlTable("transactionCategories", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   name: varchar("name", { length: 120 }).notNull(),
   type: mysqlEnum("type", ["entrada", "saida", "ambos"]).default("ambos").notNull(),
   color: varchar("color", { length: 7 }).default("#4C6355").notNull(),
@@ -109,11 +130,22 @@ export const transactionCategories = mysqlTable("transactionCategories", {
 }, table => [
   uniqueIndex("transaction_categories_user_name_uidx").on(table.userId, table.name),
   index("transaction_categories_user_active_idx").on(table.userId, table.isActive),
+  index("transaction_categories_company_idx").on(table.companyId),
 ]);
 
 export const costCenters = mysqlTable("costCenters", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   name: varchar("name", { length: 120 }).notNull(),
   color: varchar("color", { length: 7 }).default("#4C6355").notNull(),
   isActive: boolean("isActive").default(true).notNull(),
@@ -122,6 +154,7 @@ export const costCenters = mysqlTable("costCenters", {
 }, table => [
   uniqueIndex("cost_centers_user_name_uidx").on(table.userId, table.name),
   index("cost_centers_user_active_idx").on(table.userId, table.isActive),
+  index("cost_centers_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -199,6 +232,16 @@ export const userPreferences = mysqlTable("userPreferences", {
 export const categoryRules = mysqlTable("categoryRules", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   matchType: mysqlEnum("matchType", ["descricao", "contato", "conta"]).notNull(),
   matchValue: varchar("matchValue", { length: 180 }).notNull(),
   categoryId: int("categoryId"),
@@ -220,11 +263,22 @@ export const categoryRules = mysqlTable("categoryRules", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
   index("category_rules_user_priority_idx").on(table.userId, table.isActive, table.priority),
+  index("category_rules_company_idx").on(table.companyId),
 ]);
 
 export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   fileName: varchar("fileName", { length: 255 }).notNull(),
   format: mysqlEnum("format", ["csv", "ofx"]).notNull(),
   accountId: int("accountId").notNull(),
@@ -240,6 +294,7 @@ export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, table => [
   index("transaction_import_batches_user_date_idx").on(table.userId, table.createdAt),
+  index("transaction_import_batches_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -256,6 +311,16 @@ export const transactionImportBatches = mysqlTable("transactionImportBatches", {
 export const bankMovements = mysqlTable("bankMovements", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   accountId: int("accountId").notNull(),
   movementDate: date("movementDate", { mode: "string" }).notNull(),
   description: varchar("description", { length: 255 }).notNull(),
@@ -290,6 +355,7 @@ export const bankMovements = mysqlTable("bankMovements", {
   index("bank_movements_user_status_idx").on(table.userId, table.status),
   index("bank_movements_user_batch_idx").on(table.userId, table.importBatchId),
   uniqueIndex("bank_movements_user_fingerprint_uidx").on(table.userId, table.fingerprint),
+  index("bank_movements_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -304,6 +370,16 @@ export const bankMovements = mysqlTable("bankMovements", {
 export const reconciliationLinks = mysqlTable("reconciliationLinks", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   movementId: int("movementId").notNull(),
   transactionId: int("transactionId").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
@@ -315,6 +391,7 @@ export const reconciliationLinks = mysqlTable("reconciliationLinks", {
   index("reconciliation_links_user_movement_idx").on(table.userId, table.movementId),
   index("reconciliation_links_user_transaction_idx").on(table.userId, table.transactionId),
   uniqueIndex("reconciliation_links_pair_uidx").on(table.movementId, table.transactionId),
+  index("reconciliation_links_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -331,6 +408,16 @@ export const reconciliationLinks = mysqlTable("reconciliationLinks", {
 export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   accountId: int("accountId").notNull(),
   year: int("year").notNull(),
   month: int("month").notNull(),
@@ -344,6 +431,7 @@ export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
   reopenReason: varchar("reopenReason", { length: 500 }).default("").notNull(),
 }, table => [
   uniqueIndex("reconciliation_periods_uidx").on(table.userId, table.accountId, table.year, table.month),
+  index("reconciliation_periods_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -361,6 +449,16 @@ export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
 export const statementBalances = mysqlTable("statementBalances", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   accountId: int("accountId").notNull(),
   /** A data a que o saldo se refere, não a data em que foi digitado. */
   asOf: date("asOf", { mode: "string" }).notNull(),
@@ -372,11 +470,22 @@ export const statementBalances = mysqlTable("statementBalances", {
   // Um saldo por conta e por data: informar de novo corrige, não empilha.
   uniqueIndex("statement_balances_account_date_uidx").on(table.userId, table.accountId, table.asOf),
   index("statement_balances_user_account_idx").on(table.userId, table.accountId),
+  index("statement_balances_company_idx").on(table.companyId),
 ]);
 
 export const reconciliationAudit = mysqlTable("reconciliationAudit", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   movementId: int("movementId"),
   transactionId: int("transactionId"),
   action: varchar("action", { length: 40 }).notNull(),
@@ -389,11 +498,22 @@ export const reconciliationAudit = mysqlTable("reconciliationAudit", {
 }, table => [
   index("reconciliation_audit_user_date_idx").on(table.userId, table.createdAt),
   index("reconciliation_audit_user_movement_idx").on(table.userId, table.movementId),
+  index("reconciliation_audit_company_idx").on(table.companyId),
 ]);
 
 export const transactions = mysqlTable("transactions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   type: mysqlEnum("type", ["entrada", "saida", "transferencia"]).notNull(),
   transactionDate: date("transactionDate", { mode: "string" }).notNull(),
   description: varchar("description", { length: 180 }).notNull(),
@@ -455,6 +575,7 @@ export const transactions = mysqlTable("transactions", {
   index("transactions_user_transfer_group_idx").on(table.userId, table.transferGroupId),
   index("transactions_user_recurrence_group_idx").on(table.userId, table.recurrenceGroupId),
   uniqueIndex("transactions_user_fingerprint_uidx").on(table.userId, table.fingerprint),
+  index("transactions_company_idx").on(table.companyId),
 ]);
 
 /**
@@ -464,6 +585,16 @@ export const transactions = mysqlTable("transactions", {
 export const patrimonialItems = mysqlTable("patrimonialItems", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   name: varchar("name", { length: 120 }).notNull(),
   balanceGroup: mysqlEnum("balanceGroup", [
     "ativo_circulante",
@@ -518,12 +649,23 @@ export const patrimonialItems = mysqlTable("patrimonialItems", {
   uniqueIndex("patrimonial_items_user_name_uidx").on(table.userId, table.name),
   index("patrimonial_items_user_group_idx").on(table.userId, table.balanceGroup),
   index("patrimonial_items_user_active_idx").on(table.userId, table.isActive),
+  index("patrimonial_items_company_idx").on(table.companyId),
 ]);
 
 /** Immutable position captured on a reference date for the evolution chart. */
 export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  /*
+   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
+   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
+   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
+   * uma linha nascer sem empresa.
+   *
+   * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
+   * a minha empresa errada" em vez de "vi a empresa de outro".
+   */
+  companyId: int("companyId"),
   referenceDate: date("referenceDate", { mode: "string" }).notNull(),
   cashAndEquivalents: decimal("cashAndEquivalents", { precision: 15, scale: 2 }).default("0.00").notNull(),
   currentAssets: decimal("currentAssets", { precision: 15, scale: 2 }).default("0.00").notNull(),
@@ -540,6 +682,7 @@ export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
 }, table => [
   uniqueIndex("balance_sheet_snapshots_user_date_uidx").on(table.userId, table.referenceDate),
   index("balance_sheet_snapshots_user_created_idx").on(table.userId, table.createdAt),
+  index("balance_sheet_snapshots_company_idx").on(table.companyId),
 ]);
 
 export type UserRecord = typeof users.$inferSelect;
