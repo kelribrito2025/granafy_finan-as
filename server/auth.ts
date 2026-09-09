@@ -115,6 +115,13 @@ export async function verifyPasswordResetToken(token: string) {
   return { requestId: payload.requestId, userId: payload.userId };
 }
 
+/*
+ * O "lax" repetido aqui não é redundância à toa.
+ *
+ * `_core/` é andaime da plataforma: se o Manus regenerar `cookies.ts` um dia, o
+ * padrão seguro de lá some sem ninguém notar. Esta linha é o cinto além do
+ * suspensório — o cookie de sessão desta aplicação nunca sai como "none".
+ */
 function sessionCookieOptions(req: Request) {
   return {
     ...getSessionCookieOptions(req),

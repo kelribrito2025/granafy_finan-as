@@ -1,13 +1,5 @@
 import type { CookieOptions, Request } from "express";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-
-function isIpAddress(host: string) {
-  // Basic IPv4 check and IPv6 presence detection.
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true;
-  return host.includes(":");
-}
-
 function isSecureRequest(req: Request) {
   if (req.protocol === "https") return true;
 
@@ -21,28 +13,27 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
+/**
+ * As opções do cookie de sessão.
+ *
+ * `sameSite` era "none", e o único motivo de isso não ser um buraco é que
+ * `sessionCookieOptions`, em `auth.ts`, sobrescrevia para "lax" logo depois.
+ * Quem chamasse esta função direto — a leitura natural de um helper chamado
+ * "opções do cookie de sessão" — criava um cookie que o navegador manda em
+ * requisição de qualquer site, sem proteção contra CSRF, e nada avisaria.
+ *
+ * Agora o padrão é o valor seguro. "none" só faz sentido para cookie que
+ * precisa atravessar site de terceiro, o que não é o caso de nenhuma tela
+ * daqui; se um dia for, que seja escrito no lugar que precisa e não herdado
+ * por engano em todos os outros.
+ */
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
-
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
-
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
+    sameSite: "lax",
     secure: isSecureRequest(req),
   };
 }
