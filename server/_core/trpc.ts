@@ -1,4 +1,4 @@
-import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { NOT_ADMIN_ERR_MSG, SEM_EMPRESA_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -17,10 +17,27 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
+  /*
+   * Daqui para baixo, `activeCompanyId` é um número. Nunca nulo.
+   *
+   * É essa garantia que permite às 79 procedures usarem a empresa ativa sem
+   * verificar nulo em cada uma — e, na fase em que as consultas passarem a
+   * filtrar por empresa, evita 91 pontos onde um nulo escorreria para dentro de
+   * um WHERE e devolveria lista vazia parecendo perda de dado.
+   *
+   * Chegar aqui sem empresa é violação de invariante: o backfill deu uma a toda
+   * conta, o cadastro cria a sua e o login recria a que faltar. Falhar alto é
+   * melhor que seguir em frente com nulo.
+   */
+  if (ctx.activeCompanyId === null) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: SEM_EMPRESA_ERR_MSG });
+  }
+
   return next({
     ctx: {
       ...ctx,
       user: ctx.user,
+      activeCompanyId: ctx.activeCompanyId,
     },
   });
 });

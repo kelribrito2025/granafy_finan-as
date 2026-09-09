@@ -4,6 +4,22 @@ export const AXIOS_TIMEOUT_MS = 30_000;
 export const UNAUTHED_ERR_MSG = 'Please login (10001)';
 export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
 
+/*
+ * O login autenticado que chega sem empresa ativa.
+ *
+ * Não deveria acontecer: desde o backfill toda conta tem uma, o cadastro cria a
+ * sua e o login recria a que faltar. Se ainda assim acontecer, a mensagem tem
+ * de apontar um caminho que FUNCIONA — e "sair e entrar" só entrou aqui depois
+ * de o login passar a recriar a empresa padrão de verdade. Mensagem que manda
+ * tentar algo inócuo é pior que mensagem que só avisa: gasta a paciência da
+ * pessoa e ainda esconde o defeito.
+ */
+export const SEM_EMPRESA_ERR_MSG =
+  "Esta conta está sem empresa ativa. Saia e entre de novo — o login recria a empresa padrão. Se continuar assim, é defeito nosso: avise o suporte citando o código 10003.";
+
+/** A empresa escolhida no seletor. Lida desde a Fase 3; escrita a partir da 6. */
+export const COMPANY_COOKIE_NAME = "app_company_id";
+
 // One-time nonce cookie that binds an OAuth login to the browser that started
 // it. The `__Host-` prefix forces the cookie host-only (Secure, Path=/, no
 // Domain), so a sibling *.manus.space site cannot plant a matching value in a
