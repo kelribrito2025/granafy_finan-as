@@ -132,9 +132,13 @@ function precoDe(plano: Plano, anual: boolean) {
 // a tabela de dentro estica o cartão e a página inteira ganha rolagem lateral.
 const CARD = "min-w-0 rounded-[20px] bg-white p-5 ring-1 ring-[#E3EBE6]";
 
-function Tique() {
+function Tique({ tom = "claro" }: { tom?: "claro" | "escuro" }) {
   return (
-    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-[#DFF6EA] text-[#0A7A42]">
+    <span
+      className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md ${
+        tom === "escuro" ? "bg-[#1F4230] text-[#7EE2A8]" : "bg-[#DFF6EA] text-[#0A7A42]"
+      }`}
+    >
       <CheckIcon size={12} />
     </span>
   );
@@ -274,22 +278,25 @@ export function PlanosPanel() {
         {PLANOS.map(plano => {
           const atual = plano.id === PLANO_ATUAL;
           const recomendado = plano.id === "grupo";
-          return (
-            <div
-              key={plano.id}
-              className={`flex flex-col gap-3.5 rounded-[20px] bg-white p-5 ${
-                recomendado
-                  ? "shadow-[0_18px_44px_rgba(11,31,20,.10)] ring-[1.5px] ring-[#12B85C]"
-                  : "ring-1 ring-[#E3EBE6]"
-              }`}
-            >
+
+          /*
+           * O mesmo miolo nos três cartões; só as cores mudam.
+           *
+           * O plano assinado é desenhado sobre o fundo escuro, então cada tom
+           * de apoio troca de par: #8A968D vira #8FB39E, a linha #EDF2EE vira
+           * #1F3D2B. É o mesmo par que o cartão de assinatura já usa.
+           */
+          const conteudo = (
+            <>
               <div className="flex items-start gap-2">
                 <div className="min-w-0">
                   <strong className="block text-[16px] font-bold">{plano.nome}</strong>
-                  <span className="mt-0.5 block text-[12px] text-[#8A968D]">{plano.chamada}</span>
+                  <span className={`mt-0.5 block text-[12px] ${atual ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>
+                    {plano.chamada}
+                  </span>
                 </div>
                 {atual && (
-                  <span className="ml-auto shrink-0 rounded-md bg-[#F1F4F2] px-2 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-[#4C6355]">
+                  <span className="ml-auto shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white">
                     Atual
                   </span>
                 )}
@@ -301,18 +308,18 @@ export function PlanosPanel() {
               </div>
 
               <div className="flex items-baseline gap-1">
-                <span className="text-[14px] font-semibold text-[#4C6355]">R$</span>
+                <span className={`text-[14px] font-semibold ${atual ? "text-[#7EE2A8]" : "text-[#4C6355]"}`}>R$</span>
                 <strong className="text-[34px] font-bold leading-none tracking-[-.03em]">{precoDe(plano, anual)}</strong>
-                <span className="text-[12.5px] text-[#8A968D]">/mês</span>
+                <span className={`text-[12.5px] ${atual ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>/mês</span>
               </div>
               {anual && (
-                <span className="-mt-2 text-[11.5px] text-[#8A968D]">
+                <span className={`-mt-2 text-[11.5px] ${atual ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>
                   R$ {(plano.precoMensal * 10).toLocaleString("pt-BR")} por ano, cobrado de uma vez
                 </span>
               )}
 
               {atual ? (
-                <span className="flex h-[46px] items-center justify-center rounded-[12px] bg-[#F1F4F2] text-[13px] font-semibold text-[#8A968D]">
+                <span className="flex h-[46px] items-center justify-center rounded-[12px] bg-white/10 text-[13px] font-semibold text-[#C5DACE]">
                   Seu plano atual
                 </span>
               ) : (
@@ -331,14 +338,39 @@ export function PlanosPanel() {
                 </button>
               )}
 
-              <div className="flex flex-col gap-2 border-t border-[#EDF2EE] pt-3.5">
+              <div className={`flex flex-col gap-2 border-t pt-3.5 ${atual ? "border-[#1F3D2B]" : "border-[#EDF2EE]"}`}>
                 {plano.destaques.map(item => (
                   <span key={item} className="flex items-center gap-2.5 text-[12.5px]">
-                    <Tique />
+                    <Tique tom={atual ? "escuro" : "claro"} />
                     {item}
                   </span>
                 ))}
               </div>
+            </>
+          );
+
+          /*
+           * O plano assinado usa a mesma superfície do "Caixa disponível".
+           *
+           * Não é só enfeite: é o `AuroraSurface` de verdade, com o
+           * `data-theme-origin` que o modo escuro usa como ponto de partida do
+           * círculo. Nesta tela só um painel aparece por vez — Planos e
+           * Assinatura são abas —, então nunca há duas origens disputando.
+           */
+          return atual ? (
+            <AuroraSurface key={plano.id} className="rounded-[20px] p-5">
+              <div className="flex flex-1 flex-col gap-3.5">{conteudo}</div>
+            </AuroraSurface>
+          ) : (
+            <div
+              key={plano.id}
+              className={`flex flex-col gap-3.5 rounded-[20px] bg-white p-5 ${
+                recomendado
+                  ? "shadow-[0_18px_44px_rgba(11,31,20,.10)] ring-[1.5px] ring-[#12B85C]"
+                  : "ring-1 ring-[#E3EBE6]"
+              }`}
+            >
+              {conteudo}
             </div>
           );
         })}
