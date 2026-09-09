@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { roundCurrency } from "@shared/currency";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -306,9 +307,13 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       </button>
       <span className={`text-right font-bold ${amountClass}`}>{formatMoney(transaction.amount)}</span>
       <div ref={menuAnchor} className="relative justify-self-end">
+      {/* Sem dica, o "⋮" é o único botão da linha que não se explica: os outros
+          têm rótulo ao lado ou cor que os denuncia. */}
+      <Hint label="Ações do lançamento" placement="left">
       <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded={menuOpen} onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4C6355] hover:bg-white">
         <MenuIcon size={16} />
       </button>
+      </Hint>
       {menuOpen && (
         <div className="popover-enter absolute right-0 top-9 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
           <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button>
@@ -800,11 +805,11 @@ export default function LancamentosPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} className={toolButton}><DownloadIcon size={17} /></button>
+                <Hint label="Exportar CSV"><button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} className={toolButton}><DownloadIcon size={17} /></button></Hint>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
             </Tooltip>
-            <button type="button" title="Imprimir" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={`${toolButton} hidden sm:flex`}><DocumentIcon size={17} /></button>
+            <Hint label="Imprimir" className="hidden sm:inline-flex"><button type="button" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={toolButton}><DocumentIcon size={17} /></button></Hint>
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
             <HideValuesButton />
             <ProfileMenu />

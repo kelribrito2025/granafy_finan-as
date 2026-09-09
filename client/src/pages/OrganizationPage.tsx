@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
@@ -148,15 +149,17 @@ function CategoryRow({ node, depth, share, onEdit }: {
         <span className={`w-[120px] shrink-0 text-right ${depth === 0 ? "text-[14px] font-bold" : "text-[13px] font-semibold"}`}>
           {formatMoney(node.subtotal)}
         </span>
-        <button
-          type="button"
-          disabled={!node.category}
-          aria-label={`Editar ${node.label}`}
-          onClick={() => node.category && onEdit(node.category as Category)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#B3BFB7] hover:bg-[#F1F4F2] disabled:invisible"
-        >
-          <EditIcon size={13} />
-        </button>
+        <Hint label="Editar categoria" placement="left" className="shrink-0">
+          <button
+            type="button"
+            disabled={!node.category}
+            aria-label={`Editar ${node.label}`}
+            onClick={() => node.category && onEdit(node.category as Category)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#B3BFB7] hover:bg-[#F1F4F2] disabled:invisible"
+          >
+            <EditIcon size={13} />
+          </button>
+        </Hint>
       </div>
       {node.children.map(child => (
         <CategoryRow key={child.path} node={child} depth={depth + 1} share={0} onEdit={onEdit} />
@@ -684,7 +687,7 @@ export default function OrganizationPage() {
             )}
 
             {section === "categories" && (
-              <button type="button" title="Importar plano de contas" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button>
+              <Hint label="Importar plano de contas"><button type="button" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button></Hint>
             )}
 
             <button type="button" onClick={openPrimary} className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F9E4E]">
@@ -783,9 +786,9 @@ export default function OrganizationPage() {
                         <span className="text-[13px] text-[#4C6355]">{item.monthTransactionCount} no mês</span>
                         <span className={`text-right text-[15px] font-bold ${item.balance >= 0 ? "" : "text-[#B3261E]"}`}>{formatMoney(item.balance)}</span>
                         <div className="flex items-center justify-end gap-1">
-                          <button type="button" title={item.isActive ? "Arquivar" : "Reativar"} aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button>
-                          <button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button>
-                          <button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button>
+                          <Hint label={item.isActive ? "Arquivar conta" : "Reativar conta"} placement="top"><button type="button" aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button></Hint>
+                          <Hint label="Editar conta" placement="top"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
+                          <Hint label="Excluir conta" placement="top"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
                         </div>
                       </div>
                     ))}
@@ -838,8 +841,8 @@ export default function OrganizationPage() {
                             <span className="w-[130px] text-right text-[14px] font-bold">{formatMoney(item.total)}</span>
                             <div className="flex items-center gap-1">
                               <button type="button" title={item.isActive ? "Desativar" : "Ativar"} aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`} onClick={() => toggleCostCenter.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><CheckIcon size={15} /></button>
-                              <button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingCostCenter(item); setCostCenterModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button>
-                              <button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteCostCenter(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button>
+                              <Hint label="Editar centro de custo" placement="top"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingCostCenter(item); setCostCenterModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
+                              <Hint label="Excluir centro de custo" placement="top"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteCostCenter(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
                             </div>
                           </div>
                         ))}
@@ -899,7 +902,7 @@ export default function OrganizationPage() {
                               <span className="min-w-0 truncate">{[rule.category, rule.costCenter].filter(Boolean).join(" · ")}</span>
                             </span>
                           </div>
-                          <button type="button" aria-label={`Excluir regra ${rule.matchValue}`} onClick={() => handleDeleteRule(rule)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#B3BFB7] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={13} /></button>
+                          <Hint label="Excluir regra" placement="top"><button type="button" aria-label={`Excluir regra ${rule.matchValue}`} onClick={() => handleDeleteRule(rule)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#B3BFB7] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={13} /></button></Hint>
                         </div>
                       </div>
                     ))}

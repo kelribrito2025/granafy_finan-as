@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
@@ -410,7 +411,7 @@ export default function FluxoCaixaPage() {
               </button>
             </div>
 
-            <button type="button" aria-label="Exportar fluxo" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             <HideValuesButton />
             <ProfileMenu />
           </header>

@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
@@ -1180,7 +1181,7 @@ export default function ConciliacaoPage() {
               </button>
             </div>
 
-            <button type="button" aria-label="Exportar conciliação" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar conciliação" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             {data && (
               data.period.closed ? (
                 <button

@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
@@ -425,7 +426,7 @@ export default function PagarReceberPage() {
               ))}
             </div>
 
-            <button type="button" aria-label="Exportar títulos" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             <button
               type="button"
               onClick={goToNew}

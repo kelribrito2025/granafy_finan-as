@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
@@ -456,7 +457,7 @@ export default function DrePage() {
               ))}
             </div>
 
-            <button type="button" aria-label="Exportar DRE" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             <button
               type="button"
               disabled={closeMonth.isPending || isFuture}

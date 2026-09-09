@@ -1,3 +1,4 @@
+import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
@@ -402,7 +403,7 @@ export default function PagasRecebidasPage() {
               ))}
             </div>
 
-            <button type="button" aria-label="Exportar títulos liquidados" title="Exportar CSV" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos liquidados" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
             <HideValuesButton />
             <ProfileMenu />
           </header>
