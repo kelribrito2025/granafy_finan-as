@@ -183,6 +183,12 @@ export const importsRouter = router({
           account: account.name,
           accountId: account.id,
           status: "Pago",
+          /*
+           * Linha de extrato é dinheiro que já se moveu: a data do arquivo é a
+           * liquidação, não uma previsão. Por isso a importação grava as duas
+           * iguais em vez de assumir hoje.
+           */
+          settledAt: row.transactionDate,
           recurring: false,
           externalId: row.externalId,
           fingerprint: row.fingerprint,

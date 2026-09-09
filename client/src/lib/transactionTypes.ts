@@ -12,6 +12,8 @@ export type Transaction = {
   id: number;
   type: TransactionType;
   transactionDate: string;
+  /** O dia em que o dinheiro se moveu. Nulo enquanto o título está em aberto. */
+  settledAt: string | null;
   description: string;
   contact: string;
   category: string;

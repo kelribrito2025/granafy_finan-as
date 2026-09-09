@@ -6,6 +6,7 @@ import type { TransactionRecord } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, type AttachmentFolder } from "../attachments";
 import * as db from "../db";
+import { settlementDateFor } from "../settlement";
 import { userToday } from "../userToday";
 import { assertPeriodsOpen } from "../periodLock";
 import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
@@ -29,6 +30,12 @@ const transactionValuesBaseSchema = z.object({
   costCenter: z.string().trim().max(120).default(""),
   costCenterId: z.number().int().positive().nullable().optional(),
   status: z.enum(["Pago", "Pendente"]),
+  /*
+   * A data em que o dinheiro se moveu. Opcional: marcar como pago sem informar
+   * assume hoje, que é o caminho de um clique. Quem lança com atraso informa, e
+   * é isso que dá sentido ao prazo médio da tela de pagas e recebidas.
+   */
+  settledAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida").nullable().optional(),
   recurring: z.boolean().default(false),
   recurringMonths: z.number().int().min(1).max(MAX_RECURRENCE_MONTHS).nullable().optional(),
   recurrenceStart: z.enum(["este_mes", "proximo_mes"]).default("este_mes"),
@@ -116,6 +123,7 @@ function toTransaction(record: TransactionRecord) {
     id: record.id,
     type: record.type,
     transactionDate: record.transactionDate,
+    settledAt: record.settledAt,
     description: record.description,
     contact: record.contact,
     category: record.category,
@@ -255,12 +263,19 @@ const ATTACHMENT_CONTENT_TYPES = [
  * dinheiro de novembro não foi recebido hoje, e marcá-lo como pago inflaria o
  * caixa e as contas a receber do painel.
  */
-async function buildRowsForCreate(userId: number, input: TransactionValuesInput) {
+async function buildRowsForCreate(userId: number, input: TransactionValuesInput, todayIso: string) {
   const dates = input.recurring && input.recurringMonths
     ? buildRecurrenceDates(input.transactionDate, input.recurringMonths, input.recurrenceStart as RecurrenceStart)
     : [input.transactionDate];
   const recurrenceGroupId = dates.length > 1 ? randomUUID() : null;
+  // Só a primeira parcela nasce com o status escolhido; as seguintes são
+  // promessas, e promessa não tem data de liquidação.
   const statusFor = (index: number) => (index === 0 ? input.status : "Pendente" as const);
+  const settledFor = (index: number) => settlementDateFor({
+    status: statusFor(index),
+    informed: input.settledAt,
+    todayIso,
+  });
   const recurrenceIndexFor = (index: number) => (recurrenceGroupId ? index + 1 : null);
 
   if (input.type === "transferencia") {
@@ -270,6 +285,7 @@ async function buildRowsForCreate(userId: number, input: TransactionValuesInput)
       const shared = {
         transactionDate,
         status: statusFor(index),
+        settledAt: settledFor(index),
         transferGroupId: randomUUID(),
         recurrenceGroupId,
         recurrenceIndex: recurrenceIndexFor(index),
@@ -291,6 +307,7 @@ async function buildRowsForCreate(userId: number, input: TransactionValuesInput)
     transactionDate,
     amount,
     status: statusFor(index),
+    settledAt: settledFor(index),
     costCenterId: normalized.costCenterId ?? null,
     recurringMonths: normalized.recurringMonths ?? null,
     attachmentKey: normalized.attachmentKey ?? null,
@@ -436,7 +453,7 @@ export const transactionsRouter = router({
   }),
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
-    const rows = await buildRowsForCreate(ctx.user.id, input);
+    const rows = await buildRowsForCreate(ctx.user.id, input, await userToday(ctx.user.id));
     // Depois de montar: uma série recorrente ou uma transferência espalha
     // linhas por vários meses e contas, e qualquer uma delas pode cair no mês
     // fechado. Conferir só a data digitada deixaria as parcelas passarem.
@@ -464,6 +481,7 @@ export const transactionsRouter = router({
       { accountId: values.accountId ?? existing.accountId, date: values.transactionDate },
     ]);
 
+    const todayIso = await userToday(ctx.user.id);
     const wasTransfer = Boolean(existing.transferGroupId);
     if (wasTransfer !== (values.type === "transferencia")) {
       throw new TRPCError({
@@ -478,7 +496,7 @@ export const transactionsRouter = router({
     // caixa e DRE. Transferências precisam ser recriadas porque cada mês tem duas
     // pernas vinculadas.
     if (shouldMaterializeRecurrence(existing, values)) {
-      const rows = await buildRowsForCreate(ctx.user.id, values);
+      const rows = await buildRowsForCreate(ctx.user.id, values, todayIso);
       const records = await db.materializeTransactionSeries(ctx.user.id, id, rows);
       if (records.length !== rows.length) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar todas as parcelas" });
@@ -511,6 +529,11 @@ export const transactionsRouter = router({
         const shared = {
           transactionDate: isClicked ? values.transactionDate : month.transactionDate,
           status: isClicked ? values.status : month.status,
+          // A liquidação acompanha o status de cada mês. Alcançar "as
+          // seguintes" muda o conteúdo do lançamento, não o que já foi quitado.
+          settledAt: isClicked
+            ? settlementDateFor({ status: values.status, informed: values.settledAt, existing: month.settledAt, todayIso })
+            : month.settledAt,
           transferGroupId,
           recurrenceGroupId: month.recurrenceGroupId,
           recurrenceIndex: month.recurrenceIndex,
@@ -542,6 +565,9 @@ export const transactionsRouter = router({
         ...normalized,
         transactionDate: isClicked ? values.transactionDate : target.transactionDate,
         status: isClicked ? values.status : target.status,
+        settledAt: isClicked
+          ? settlementDateFor({ status: values.status, informed: values.settledAt, existing: target.settledAt, todayIso })
+          : target.settledAt,
         costCenterId: normalized.costCenterId ?? null,
         recurringMonths: target.recurringMonths,
         attachmentKey: normalized.attachmentKey ?? null,
@@ -614,15 +640,30 @@ export const transactionsRouter = router({
     return toTransaction(record);
   }),
 
+  /*
+   * Liquidar e estornar, os dois pelo mesmo botão.
+   *
+   * Marcar como pago grava a liquidação em hoje; desmarcar é o estorno e apaga
+   * a data. Sem apagar, o título voltaria para os abertos mas continuaria
+   * aparecendo na tela de pagas e recebidas, com uma liquidação que não
+   * aconteceu mais.
+   */
   toggleStatus: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(ctx.user.id, input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
+    const status = existing.status === "Pago" ? "Pendente" as const : "Pago" as const;
+    const settledAt = settlementDateFor({
+      status,
+      // De propósito sem `existing`: quem clica em "pagar" de novo depois de
+      // estornar está liquidando hoje, não recuperando a data antiga.
+      todayIso: await userToday(ctx.user.id),
+    });
+
     // Uma perna paga e a outra pendente descasaria o saldo das duas contas.
     if (existing.transferGroupId) {
       const group = await db.getTransferGroup(ctx.user.id, existing.transferGroupId);
-      const status = existing.status === "Pago" ? "Pendente" : "Pago";
-      await db.updateTransactions(ctx.user.id, group.map(record => record.id), { status });
+      await db.updateTransactions(ctx.user.id, group.map(record => record.id), { status, settledAt });
       const refreshed = await db.getTransactionById(ctx.user.id, input.id);
       if (!refreshed) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
       return toTransaction(refreshed);
@@ -638,7 +679,8 @@ export const transactionsRouter = router({
       account: existing.account,
       accountId: existing.accountId,
       categoryId: existing.categoryId,
-      status: existing.status === "Pago" ? "Pendente" : "Pago",
+      status,
+      settledAt,
       recurring: existing.recurring,
     });
     if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
@@ -662,7 +704,21 @@ export const transactionsRouter = router({
     }
 
     const values: Parameters<typeof db.updateTransactions>[2] = {};
-    if (input.changes.status !== undefined) values.status = input.changes.status;
+    if (input.changes.status !== undefined) {
+      values.status = input.changes.status;
+      /*
+       * Marcar em lote também liquida em lote.
+       *
+       * Sem esta linha, quitar cinquenta títulos pela seleção deixaria os
+       * cinquenta com liquidação nula e nenhum deles apareceria na tela de
+       * pagas e recebidas. E desmarcar em lote é estorno em lote: a data some
+       * junto, senão sobrariam liquidações órfãs.
+       */
+      values.settledAt = settlementDateFor({
+        status: input.changes.status,
+        todayIso: await userToday(ctx.user.id),
+      });
+    }
     if (input.changes.transactionDate !== undefined) values.transactionDate = input.changes.transactionDate;
     if (input.changes.recurring !== undefined) values.recurring = input.changes.recurring;
 

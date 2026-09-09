@@ -333,7 +333,7 @@ export async function getUserByOpenId(openId: string) {
 
 export type TransactionValues = Pick<
   InsertTransaction,
-  "type" | "transactionDate" | "description" | "contact" | "category" | "amount" | "account" | "status" | "recurring" |
+  "type" | "transactionDate" | "settledAt" | "description" | "contact" | "category" | "amount" | "account" | "status" | "recurring" |
   "accountId" | "categoryId" | "importBatchId" | "externalId" | "fingerprint" |
   "costCenter" | "costCenterId" | "recurringMonths" | "attachmentKey" | "attachmentName" | "transferGroupId" |
   "recurrenceGroupId" | "recurrenceIndex"
@@ -443,7 +443,7 @@ export function chunkTransactionIds(ids: number[], chunkSize = TRANSACTION_DELET
 export async function updateTransactions(
   userId: number,
   ids: number[],
-  values: Partial<Pick<InsertTransaction, "transactionDate" | "category" | "categoryId" | "account" | "accountId" | "status" | "recurring">>,
+  values: Partial<Pick<InsertTransaction, "transactionDate" | "settledAt" | "category" | "categoryId" | "account" | "accountId" | "status" | "recurring">>,
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

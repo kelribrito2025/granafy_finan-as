@@ -105,6 +105,14 @@ export function TransactionModal({ transaction, defaultDate, pending, options, o
   const [costCenter, setCostCenter] = useState(transaction?.costCenter ?? "");
   const [costCenterId, setCostCenterId] = useState<number | null>(transaction?.costCenterId ?? null);
   const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
+  /*
+   * A data em que o dinheiro se moveu.
+   *
+   * Fica em branco por padrão: marcar como pago e salvar assume hoje, que é o
+   * caminho de um clique. Quem quita com atraso informa a data aqui, e é isso
+   * que dá sentido ao prazo médio da tela de pagas e recebidas.
+   */
+  const [settledAt, setSettledAt] = useState(transaction?.settledAt ?? "");
   const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
   const [recurringMonths, setRecurringMonths] = useState(transaction?.recurringMonths ?? 12);
   const [recurrenceStart, setRecurrenceStart] = useState<"este_mes" | "proximo_mes">("este_mes");
@@ -188,6 +196,7 @@ export function TransactionModal({ transaction, defaultDate, pending, options, o
       costCenter,
       costCenterId,
       status,
+      settledAt: status === "Pago" ? settledAt || null : null,
       recurring,
       recurringMonths: recurring ? recurringMonths : null,
       recurrenceStart,
@@ -325,6 +334,22 @@ export function TransactionModal({ transaction, defaultDate, pending, options, o
               </button>
             ))}
           </div>
+          {/* Só aparece com o título quitado: data de liquidação de algo em
+              aberto seria uma contradição na própria tela. */}
+          {status === "Pago" && (
+            <label className="mt-2.5 block">
+              <span className={fieldLabelClass}>Data da liquidação</span>
+              <input
+                type="date"
+                value={settledAt}
+                onChange={event => setSettledAt(event.target.value)}
+                className={fieldClass}
+              />
+              <span className="mt-1 block text-[11.5px] text-[#8A968D]">
+                Em branco, assume hoje. Preencha quando o pagamento saiu em outro dia.
+              </span>
+            </label>
+          )}
         </div>
 
         <div className="rounded-[14px] bg-[#F1FBF6] p-3.5">
