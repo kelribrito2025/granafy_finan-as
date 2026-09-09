@@ -141,6 +141,13 @@
       "when": 1788916852497,
       "tag": "0019_demonic_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1788919981252,
+      "tag": "0020_huge_dragon_man",
+      "breakpoints": true
     }
   ]
 }

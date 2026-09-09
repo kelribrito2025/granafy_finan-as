@@ -20,6 +20,20 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   categoryDefaultsVersion: int("categoryDefaultsVersion").default(0).notNull(),
+  /**
+   * Quando a pessoa terminou — ou pulou — o primeiro acesso.
+   *
+   * Nula significa "ainda não passou por lá", não "precisa passar": o fluxo só
+   * aparece se, além disto, a conta não tiver nenhuma conta financeira nem
+   * nenhum lançamento. Sem essa segunda condição, todo mundo que já usa o
+   * sistema veria o onboarding no login seguinte, porque a coluna nasce nula
+   * para todos — e evitá-la custaria um UPDATE em massa que este ALTER não
+   * precisa.
+   *
+   * "Configurar depois" também grava a data: pular é uma decisão, e ela vale
+   * para sempre. Refazer os passos é por Configurações.
+   */
+  onboardingCompletedAt: timestamp("onboardingCompletedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -62,6 +76,19 @@ export const financialAccounts = mysqlTable("financialAccounts", {
   accountType: mysqlEnum("accountType", ["corrente", "poupanca", "carteira", "cartao", "gateway", "outro"]).default("corrente").notNull(),
   color: varchar("color", { length: 7 }).default("#12B85C").notNull(),
   initialBalance: decimal("initialBalance", { precision: 15, scale: 2 }).default("0.00").notNull(),
+  /**
+   * A data a que o saldo inicial se refere.
+   *
+   * O saldo inicial é o ponto de partida somado a todo o extrato, e até aqui
+   * era atemporal: funcionava enquanto o primeiro lançamento importado viesse
+   * depois dele. Importar um arquivo que começa antes dessa data conta o mesmo
+   * dinheiro duas vezes, e nada na tela denunciava — erro silencioso de saldo é
+   * o que mais custou caro neste projeto.
+   *
+   * Nula nas contas que já existiam: elas seguem com o comportamento antigo, e
+   * nenhuma linha precisou ser reescrita para a coluna entrar.
+   */
+  initialBalanceDate: date("initialBalanceDate", { mode: "string" }),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
