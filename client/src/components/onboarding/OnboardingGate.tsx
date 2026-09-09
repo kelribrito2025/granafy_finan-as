@@ -4,6 +4,7 @@ import { OnboardingWelcome } from "@/components/onboarding/OnboardingWelcome";
 import { StepConta } from "@/components/onboarding/StepConta";
 import { StepEmpresa } from "@/components/onboarding/StepEmpresa";
 import { StepExtrato } from "@/components/onboarding/StepExtrato";
+import { StepResumo } from "@/components/onboarding/StepResumo";
 import type { OpeningComparison } from "@shared/openingBalance";
 import { trpc } from "@/lib/trpc";
 import { useState, type ReactNode } from "react";
@@ -159,12 +160,14 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         />
       )}
       {passo === 3 && (
-        <>
-          <p className="rounded-[14px] bg-[#F8FAF9] p-4 text-[13px] text-[#8A968D]">
-            Os campos deste passo entram na próxima etapa do desenvolvimento.
-          </p>
-          {rodapeDe({ onContinue: passo === 3 ? pular : avancar, pending: concluir.isPending, label: passo === 3 ? "Ir para o painel" : "Continuar" })}
-        </>
+        <StepResumo
+          nome={status.data?.name ?? ""}
+          criadoEm={status.data?.createdAt ?? null}
+          importados={importados}
+          divergencia={divergencia}
+          pending={concluir.isPending}
+          onFinish={pular}
+        />
       )}
     </OnboardingShell>
   );
