@@ -118,19 +118,34 @@ export async function conectarNoBancoDeTeste(): Promise<Connection> {
  * `drizzle-kit` não entra nisso. Ele não é chamado em lugar nenhum deste
  * projeto, e não vai ser aqui que ele estreia.
  */
+/** O diário do próprio arreio: qual migration já entrou neste schema. */
+const DIARIO = "_migracoes_do_arreio";
+
 export async function prepararSchemaDeTeste(conexao: Connection) {
   /*
-   * O schema sobrevive entre rodadas, e reaplicar 22 migrations é uma ida ao
-   * TiDB por comando — dezenas de segundos por suíte, só para engolir "já
-   * existe" em cada uma. Se as tabelas já estão lá, não há o que aplicar.
+   * Um diário, e não "se já tem tabela, pula".
+   *
+   * O atalho ingênuo — pular quando o schema não está vazio — deixa toda
+   * migration NOVA de fora para sempre: o schema de teste congela na versão em
+   * que foi criado, e o arreio passa a exercitar um banco que produção não tem
+   * mais. Foi o que aconteceu entre a Fase 1 e a Fase 2, e o custo teria sido
+   * descobrir no meio do ritual.
+   *
+   * Com o diário, cada arquivo entra uma vez e só uma, e um arquivo novo entra
+   * na primeira rodada depois de aparecer — que é como um migrador de verdade
+   * se comporta.
    */
-  const [existentes] = await conexao.query("SHOW TABLES");
-  if ((existentes as unknown[]).length > 0) return;
+  await conexao.query(
+    `CREATE TABLE IF NOT EXISTS \`${DIARIO}\` (arquivo varchar(255) NOT NULL PRIMARY KEY, aplicadaEm timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  );
+  const [jaAplicadas] = await conexao.query(`SELECT arquivo FROM \`${DIARIO}\``);
+  const feitas = new Set((jaAplicadas as Array<{ arquivo: string }>).map(linha => linha.arquivo));
 
   const pasta = path.resolve(import.meta.dirname, "..", "drizzle");
   const arquivos = readdirSync(pasta).filter(nome => nome.endsWith(".sql")).sort();
 
   for (const arquivo of arquivos) {
+    if (feitas.has(arquivo)) continue;
     const conteudo = readFileSync(path.join(pasta, arquivo), "utf8");
     const comandos = conteudo
       .split("--> statement-breakpoint")
@@ -141,15 +156,17 @@ export async function prepararSchemaDeTeste(conexao: Connection) {
         await conexao.query(comando);
       } catch (erro) {
         /*
-         * O schema já pode existir de uma rodada anterior. Só o "já existe" é
-         * engolido; qualquer outro erro sobe, porque um schema meio aplicado
-         * faz o teste mentir.
+         * Tolerado só o "já existe", para o caso de um schema montado antes de
+         * o diário existir. Qualquer outro erro sobe: schema meio aplicado faz
+         * o teste mentir, e um teste que mente é pior que teste nenhum.
          */
         const codigo = (erro as { code?: string }).code ?? "";
         const jaExiste = ["ER_TABLE_EXISTS_ERROR", "ER_DUP_FIELDNAME", "ER_DUP_KEYNAME"].includes(codigo);
         if (!jaExiste) throw erro;
       }
     }
+    // IGNORE porque duas suítes podem chegar aqui juntas na primeira montagem.
+    await conexao.query(`INSERT IGNORE INTO \`${DIARIO}\` (arquivo) VALUES (?)`, [arquivo]);
   }
 }
 
