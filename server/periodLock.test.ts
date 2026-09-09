@@ -88,7 +88,13 @@ describe("assertPeriodsOpen", () => {
      */
     fechado(7, 2026, 9);
     await expect(assertPeriodsOpen(ESCOPO, [{ accountId: 7, date: "2026-09-10" }])).rejects.toThrow();
-    expect(listClosedReconciliationPeriods).toHaveBeenCalledWith(ESCOPO.userId);
+    /*
+     * As DUAS consultas recebem o escopo inteiro. Até a sub-leva 3,
+     * `listClosedReconciliationPeriods` recebia só o `userId` — e este teste,
+     * que exigia exatamente isso, foi o que denunciou a mudança na suíte cheia.
+     * É para isso que ele existe.
+     */
+    expect(listClosedReconciliationPeriods).toHaveBeenCalledWith(ESCOPO);
     expect(getFinancialAccount).toHaveBeenCalledWith(ESCOPO, 7);
   });
 

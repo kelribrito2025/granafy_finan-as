@@ -162,9 +162,8 @@ export const importsRouter = router({
     if (!uniqueRows.length) throw new TRPCError({ code: "CONFLICT", message: "Todos os lançamentos selecionados já foram importados" });
 
     const batchId = randomUUID();
-    await db.createImportBatch({
+    await db.createImportBatch(escopoDe(ctx), {
       id: batchId,
-      userId: ctx.user.id,
       fileName: input.fileName,
       format: input.format,
       accountId: account.id,

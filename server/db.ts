@@ -1501,14 +1501,15 @@ export async function getTransactionsByFingerprints(escopo: Escopo, fingerprints
 // Conciliação bancária
 // ===========================================================================
 
-export async function listBankMovements(userId: number, accountId: number, start: string, end: string) {
+export async function listBankMovements(escopo: Escopo, accountId: number, start: string, end: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(bankMovements)
     .where(and(
-      eq(bankMovements.userId, userId),
+      eq(bankMovements.userId, escopo.userId),
+      eq(bankMovements.companyId, escopo.companyId),
       eq(bankMovements.accountId, accountId),
       gte(bankMovements.movementDate, start),
       lte(bankMovements.movementDate, end)
@@ -1516,20 +1517,20 @@ export async function listBankMovements(userId: number, accountId: number, start
     .orderBy(desc(bankMovements.movementDate), desc(bankMovements.id));
 }
 
-export async function getBankMovement(userId: number, id: number) {
+export async function getBankMovement(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(bankMovements)
-    .where(and(eq(bankMovements.userId, userId), eq(bankMovements.id, id))).limit(1);
+    .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.id, id))).limit(1);
   return rows[0];
 }
 
-export async function listReconciliationLinks(userId: number, movementIds: number[]) {
+export async function listReconciliationLinks(escopo: Escopo, movementIds: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (movementIds.length === 0) return [];
   return db.select().from(reconciliationLinks)
-    .where(and(eq(reconciliationLinks.userId, userId), inArray(reconciliationLinks.movementId, movementIds)));
+    .where(and(eq(reconciliationLinks.userId, escopo.userId), eq(reconciliationLinks.companyId, escopo.companyId), inArray(reconciliationLinks.movementId, movementIds)));
 }
 
 /**
@@ -1575,7 +1576,7 @@ export async function listUnlinkedTransactions(escopo: Escopo, accountId: number
  * Empate na data vai para o manual: quem digitou depois de importar estava
  * corrigindo o que o arquivo trouxe.
  */
-export async function getStatementBalance(userId: number, accountId: number, throughDate: string) {
+export async function getStatementBalance(escopo: Escopo, accountId: number, throughDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -1587,7 +1588,8 @@ export async function getStatementBalance(userId: number, accountId: number, thr
       })
       .from(transactionImportBatches)
       .where(and(
-        eq(transactionImportBatches.userId, userId),
+        eq(transactionImportBatches.userId, escopo.userId),
+        eq(transactionImportBatches.companyId, escopo.companyId),
         eq(transactionImportBatches.accountId, accountId),
         isNotNull(transactionImportBatches.statementBalance),
         lte(transactionImportBatches.statementBalanceDate, throughDate)
@@ -1598,7 +1600,8 @@ export async function getStatementBalance(userId: number, accountId: number, thr
       .select({ balance: statementBalances.balance, asOf: statementBalances.asOf })
       .from(statementBalances)
       .where(and(
-        eq(statementBalances.userId, userId),
+        eq(statementBalances.userId, escopo.userId),
+        eq(statementBalances.companyId, escopo.companyId),
         eq(statementBalances.accountId, accountId),
         lte(statementBalances.asOf, throughDate)
       ))
@@ -1623,8 +1626,7 @@ export async function getStatementBalance(userId: number, accountId: number, thr
  * registro no histórico guarda o valor anterior — sem ele, um saldo que muda
  * é indistinguível de um saldo que sempre foi aquele.
  */
-export async function saveStatementBalance(input: {
-  userId: number;
+export async function saveStatementBalance(escopo: Escopo, input: {
   accountId: number;
   asOf: string;
   balance: string;
@@ -1634,11 +1636,28 @@ export async function saveStatementBalance(input: {
   if (!db) throw new Error("Database is not available");
 
   await db.transaction(async tx => {
+    /*
+     * A guarda de empresa aqui é inverificável, e vale dizer por quê em vez de
+     * fingir que não é.
+     *
+     * `statement_balances_account_date_uidx` é único em (userId, accountId,
+     * asOf) — sem `companyId`. Como uma conta pertence a uma empresa só, esse
+     * índice já garante que existe no máximo UMA linha para este trio, e a
+     * guarda de empresa nunca pode mudar o resultado desta leitura. Apagá-la
+     * não deixa teste nenhum vermelho, e não porque falte teste: porque o
+     * schema torna a diferença impossível.
+     *
+     * Fica de pé mesmo assim. O dia em que esse índice ganhar `companyId` — ou
+     * em que a Fase 6 permitir mover conta entre empresas — a guarda passa a
+     * valer sozinha, e é barato demais para ser removida agora em troca de um
+     * boletim de mutação mais bonito.
+     */
     const [anterior] = await tx
       .select({ balance: statementBalances.balance })
       .from(statementBalances)
       .where(and(
-        eq(statementBalances.userId, input.userId),
+        eq(statementBalances.userId, escopo.userId),
+        eq(statementBalances.companyId, escopo.companyId), // inverificável-por-índice-único
         eq(statementBalances.accountId, input.accountId),
         eq(statementBalances.asOf, input.asOf)
       ))
@@ -1647,16 +1666,18 @@ export async function saveStatementBalance(input: {
     await tx
       .insert(statementBalances)
       .values({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         accountId: input.accountId,
         asOf: input.asOf,
         balance: input.balance,
-        informedBy: input.userId,
+        informedBy: escopo.userId,
       })
-      .onDuplicateKeyUpdate({ set: { balance: input.balance, informedBy: input.userId } });
+      .onDuplicateKeyUpdate({ set: { balance: input.balance, informedBy: escopo.userId } });
 
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       action: anterior ? "saldo_extrato_alterado" : "saldo_extrato_informado",
       previousStatus: anterior?.balance ?? "",
       newStatus: input.balance,
@@ -1672,8 +1693,7 @@ export async function saveStatementBalance(input: {
  * deles falhar sozinho, sobra uma conciliação que ninguém consegue explicar
  * nem desfazer.
  */
-export async function linkMovement(input: {
-  userId: number;
+export async function linkMovement(escopo: Escopo, input: {
   movementId: number;
   transactionId: number;
   amount: string;
@@ -1686,18 +1706,20 @@ export async function linkMovement(input: {
 
   await db.transaction(async tx => {
     await tx.insert(reconciliationLinks).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       movementId: input.movementId,
       transactionId: input.transactionId,
       amount: input.amount,
       origin: input.origin,
-      createdBy: input.userId,
+      createdBy: escopo.userId,
     });
     await tx.update(bankMovements)
-      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
-      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: escopo.userId })
+      .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.id, input.movementId)));
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       movementId: input.movementId,
       transactionId: input.transactionId,
       action: "conciliar",
@@ -1713,8 +1735,7 @@ export async function linkMovement(input: {
  * o histórico registra quem desfez. O lançamento não é apagado — ele continua
  * existindo no razão, só deixa de estar preso ao extrato.
  */
-export async function unlinkMovement(input: {
-  userId: number;
+export async function unlinkMovement(escopo: Escopo, input: {
   movementId: number;
   previousStatus: string;
   detail: string;
@@ -1724,12 +1745,13 @@ export async function unlinkMovement(input: {
 
   await db.transaction(async tx => {
     await tx.delete(reconciliationLinks)
-      .where(and(eq(reconciliationLinks.userId, input.userId), eq(reconciliationLinks.movementId, input.movementId)));
+      .where(and(eq(reconciliationLinks.userId, escopo.userId), eq(reconciliationLinks.companyId, escopo.companyId), eq(reconciliationLinks.movementId, input.movementId)));
     await tx.update(bankMovements)
       .set({ status: "sem_par", classification: null, reconciledAt: null, reconciledBy: null })
-      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+      .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.id, input.movementId)));
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       movementId: input.movementId,
       action: "desfazer",
       previousStatus: input.previousStatus,
@@ -1745,8 +1767,7 @@ export async function unlinkMovement(input: {
  * A linha do extrato continua onde está: classificar não apaga nem esconde
  * nada, só diz o que aquele dinheiro foi. É o que substitui o antigo "ignorar".
  */
-export async function classifyMovement(input: {
-  userId: number;
+export async function classifyMovement(escopo: Escopo, input: {
   movementId: number;
   classification: "transferencia" | "pessoal" | "duplicidade" | "estorno" | "fora_dos_relatorios";
   note: string;
@@ -1764,9 +1785,10 @@ export async function classifyMovement(input: {
         classificationNote: input.note,
         relatedMovementId: input.relatedMovementId,
       })
-      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+      .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.id, input.movementId)));
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       movementId: input.movementId,
       action: "classificar",
       previousStatus: input.previousStatus,
@@ -1783,8 +1805,7 @@ export async function classifyMovement(input: {
  * movimentação. O mesmo caminho serve para os dois porque a diferença entre
  * eles é só quantas linhas entram no razão.
  */
-export async function createTransactionsForMovement(input: {
-  userId: number;
+export async function createTransactionsForMovement(escopo: Escopo, input: {
   movementId: number;
   previousStatus: string;
   detail: string;
@@ -1797,24 +1818,26 @@ export async function createTransactionsForMovement(input: {
     const criados: number[] = [];
     for (const part of input.parts) {
       const { linkAmount: _linkAmount, ...values } = part;
-      const [inserted] = await tx.insert(financialTransactions).values({ userId: input.userId, ...values });
+      const [inserted] = await tx.insert(financialTransactions).values({ userId: escopo.userId, ...values });
       criados.push(Number(inserted.insertId));
     }
     await tx.insert(reconciliationLinks).values(
       criados.map((transactionId, index) => ({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         movementId: input.movementId,
         transactionId,
         amount: input.parts[index].linkAmount,
         origin: "manual" as const,
-        createdBy: input.userId,
+        createdBy: escopo.userId,
       }))
     );
     await tx.update(bankMovements)
-      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
-      .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.id, input.movementId)));
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: escopo.userId })
+      .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.id, input.movementId)));
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       movementId: input.movementId,
       transactionId: criados[0] ?? null,
       action: input.parts.length > 1 ? "dividir" : "criar_lancamento",
@@ -1826,8 +1849,7 @@ export async function createTransactionsForMovement(input: {
 }
 
 /** Prende várias movimentações a um lançamento só. */
-export async function groupMovements(input: {
-  userId: number;
+export async function groupMovements(escopo: Escopo, input: {
   movementIds: number[];
   transactionId: number;
   amounts: string[];
@@ -1839,20 +1861,22 @@ export async function groupMovements(input: {
   await db.transaction(async tx => {
     await tx.insert(reconciliationLinks).values(
       input.movementIds.map((movementId, index) => ({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         movementId,
         transactionId: input.transactionId,
         amount: input.amounts[index],
         origin: "manual" as const,
-        createdBy: input.userId,
+        createdBy: escopo.userId,
       }))
     );
     await tx.update(bankMovements)
-      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: input.userId })
-      .where(and(eq(bankMovements.userId, input.userId), inArray(bankMovements.id, input.movementIds)));
+      .set({ status: "conciliado", reconciledAt: new Date(), reconciledBy: escopo.userId })
+      .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), inArray(bankMovements.id, input.movementIds)));
     for (const movementId of input.movementIds) {
       await tx.insert(reconciliationAudit).values({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         movementId,
         transactionId: input.transactionId,
         action: "agrupar",
@@ -1864,12 +1888,13 @@ export async function groupMovements(input: {
   });
 }
 
-export async function getReconciliationPeriod(userId: number, accountId: number, year: number, month: number) {
+export async function getReconciliationPeriod(escopo: Escopo, accountId: number, year: number, month: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db.select().from(reconciliationPeriods)
     .where(and(
-      eq(reconciliationPeriods.userId, userId),
+      eq(reconciliationPeriods.userId, escopo.userId),
+      eq(reconciliationPeriods.companyId, escopo.companyId),
       eq(reconciliationPeriods.accountId, accountId),
       eq(reconciliationPeriods.year, year),
       eq(reconciliationPeriods.month, month)
@@ -1885,7 +1910,7 @@ export async function getReconciliationPeriod(userId: number, accountId: number,
  * fechamento precisa sobreviver à reabertura. Quem pergunta "posso escrever
  * aqui?" quer só os que continuam fechados.
  */
-export async function listClosedReconciliationPeriods(userId: number) {
+export async function listClosedReconciliationPeriods(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
@@ -1896,13 +1921,13 @@ export async function listClosedReconciliationPeriods(userId: number) {
     })
     .from(reconciliationPeriods)
     .where(and(
-      eq(reconciliationPeriods.userId, userId),
+      eq(reconciliationPeriods.userId, escopo.userId),
+      eq(reconciliationPeriods.companyId, escopo.companyId),
       isNull(reconciliationPeriods.reopenedAt)
     ));
 }
 
-export async function closeReconciliationPeriod(input: {
-  userId: number;
+export async function closeReconciliationPeriod(escopo: Escopo, input: {
   accountId: number;
   year: number;
   month: number;
@@ -1912,7 +1937,7 @@ export async function closeReconciliationPeriod(input: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const existing = await getReconciliationPeriod(input.userId, input.accountId, input.year, input.month);
+  const existing = await getReconciliationPeriod(escopo, input.accountId, input.year, input.month);
 
   await db.transaction(async tx => {
     if (existing) {
@@ -1922,7 +1947,7 @@ export async function closeReconciliationPeriod(input: {
           systemBalance: input.systemBalance,
           movementCount: input.movementCount,
           closedAt: new Date(),
-          closedBy: input.userId,
+          closedBy: escopo.userId,
           reopenedAt: null,
           reopenedBy: null,
           reopenReason: "",
@@ -1930,18 +1955,20 @@ export async function closeReconciliationPeriod(input: {
         .where(eq(reconciliationPeriods.id, existing.id));
     } else {
       await tx.insert(reconciliationPeriods).values({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         accountId: input.accountId,
         year: input.year,
         month: input.month,
         statementBalance: input.statementBalance,
         systemBalance: input.systemBalance,
         movementCount: input.movementCount,
-        closedBy: input.userId,
+        closedBy: escopo.userId,
       });
     }
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       action: "fechar_periodo",
       previousStatus: "aberto",
       newStatus: "fechado",
@@ -1950,8 +1977,7 @@ export async function closeReconciliationPeriod(input: {
   });
 }
 
-export async function reopenReconciliationPeriod(input: {
-  userId: number;
+export async function reopenReconciliationPeriod(escopo: Escopo, input: {
   periodId: number;
   reason: string;
   detail: string;
@@ -1961,10 +1987,11 @@ export async function reopenReconciliationPeriod(input: {
 
   await db.transaction(async tx => {
     await tx.update(reconciliationPeriods)
-      .set({ reopenedAt: new Date(), reopenedBy: input.userId, reopenReason: input.reason })
-      .where(and(eq(reconciliationPeriods.userId, input.userId), eq(reconciliationPeriods.id, input.periodId)));
+      .set({ reopenedAt: new Date(), reopenedBy: escopo.userId, reopenReason: input.reason })
+      .where(and(eq(reconciliationPeriods.userId, escopo.userId), eq(reconciliationPeriods.companyId, escopo.companyId), eq(reconciliationPeriods.id, input.periodId)));
     await tx.insert(reconciliationAudit).values({
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       action: "reabrir_periodo",
       previousStatus: "fechado",
       newStatus: "aberto",
@@ -1973,18 +2000,17 @@ export async function reopenReconciliationPeriod(input: {
   });
 }
 
-export async function listReconciliationAudit(userId: number, movementId: number) {
+export async function listReconciliationAudit(escopo: Escopo, movementId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.select().from(reconciliationAudit)
-    .where(and(eq(reconciliationAudit.userId, userId), eq(reconciliationAudit.movementId, movementId)))
+    .where(and(eq(reconciliationAudit.userId, escopo.userId), eq(reconciliationAudit.companyId, escopo.companyId), eq(reconciliationAudit.movementId, movementId)))
     .orderBy(desc(reconciliationAudit.createdAt))
     .limit(50);
 }
 
-export async function createImportBatch(input: {
+export async function createImportBatch(escopo: Escopo, input: {
   id: string;
-  userId: number;
   fileName: string;
   format: "csv" | "ofx";
   accountId: number;
@@ -1998,7 +2024,8 @@ export async function createImportBatch(input: {
   await db.transaction(async tx => {
     await tx.insert(transactionImportBatches).values({
       id: input.id,
-      userId: input.userId,
+      userId: escopo.userId,
+      companyId: escopo.companyId,
       fileName: input.fileName,
       format: input.format,
       accountId: input.accountId,
@@ -2010,7 +2037,8 @@ export async function createImportBatch(input: {
 
     for (const chunk of chunkImportRows(input.transactions)) {
       await tx.insert(financialTransactions).values(chunk.map(transaction => ({
-          userId: input.userId,
+          userId: escopo.userId,
+          companyId: escopo.companyId,
           ...transaction,
           importBatchId: input.id,
         })));
@@ -2025,7 +2053,8 @@ export async function createImportBatch(input: {
      */
     for (const chunk of chunkImportRows(input.transactions)) {
       await tx.insert(bankMovements).values(chunk.map(transaction => ({
-        userId: input.userId,
+        userId: escopo.userId,
+        companyId: escopo.companyId,
         accountId: input.accountId,
         movementDate: transaction.transactionDate,
         description: transaction.description,
@@ -2042,13 +2071,26 @@ export async function createImportBatch(input: {
     // Os ids saem de leitura, não do insertId: o autoincrement do TiDB é
     // alocado por faixa e adivinhar a sequência de um insert em lote daria
     // vínculo trocado.
+    /*
+     * A guarda de empresa na leitura do razão é inverificável, pelo mesmo
+     * motivo da de `saveStatementBalance`: `transactions_user_fingerprint_uidx`
+     * é único em (userId, fingerprint), sem `companyId`. O mapa abaixo casa por
+     * fingerprint, e o índice garante um fingerprint por dono — então nenhuma
+     * linha de outra empresa deste mesmo dono pode casar, com guarda ou sem.
+     *
+     * Fica de pé porque o estrago que ela cobre é dos graves: esta leitura é o
+     * que vira VÍNCULO DE CONCILIAÇÃO gravado, e um intruso na lista prenderia
+     * o movimento ao lançamento de outra empresa. No dia em que esse índice
+     * ganhar `companyId`, a guarda passa a valer sozinha — e aí ela vira
+     * falsificável, e `arreios.test.ts` cobra o teste.
+     */
     const [ledger, statement] = await Promise.all([
       tx.select({ id: financialTransactions.id, fingerprint: financialTransactions.fingerprint })
         .from(financialTransactions)
-        .where(and(eq(financialTransactions.userId, input.userId), eq(financialTransactions.importBatchId, input.id))),
+        .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), /* inverificável-por-índice-único */ eq(financialTransactions.importBatchId, input.id))),
       tx.select({ id: bankMovements.id, fingerprint: bankMovements.fingerprint })
         .from(bankMovements)
-        .where(and(eq(bankMovements.userId, input.userId), eq(bankMovements.importBatchId, input.id))),
+        .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.importBatchId, input.id))),
     ]);
 
     const transactionByFingerprint = new Map(ledger.map(row => [row.fingerprint, row.id]));
@@ -2058,7 +2100,8 @@ export async function createImportBatch(input: {
         const transactionId = transactionByFingerprint.get(movement.fingerprint);
         if (!transactionId) return null;
         return {
-          userId: input.userId,
+          userId: escopo.userId,
+          companyId: escopo.companyId,
           movementId: movement.id,
           transactionId,
           amount: amountByFingerprint.get(movement.fingerprint) ?? "0.00",

@@ -54,7 +54,7 @@ export async function assertPeriodsOpen(escopo: Escopo, targets: readonly Period
   }
   if (pares.size === 0) return;
 
-  const fechados = await db.listClosedReconciliationPeriods(escopo.userId);
+  const fechados = await db.listClosedReconciliationPeriods(escopo);
   if (fechados.length === 0) return;
 
   const trancados = new Set(fechados.map(period => monthKey(period.accountId, `${period.year}-${String(period.month).padStart(2, "0")}`)));
