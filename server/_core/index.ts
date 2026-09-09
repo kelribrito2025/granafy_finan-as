@@ -8,7 +8,16 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerGoogleAuthRoutes } from "../googleAuth";
+import { sessionUserIdFrom } from "../auth";
 import path from "node:path";
+
+/** O HTML da landing, no lugar em que cada ambiente o deixa. */
+function landingIndex() {
+  const raiz = process.env.NODE_ENV === "development"
+    ? path.resolve(import.meta.dirname, "../..", "client", "public")
+    : path.resolve(import.meta.dirname, "public");
+  return path.join(raiz, "site", "index.html");
+}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -39,15 +48,31 @@ async function startServer() {
   registerGoogleAuthRoutes(app);
 
   /*
-   * A landing é HTML estático, e "/site/" precisa cair no index.html nos dois
-   * ambientes: o express.static resolve o índice do diretório sozinho, o
-   * middleware do Vite não. Esta rota deixa os dois iguais.
+   * A raiz atende dois públicos com a mesma URL.
+   *
+   * granafy.com é o endereço da landing: quem chega sem sessão vê a
+   * explicação do produto. Quem chega com sessão válida vê o painel, no mesmo
+   * endereço — o assinante não devia ter que passar pela página de vendas para
+   * abrir o próprio caixa.
+   *
+   * A decisão sai do cookie, sem consultar o banco: é uma verificação de
+   * assinatura, e visita anônima não paga a latência do TiDB por isso.
    */
-  app.get(["/site", "/site/"], (_req, res) => {
-    const raiz = process.env.NODE_ENV === "development"
-      ? path.resolve(import.meta.dirname, "../..", "client", "public")
-      : path.resolve(import.meta.dirname, "public");
-    res.sendFile(path.join(raiz, "site", "index.html"));
+  app.get("/", async (req, res, next) => {
+    // A resposta depende do cookie; cache compartilhado não pode guardá-la.
+    res.set("Vary", "Cookie");
+    if ((await sessionUserIdFrom(req)) !== null) return next();
+    res.sendFile(landingIndex(), { headers: { "Cache-Control": "no-store" } });
+  });
+
+  /*
+   * "/site" foi o endereço da landing até aqui. Continua respondendo, com 301
+   * para a raiz: link antigo em e-mail ou índice de busca não pode virar 404,
+   * e o permanente é o que faz o buscador trocar de endereço em vez de manter
+   * as duas páginas iguais concorrendo entre si.
+   */
+  app.get(["/site", "/site/", "/site/index.html"], (_req, res) => {
+    res.redirect(301, "/");
   });
   // tRPC API
   app.use(

@@ -153,7 +153,19 @@ export function clearLocalSession(req: Request, res: Response) {
   res.clearCookie(COOKIE_NAME, sessionCookieOptions(req));
 }
 
-export async function authenticateLocalRequest(req: Request) {
+/**
+ * De quem é a sessão, olhando só o cookie.
+ *
+ * Verifica assinatura e validade do token e para por aí — não vai ao banco.
+ * Serve para a decisão que precisa ser barata e acontece antes de qualquer
+ * tela: a raiz do site, que manda visita para a landing e assinante para o
+ * painel. Trocar isso por uma consulta poria uma ida ao TiDB na frente de
+ * cada visita anônima.
+ *
+ * Para saber se o usuário ainda existe — e quem ele é — use
+ * `authenticateLocalRequest`, que é esta função mais o registro.
+ */
+export async function sessionUserIdFrom(req: Request) {
   const cookieHeader = req.headers.cookie ?? "";
   const cookiePair = cookieHeader
     .split(";")
@@ -169,10 +181,16 @@ export async function authenticateLocalRequest(req: Request) {
     if (payload.kind !== "password" || typeof payload.userId !== "number") {
       return null;
     }
-
-    const record = await db.getUserRecordById(payload.userId);
-    return record ? db.toPublicUser(record) : null;
+    return payload.userId;
   } catch {
     return null;
   }
+}
+
+export async function authenticateLocalRequest(req: Request) {
+  const userId = await sessionUserIdFrom(req);
+  if (userId === null) return null;
+
+  const record = await db.getUserRecordById(userId);
+  return record ? db.toPublicUser(record) : null;
 }

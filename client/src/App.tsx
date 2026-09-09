@@ -14,7 +14,7 @@ import OrganizationPage from "@/pages/OrganizationPage";
 import PagarReceberPage from "@/pages/PagarReceberPage";
 import PagasRecebidasPage from "@/pages/PagasRecebidasPage";
 import SettingsPage from "@/pages/SettingsPage";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { GranafyLoader } from "./components/GranafyLoader";
@@ -34,26 +34,17 @@ function AuthLoading() {
 function ProtectedPage({ children }: { children: ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
-  /*
-   * Quem já esteve logado nesta aba e deixou de estar acabou de sair da conta,
-   * e sair da conta termina na tela de entrada. Sem esta marca o "Sair" feito
-   * a partir do painel caía na regra de visita abaixo e jogava a pessoa no
-   * site institucional.
-   */
-  const esteveLogado = useRef(false);
-  if (isAuthenticated) esteveLogado.current = true;
 
+  /*
+   * Sem sessão, toda página protegida termina na entrada — inclusive a raiz.
+   *
+   * A visita anônima não chega mais até aqui: o servidor responde a landing na
+   * própria "/" e o painel nem carrega. Quem cai neste caso tem cookie válido
+   * e conta que não abre — sessão de usuário removido, por exemplo —, e para
+   * essa pessoa o lugar certo é o login, não a página de vendas.
+   */
   useEffect(() => {
     if (loading || isAuthenticated) return;
-    /*
-     * Quem chega em "/" sem estar logado é visita, não usuário perdido: vai
-     * para o site, que é onde a explicação do produto está. Qualquer outra
-     * página protegida continua indo direto para a entrada.
-     */
-    if (window.location.pathname === "/" && !esteveLogado.current) {
-      window.location.replace("/site");
-      return;
-    }
     setLocation("/login", { replace: true });
   }, [isAuthenticated, loading, setLocation]);
 

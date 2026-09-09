@@ -29,7 +29,7 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
           fica branca enquanto o texto vira claro, e o logo some. */}
       <header className="sticky top-0 z-40 border-b border-[#E3EBE6] bg-white/[.92] backdrop-blur-[10px] dark:bg-[#14241B]/[.92]">
         <div className="mx-auto flex w-full max-w-[1200px] items-center gap-7 px-6 py-3.5">
-          <a href="/site" className="flex items-center gap-2.5" aria-label="GranaFy">
+          <a href="/" className="flex items-center gap-2.5" aria-label="GranaFy">
             <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
               <svg width="21" height="21" viewBox="0 0 64 64" fill="none" aria-hidden="true">
                 <circle cx="32" cy="32" r="23" stroke="#FFFFFF" strokeWidth="10" opacity=".38" />
@@ -43,7 +43,7 @@ export default function LegalPage({ document }: { document: "termos" | "privacid
 
           <nav className="hidden items-center gap-[22px] sm:flex">
             {[["Recursos", "recursos"], ["Como funciona", "como-funciona"], ["Planos", "planos"]].map(([rotulo, ancora]) => (
-              <a key={ancora} href={`/site#${ancora}`} className="text-[14px] text-[#4C6355] transition hover:text-[#0A7A42]">
+              <a key={ancora} href={`/#${ancora}`} className="text-[14px] text-[#4C6355] transition hover:text-[#0A7A42]">
                 {rotulo}
               </a>
             ))}
