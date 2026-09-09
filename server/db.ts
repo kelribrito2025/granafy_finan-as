@@ -812,6 +812,92 @@ export async function listLedgerWindow(userId: number, from: string, to: string)
     .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
 }
 
+/*
+ * A tela de pagas e recebidas, agregada no banco.
+ *
+ * O recorte é `status = 'Pago'` e `settledAt` dentro do mês — nunca
+ * `transactionDate`. Um título vencido em agosto e pago em setembro pertence a
+ * setembro aqui, e é essa diferença que separa esta tela da de abertos.
+ *
+ * Sem COALESCE de propósito: todo título pago tem `settledAt` preenchido desde
+ * a migration 0019, e função no WHERE desligaria o índice
+ * `(userId, status, settledAt)`, que é justamente o que faz a consulta não
+ * varrer o razão.
+ *
+ * Transferência fica de fora, como no resto do sistema: mover dinheiro entre
+ * contas próprias não é recebimento nem pagamento.
+ */
+function liquidadasNoMes(userId: number, from: string, to: string) {
+  return and(
+    eq(financialTransactions.userId, userId),
+    eq(financialTransactions.status, "Pago"),
+    sql`${financialTransactions.type} <> 'transferencia'`,
+    gte(financialTransactions.settledAt, from),
+    lt(financialTransactions.settledAt, to)
+  );
+}
+
+/**
+ * Os números do topo: recebido, pago, e o prazo entre vencer e liquidar.
+ *
+ * O prazo médio sai de `AVG(DATEDIFF(...))` no banco. Calculá-lo em JavaScript
+ * exigiria trazer as 6.692 linhas só para dividir uma soma — a lição do 2.7.
+ */
+export async function getSettledTotals(userId: number, from: string, to: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({
+      receivedCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} > 0 THEN 1 END)`,
+      received: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} END), 0)`,
+      paidCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.amount} < 0 THEN 1 END)`,
+      paid: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} END), 0)`,
+      // Nulo quando não há título no mês: zero dias e "sem dado" são coisas
+      // diferentes, e a tela precisa distinguir para não escrever "0,0 dias"
+      // num mês vazio.
+      averageDelayDays: sql<string | null>`AVG(DATEDIFF(${financialTransactions.settledAt}, ${financialTransactions.transactionDate}))`,
+      lateCount: sql<number>`COUNT(CASE WHEN ${financialTransactions.settledAt} > ${financialTransactions.transactionDate} THEN 1 END)`,
+      lastSettledAt: sql<string | null>`MAX(${financialTransactions.settledAt})`,
+      settledDays: sql<number>`COUNT(DISTINCT ${financialTransactions.settledAt})`,
+    })
+    .from(financialTransactions)
+    .where(liquidadasNoMes(userId, from, to));
+
+  return {
+    received: Number(row?.received ?? 0),
+    receivedCount: Number(row?.receivedCount ?? 0),
+    paid: Number(row?.paid ?? 0),
+    paidCount: Number(row?.paidCount ?? 0),
+    averageDelayDays: row?.averageDelayDays === null || row?.averageDelayDays === undefined
+      ? null
+      : Number(row.averageDelayDays),
+    lateCount: Number(row?.lateCount ?? 0),
+    lastSettledAt: row?.lastSettledAt ?? null,
+    settledDays: Number(row?.settledDays ?? 0),
+  };
+}
+
+/** As linhas liquidadas do mês, só com o que as duas visões desenham. */
+export async function listSettledInMonth(userId: number, from: string, to: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: financialTransactions.id,
+      settledAt: financialTransactions.settledAt,
+      transactionDate: financialTransactions.transactionDate,
+      description: financialTransactions.description,
+      contact: financialTransactions.contact,
+      category: financialTransactions.category,
+      account: financialTransactions.account,
+      amount: financialTransactions.amount,
+    })
+    .from(financialTransactions)
+    .where(liquidadasNoMes(userId, from, to))
+    // Mais recente primeiro, como o mockup: o dia de cima é o último movimento.
+    .orderBy(desc(financialTransactions.settledAt), desc(financialTransactions.id));
+}
+
 export async function getFinancialAccount(userId: number, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

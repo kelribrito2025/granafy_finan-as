@@ -34,6 +34,7 @@ import { dreRouter } from "./routers/dre";
 import { importsRouter } from "./routers/imports";
 import { organizationRouter } from "./routers/organization";
 import { reconciliationRouter } from "./routers/reconciliation";
+import { settledRouter } from "./routers/settled";
 import { settingsRouter } from "./routers/settings";
 import { transactionsRouter } from "./routers/transactions";
 
@@ -64,6 +65,7 @@ export const appRouter = router({
   reconciliation: reconciliationRouter,
   imports: importsRouter,
   organization: organizationRouter,
+  settled: settledRouter,
   settings: settingsRouter,
   transactions: transactionsRouter,
   auth: router({
