@@ -32,6 +32,7 @@ import { balanceSheetRouter } from "./routers/balanceSheet";
 import { cashflowRouter, payablesRouter } from "./routers/cashflow";
 import { dreRouter } from "./routers/dre";
 import { importsRouter } from "./routers/imports";
+import { onboardingRouter } from "./routers/onboarding";
 import { organizationRouter } from "./routers/organization";
 import { reconciliationRouter } from "./routers/reconciliation";
 import { settledRouter } from "./routers/settled";
@@ -64,6 +65,7 @@ export const appRouter = router({
   payables: payablesRouter,
   reconciliation: reconciliationRouter,
   imports: importsRouter,
+  onboarding: onboardingRouter,
   organization: organizationRouter,
   settled: settledRouter,
   settings: settingsRouter,

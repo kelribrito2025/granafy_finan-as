@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 import AuthPage from "@/pages/AuthPage";
 import BalanceSheetPage from "@/pages/BalanceSheetPage";
 import ConciliacaoPage from "@/pages/ConciliacaoPage";
@@ -60,7 +61,18 @@ function ProtectedPage({ children }: { children: ReactNode }) {
     return <AuthLoading />;
   }
 
-  return <PreferencesProvider><PrivacyProvider>{children}</PrivacyProvider></PreferencesProvider>;
+  /*
+   * O portão fica dentro dos provedores e fora do painel: o primeiro acesso
+   * usa formato de moeda e fuso como qualquer outra tela, mas não pode deixar
+   * o painel aparecer antes dele.
+   */
+  return (
+    <PreferencesProvider>
+      <PrivacyProvider>
+        <OnboardingGate>{children}</OnboardingGate>
+      </PrivacyProvider>
+    </PreferencesProvider>
+  );
 }
 
 function Router() {

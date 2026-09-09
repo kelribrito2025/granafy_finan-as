@@ -898,6 +898,24 @@ export async function listSettledInMonth(userId: number, from: string, to: strin
     .orderBy(desc(financialTransactions.settledAt), desc(financialTransactions.id));
 }
 
+/** Se a conta tem qualquer dado — o que decide se o primeiro acesso aparece. */
+export async function getOnboardingCounts(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [contas, lancamentos] = await Promise.all([
+    db.select({ n: sql<number>`COUNT(*)` }).from(financialAccounts).where(eq(financialAccounts.userId, userId)),
+    db.select({ n: sql<number>`COUNT(*)` }).from(financialTransactions).where(eq(financialTransactions.userId, userId)),
+  ]);
+  return { accountCount: Number(contas[0]?.n ?? 0), transactionCount: Number(lancamentos[0]?.n ?? 0) };
+}
+
+/** Terminou ou pulou: nos dois casos o fluxo não volta a aparecer. */
+export async function markOnboardingCompleted(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(users).set({ onboardingCompletedAt: new Date() }).where(eq(users.id, userId));
+}
+
 export async function getFinancialAccount(userId: number, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
