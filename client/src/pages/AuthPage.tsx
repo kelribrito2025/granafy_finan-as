@@ -10,6 +10,7 @@ import {
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   isPasswordValid,
   PASSWORD_REQUIREMENT_MESSAGE,
@@ -165,6 +166,7 @@ function GoogleButton({ label }: { label: string }) {
 export default function AuthPage({ mode }: { mode: AuthMode }) {
   const { user, loading, refresh } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -220,6 +222,15 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       } else {
         await loginMutation.mutateAsync({ email, password, remember });
       }
+      /*
+       * Entrar começa com o cache vazio, pelo mesmo motivo de sair.
+       *
+       * Sair já limpa, mas nem todo login vem depois de um "Sair" desta aba:
+       * sessão expirada, cookie apagado, ou simplesmente outra conta na mesma
+       * janela. Limpar aqui garante que a primeira tela desta sessão seja
+       * respondida pelo servidor, e não pela memória da anterior.
+       */
+      queryClient.clear();
       await refresh();
       setLocation("/", { replace: true });
     } catch (error) {
