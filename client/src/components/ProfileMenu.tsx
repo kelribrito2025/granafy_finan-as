@@ -8,6 +8,7 @@ import {
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { companyInitials } from "@shared/companies";
 import { trpc } from "@/lib/trpc";
 import { useCallback, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
@@ -32,25 +33,17 @@ function ChevronDownIcon({ size = 15, className = "" }: { size?: number; classNa
   );
 }
 
-/** Sigla de duas letras para o quadrado da empresa. */
-function initialsOf(text: string) {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "—";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[1][0]}`.toUpperCase();
-}
-
 /**
  * O seletor de empresas.
  *
- * O app é de uma empresa só: cada conta enxerga os próprios dados e não existe
- * organização compartilhada. A lista mostra a empresa real do cadastro; criar
- * ou trocar exigiria o modelo multiempresa, e a tela diz isso em vez de
- * oferecer um botão que não faz nada.
+ * A lista vem de `companies.list`, a tabela de empresas de verdade — não mais
+ * de um perfil único. Hoje ela tem uma linha e a tela diz isso, porque trocar
+ * ainda não existe; o que mudou é o caminho do dado, que é o que as próximas
+ * fases vão usar.
  */
-function CompanySwitcher({ companyName, taxId, onClose }: {
-  companyName: string;
-  taxId: string;
+function CompanySwitcher({ empresas, carregando, onClose }: {
+  empresas: Array<{ id: number; displayName: string; taxId: string; isActive: boolean }>;
+  carregando: boolean;
   onClose: () => void;
 }) {
   const [, setLocation] = useLocation();
@@ -61,20 +54,42 @@ function CompanySwitcher({ companyName, taxId, onClose }: {
           <ModalIcon icon={SwapIcon} />
           <div>
             <h2 id="company-switcher-title" className="text-[18px] font-bold tracking-[-.01em]">Trocar de empresa</h2>
-            <p className="mt-1 text-[12.5px] text-[#8A968D]">1 empresa neste acesso</p>
+            <p className="mt-1 text-[12.5px] text-[#8A968D]">
+              {carregando
+                ? "carregando…"
+                : `${empresas.length} ${empresas.length === 1 ? "empresa" : "empresas"} neste acesso`}
+            </p>
           </div>
           <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]"><CloseIcon size={16} /></button>
         </div>
 
-        <div className="mt-5 flex items-center gap-3 rounded-[14px] border-[1.5px] border-[#12B85C] bg-[#F1FBF6] p-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C] text-[13px] font-bold text-white">
-            {initialsOf(companyName)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-semibold">{companyName}</span>
-            <span className="block truncate text-[12.5px] text-[#8A968D]">{taxId || "CNPJ não informado"}</span>
-          </div>
-          <span className="shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10.5px] font-bold uppercase tracking-[.06em] text-white">Atual</span>
+        {/* Uma linha por empresa. A marca "Atual" é da primeira porque é a única
+            que existe; quando a troca chegar, ela passa a ser da empresa ativa. */}
+        <div className="mt-5 flex flex-col gap-2">
+          {empresas.length === 0 && !carregando && (
+            <p className="rounded-[14px] bg-[#F8FAF9] px-3.5 py-4 text-center text-[12.5px] text-[#8A968D]">
+              Nenhuma empresa cadastrada ainda.
+            </p>
+          )}
+          {empresas.map((empresa, indice) => (
+            <div
+              key={empresa.id}
+              className={`flex items-center gap-3 rounded-[14px] p-3.5 ${
+                indice === 0 ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
+              }`}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C] text-[13px] font-bold text-white">
+                {companyInitials(empresa.displayName)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-semibold">{empresa.displayName}</span>
+                <span className="block truncate text-[12.5px] text-[#8A968D]">{empresa.taxId || "CNPJ não informado"}</span>
+              </div>
+              {indice === 0 && (
+                <span className="shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10.5px] font-bold uppercase tracking-[.06em] text-white">Atual</span>
+              )}
+            </div>
+          ))}
         </div>
 
         <p className="mt-4 rounded-[14px] bg-[#FFF8E8] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#725517]">
@@ -107,6 +122,8 @@ export function ProfileMenu() {
   // O nome da empresa só aparece depois que o menu abre. Buscá-lo junto com a
   // página punha mais uma consulta no lote que o conteúdo espera.
   const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: open || switcher, staleTime: 60_000 });
+  /* A lista só é buscada quando o seletor abre — o menu do perfil não precisa dela. */
+  const companiesQuery = trpc.companies.list.useQuery(undefined, { enabled: switcher, staleTime: 60_000 });
 
   const company = companyQuery.data;
   const companyName = company?.tradeName || company?.legalName || "Empresa sem nome";
@@ -152,7 +169,7 @@ export function ProfileMenu() {
               className="flex w-full items-center gap-3 rounded-[12px] bg-[#F1FBF6] p-2.5 text-left hover:bg-[#DFF6EA]"
             >
               <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C] text-[13px] font-bold text-white">
-                {initialsOf(companyName)}
+                {companyInitials(companyName)}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] font-semibold text-[#0A7A42]">{companyName}</span>
@@ -203,8 +220,8 @@ export function ProfileMenu() {
 
       {switcher && (
         <CompanySwitcher
-          companyName={companyName}
-          taxId={company?.taxId ?? ""}
+          empresas={companiesQuery.data ?? []}
+          carregando={companiesQuery.isPending}
           onClose={() => setSwitcher(false)}
         />
       )}

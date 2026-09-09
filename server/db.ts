@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
@@ -71,6 +71,30 @@ function createTiDbClient(databaseUrl: string) {
   });
 
   return drizzle(pool);
+}
+
+/*
+ * O desvio para o banco de teste.
+ *
+ * As guardas de isolamento moram nas consultas deste arquivo, e provar uma
+ * guarda exige rodar a consulta de verdade. Sem este desvio, o arreio teria de
+ * reescrever a consulta — e um teste que reescreve o que testa não testa nada.
+ *
+ * A trava é a mesma do arreio, importada dele: o alvo precisa terminar em
+ * `_test`, não pode ser o schema de produção e não pode usar a credencial de
+ * produção. Não há caminho que aponte esta função para produção sem passar por
+ * `conferirAlvoDeTeste`, que lança em vez de conectar.
+ */
+export async function usarBancoDeTesteEm(url: string) {
+  const { conferirAlvoDeTeste } = await import("./testDatabase");
+  conferirAlvoDeTeste(url, process.env.TIDB_DATABASE_URL);
+  _db = createTiDbClient(url);
+  return _db;
+}
+
+/** Devolve o `getDb` ao normal depois de um teste. */
+export function esquecerBancoDeTeste() {
+  _db = null;
 }
 
 export async function getDb() {
@@ -1263,10 +1287,42 @@ export async function getAccountTransactionCounts(userId: number, startDate: str
   return new Map(rows.map(row => [Number(row.accountId), Number(row.total)]));
 }
 
+/**
+ * As empresas do login, na ordem em que a lista as mostra.
+ *
+ * Primeira consulta do modelo multiempresa. A guarda por `userId` é a única
+ * coisa entre esta lista e a de outra pessoa — e é ela que o arreio de duas
+ * empresas põe à prova, com mutação.
+ *
+ * A ordenação vem do banco e não do módulo puro porque o índice
+ * `company_profiles_user_order_idx` existe exatamente para isso; `sortCompanies`
+ * é a mesma regra, para quem já tem a lista em memória.
+ */
+export async function listCompanies(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(companyProfiles)
+    .where(eq(companyProfiles.userId, userId))
+    .orderBy(desc(companyProfiles.isActive), asc(companyProfiles.sortOrder), asc(companyProfiles.id));
+}
+
+/*
+ * O `.limit(1)` sem ordem devolve a linha que o banco quiser no dia em que
+ * houver duas. Hoje o único por `userId` garante que só há uma; quando ele
+ * cair, esta ordem é o que mantém a escolha previsível. Custa nada agora e
+ * tira uma mina do caminho.
+ */
 export async function getCompanyProfile(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(companyProfiles).where(eq(companyProfiles.userId, userId)).limit(1);
+  const rows = await db
+    .select()
+    .from(companyProfiles)
+    .where(eq(companyProfiles.userId, userId))
+    .orderBy(asc(companyProfiles.sortOrder), asc(companyProfiles.id))
+    .limit(1);
   return rows[0];
 }
 

@@ -30,6 +30,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { balanceSheetRouter } from "./routers/balanceSheet";
 import { cashflowRouter, payablesRouter } from "./routers/cashflow";
+import { companiesRouter } from "./routers/companies";
 import { dreRouter } from "./routers/dre";
 import { importsRouter } from "./routers/imports";
 import { onboardingRouter } from "./routers/onboarding";
@@ -61,6 +62,7 @@ export const appRouter = router({
   system: systemRouter,
   balanceSheet: balanceSheetRouter,
   cashflow: cashflowRouter,
+  companies: companiesRouter,
   dre: dreRouter,
   payables: payablesRouter,
   reconciliation: reconciliationRouter,
