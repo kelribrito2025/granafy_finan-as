@@ -444,7 +444,7 @@ export type TransactionValues = Pick<
   "recurrenceGroupId" | "recurrenceIndex"
 >;
 
-export async function listTransactionsByPeriod(userId: number, startDate: string, endDate: string) {
+export async function listTransactionsByPeriod(escopo: Escopo, startDate: string, endDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -452,48 +452,49 @@ export async function listTransactionsByPeriod(userId: number, startDate: string
     .select()
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       gte(financialTransactions.transactionDate, startDate),
       lt(financialTransactions.transactionDate, endDate)
     ))
     .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
 }
 
-export async function listTransactionsBefore(userId: number, endDate: string) {
+export async function listTransactionsBefore(escopo: Escopo, endDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
   return db
     .select()
     .from(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), lt(financialTransactions.transactionDate, endDate)))
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), lt(financialTransactions.transactionDate, endDate)))
     .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
 }
 
-export async function listAllTransactions(userId: number) {
+export async function listAllTransactions(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
   return db
     .select()
     .from(financialTransactions)
-    .where(eq(financialTransactions.userId, userId))
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId)))
     .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id));
 }
 
-export async function getTransactionById(userId: number, id: number) {
+export async function getTransactionById(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
   const rows = await db
     .select()
     .from(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)))
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, id)))
     .limit(1);
   return rows[0];
 }
 
-export async function getTransactionsByIds(userId: number, ids: number[]) {
+export async function getTransactionsByIds(escopo: Escopo, ids: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const chunks = chunkTransactionIds(ids);
@@ -502,37 +503,37 @@ export async function getTransactionsByIds(userId: number, ids: number[]) {
     records.push(...await db
       .select()
       .from(financialTransactions)
-      .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk))));
+      .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), inArray(financialTransactions.id, chunk))));
   }
   return records;
 }
 
-export async function createTransaction(userId: number, values: TransactionValues) {
+export async function createTransaction(escopo: Escopo, values: TransactionValues) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
-  const result = await db.insert(financialTransactions).values({ userId, ...values });
-  return getTransactionById(userId, Number(result[0].insertId));
+  const result = await db.insert(financialTransactions).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getTransactionById(escopo, Number(result[0].insertId));
 }
 
-export async function updateTransaction(userId: number, id: number, values: TransactionValues) {
+export async function updateTransaction(escopo: Escopo, id: number, values: TransactionValues) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
   await db
     .update(financialTransactions)
     .set(values)
-    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)));
-  return getTransactionById(userId, id);
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, id)));
+  return getTransactionById(escopo, id);
 }
 
-export async function deleteTransaction(userId: number, id: number) {
+export async function deleteTransaction(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
   return db
     .delete(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, id)));
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, id)));
 }
 
 export const TRANSACTION_DELETE_CHUNK_SIZE = 500;
@@ -546,7 +547,7 @@ export function chunkTransactionIds(ids: number[], chunkSize = TRANSACTION_DELET
 }
 
 export async function updateTransactions(
-  userId: number,
+  escopo: Escopo,
   ids: number[],
   values: Partial<Pick<InsertTransaction, "transactionDate" | "settledAt" | "category" | "categoryId" | "account" | "accountId" | "status" | "recurring">>,
 ) {
@@ -561,14 +562,14 @@ export async function updateTransactions(
       const result = await tx
         .update(financialTransactions)
         .set(values)
-        .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk)));
+        .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), inArray(financialTransactions.id, chunk)));
       updatedCount += Number(result[0].affectedRows ?? 0);
     }
     return updatedCount;
   });
 }
 
-export async function deleteTransactions(userId: number, ids: number[]) {
+export async function deleteTransactions(escopo: Escopo, ids: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const chunks = chunkTransactionIds(ids);
@@ -579,7 +580,7 @@ export async function deleteTransactions(userId: number, ids: number[]) {
     for (const chunk of chunks) {
       const result = await tx
         .delete(financialTransactions)
-        .where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.id, chunk)));
+        .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), inArray(financialTransactions.id, chunk)));
       deletedCount += Number(result[0].affectedRows ?? 0);
     }
     return deletedCount;
@@ -597,7 +598,7 @@ export async function listFinancialAccounts(escopo: Escopo) {
  * carregar os 8 mil lançamentos só para somá-los em memória seria caro por
  * navegação — um GROUP BY devolve uma linha por conta.
  */
-export async function getAccountBalances(userId: number, throughDate?: string) {
+export async function getAccountBalances(escopo: Escopo, throughDate?: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
@@ -607,7 +608,8 @@ export async function getAccountBalances(userId: number, throughDate?: string) {
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pago"),
       isNotNull(financialTransactions.accountId),
       ...(throughDate ? [lte(financialTransactions.transactionDate, throughDate)] : [])
@@ -623,14 +625,15 @@ export async function getAccountBalances(userId: number, throughDate?: string) {
  * Existe porque a alternativa era baixar o razão inteiro só para somar uma
  * coluna: no maior usuário são 5.850 linhas para produzir um número.
  */
-export async function sumTransactionsBefore(userId: number, date: string) {
+export async function sumTransactionsBefore(escopo: Escopo, date: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
     .select({ total: sql<string>`SUM(${financialTransactions.amount})` })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       lt(financialTransactions.transactionDate, date)
     ));
   return Number(row?.total ?? 0);
@@ -653,7 +656,7 @@ export async function sumTransactionsBefore(userId: number, date: string) {
  */
 
 /** Entradas e saídas do período, ignorando transferência. */
-export async function sumWindowTotals(userId: number, start: string, end: string) {
+export async function sumWindowTotals(escopo: Escopo, start: string, end: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
@@ -663,7 +666,8 @@ export async function sumWindowTotals(userId: number, start: string, end: string
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       sql`${financialTransactions.type} <> 'transferencia'`,
       gte(financialTransactions.transactionDate, start),
       lt(financialTransactions.transactionDate, end)
@@ -672,14 +676,15 @@ export async function sumWindowTotals(userId: number, start: string, end: string
 }
 
 /** Tudo que está pago, de qualquer data: é o dinheiro que existe. */
-export async function sumPaidTransactions(userId: number) {
+export async function sumPaidTransactions(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
     .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pago")
     ));
   return Number(row?.total ?? 0);
@@ -692,7 +697,7 @@ export async function sumPaidTransactions(userId: number) {
  * venceu e continua em aberto. Atraso não deixa de ser dívida por o mês ter
  * virado.
  */
-export async function sumOpenTitles(userId: number, start: string, end: string, todayIso: string) {
+export async function sumOpenTitles(escopo: Escopo, start: string, end: string, todayIso: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   /*
@@ -714,7 +719,8 @@ export async function sumOpenTitles(userId: number, start: string, end: string, 
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       sql`${financialTransactions.type} <> 'transferencia'`,
       eq(financialTransactions.status, "Pendente"),
       naJanela
@@ -728,7 +734,7 @@ export async function sumOpenTitles(userId: number, start: string, end: string, 
 }
 
 /** Entradas e saídas mês a mês, para o gráfico de nove colunas. */
-export async function sumMonthlyTotals(userId: number, start: string, end: string) {
+export async function sumMonthlyTotals(escopo: Escopo, start: string, end: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   /*
@@ -745,7 +751,8 @@ export async function sumMonthlyTotals(userId: number, start: string, end: strin
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       sql`${financialTransactions.type} <> 'transferencia'`,
       gte(financialTransactions.transactionDate, start),
       lt(financialTransactions.transactionDate, end)
@@ -758,7 +765,7 @@ export async function sumMonthlyTotals(userId: number, start: string, end: strin
 }
 
 /** As categorias que mais entraram dinheiro no período. */
-export async function topRevenueCategories(userId: number, start: string, end: string, limit: number) {
+export async function topRevenueCategories(escopo: Escopo, start: string, end: string, limit: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const total = sql<string>`SUM(${financialTransactions.amount})`;
@@ -766,7 +773,8 @@ export async function topRevenueCategories(userId: number, start: string, end: s
     .select({ label: financialTransactions.category, amount: total })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       sql`${financialTransactions.type} <> 'transferencia'`,
       gt(financialTransactions.amount, "0"),
       gte(financialTransactions.transactionDate, start),
@@ -779,14 +787,15 @@ export async function topRevenueCategories(userId: number, start: string, end: s
 }
 
 /** Os últimos lançamentos que já aconteceram — parcela de 2027 não é recente. */
-export async function listRecentTransactions(userId: number, todayIso: string, limit: number) {
+export async function listRecentTransactions(escopo: Escopo, todayIso: string, limit: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       lte(financialTransactions.transactionDate, todayIso)
     ))
     .orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.id))
@@ -807,7 +816,7 @@ type ColunaDeAgrupamento =
   | typeof financialTransactions.categoryId
   | typeof financialTransactions.costCenterId;
 
-async function statsPorColuna(userId: number, coluna: ColunaDeAgrupamento, somaSoPago: boolean) {
+async function statsPorColuna(escopo: Escopo, coluna: ColunaDeAgrupamento, somaSoPago: boolean) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const soma = somaSoPago
@@ -816,7 +825,7 @@ async function statsPorColuna(userId: number, coluna: ColunaDeAgrupamento, somaS
   const linhas = await db
     .select({ id: coluna, count: sql<number>`COUNT(*)`, total: soma })
     .from(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), isNotNull(coluna)))
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), isNotNull(coluna)))
     .groupBy(coluna);
   const mapa: EstatisticaPorId = new Map();
   for (const linha of linhas) {
@@ -827,7 +836,7 @@ async function statsPorColuna(userId: number, coluna: ColunaDeAgrupamento, somaS
 }
 
 /** Quanto ainda está sem categoria — o aviso da tela de contas e categorias. */
-export async function getUncategorizedSummary(userId: number) {
+export async function getUncategorizedSummary(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
@@ -837,7 +846,8 @@ export async function getUncategorizedSummary(userId: number) {
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       isNull(financialTransactions.categoryId),
       sql`${financialTransactions.type} <> 'transferencia'`
     ));
@@ -845,17 +855,17 @@ export async function getUncategorizedSummary(userId: number) {
 }
 
 /** Movimento por conta: só o que está pago, que é o que forma saldo. */
-export function getTransactionStatsByAccount(userId: number) {
-  return statsPorColuna(userId, financialTransactions.accountId, true);
+export function getTransactionStatsByAccount(escopo: Escopo) {
+  return statsPorColuna(escopo, financialTransactions.accountId, true);
 }
 
 /** Total por categoria: pago e pendente, que é o que a tela mostra. */
-export function getTransactionStatsByCategory(userId: number) {
-  return statsPorColuna(userId, financialTransactions.categoryId, false);
+export function getTransactionStatsByCategory(escopo: Escopo) {
+  return statsPorColuna(escopo, financialTransactions.categoryId, false);
 }
 
-export function getTransactionStatsByCostCenter(userId: number) {
-  return statsPorColuna(userId, financialTransactions.costCenterId, false);
+export function getTransactionStatsByCostCenter(escopo: Escopo) {
+  return statsPorColuna(escopo, financialTransactions.costCenterId, false);
 }
 
 /**
@@ -865,14 +875,15 @@ export function getTransactionStatsByCostCenter(userId: number) {
  * e não é transferência, antes da data. Antes exigia o razão inteiro na memória
  * para somar uma coluna.
  */
-export async function sumPaidBefore(userId: number, date: string) {
+export async function sumPaidBefore(escopo: Escopo, date: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
     .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pago"),
       sql`${financialTransactions.type} <> 'transferencia'`,
       lt(financialTransactions.transactionDate, date)
@@ -892,7 +903,7 @@ export async function sumPaidBefore(userId: number, date: string) {
  * `shared/`, que têm 65 testes em cima. O recorte dá o mesmo ganho sem tocar em
  * lógica testada.
  */
-export async function listLedgerWindow(userId: number, from: string, to: string) {
+export async function listLedgerWindow(escopo: Escopo, from: string, to: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
@@ -909,7 +920,8 @@ export async function listLedgerWindow(userId: number, from: string, to: string)
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       // Pendente de qualquer data entra: atraso continua sendo dívida hoje, e é
       // isso que a tela de títulos lista.
       sql`(${financialTransactions.status} = 'Pendente' OR (${financialTransactions.transactionDate} >= ${from} AND ${financialTransactions.transactionDate} < ${to}))`
@@ -932,9 +944,10 @@ export async function listLedgerWindow(userId: number, from: string, to: string)
  * Transferência fica de fora, como no resto do sistema: mover dinheiro entre
  * contas próprias não é recebimento nem pagamento.
  */
-function liquidadasNoMes(userId: number, from: string, to: string) {
+function liquidadasNoMes(escopo: Escopo, from: string, to: string) {
   return and(
-    eq(financialTransactions.userId, userId),
+    eq(financialTransactions.userId, escopo.userId),
+    eq(financialTransactions.companyId, escopo.companyId),
     eq(financialTransactions.status, "Pago"),
     sql`${financialTransactions.type} <> 'transferencia'`,
     gte(financialTransactions.settledAt, from),
@@ -948,7 +961,7 @@ function liquidadasNoMes(userId: number, from: string, to: string) {
  * O prazo médio sai de `AVG(DATEDIFF(...))` no banco. Calculá-lo em JavaScript
  * exigiria trazer as 6.692 linhas só para dividir uma soma — a lição do 2.7.
  */
-export async function getSettledTotals(userId: number, from: string, to: string) {
+export async function getSettledTotals(escopo: Escopo, from: string, to: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [row] = await db
@@ -966,7 +979,7 @@ export async function getSettledTotals(userId: number, from: string, to: string)
       settledDays: sql<number>`COUNT(DISTINCT ${financialTransactions.settledAt})`,
     })
     .from(financialTransactions)
-    .where(liquidadasNoMes(userId, from, to));
+    .where(liquidadasNoMes(escopo, from, to));
 
   return {
     received: Number(row?.received ?? 0),
@@ -983,7 +996,7 @@ export async function getSettledTotals(userId: number, from: string, to: string)
 }
 
 /** As linhas liquidadas do mês, só com o que as duas visões desenham. */
-export async function listSettledInMonth(userId: number, from: string, to: string) {
+export async function listSettledInMonth(escopo: Escopo, from: string, to: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
@@ -998,18 +1011,18 @@ export async function listSettledInMonth(userId: number, from: string, to: strin
       amount: financialTransactions.amount,
     })
     .from(financialTransactions)
-    .where(liquidadasNoMes(userId, from, to))
+    .where(liquidadasNoMes(escopo, from, to))
     // Mais recente primeiro, como o mockup: o dia de cima é o último movimento.
     .orderBy(desc(financialTransactions.settledAt), desc(financialTransactions.id));
 }
 
 /** Se a conta tem qualquer dado — o que decide se o primeiro acesso aparece. */
-export async function getOnboardingCounts(userId: number) {
+export async function getOnboardingCounts(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const [contas, lancamentos] = await Promise.all([
-    db.select({ n: sql<number>`COUNT(*)` }).from(financialAccounts).where(eq(financialAccounts.userId, userId)),
-    db.select({ n: sql<number>`COUNT(*)` }).from(financialTransactions).where(eq(financialTransactions.userId, userId)),
+    db.select({ n: sql<number>`COUNT(*)` }).from(financialAccounts).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId))),
+    db.select({ n: sql<number>`COUNT(*)` }).from(financialTransactions).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId))),
   ]);
   return { accountCount: Number(contas[0]?.n ?? 0), transactionCount: Number(lancamentos[0]?.n ?? 0) };
 }
@@ -1159,7 +1172,7 @@ export async function deleteCostCenter(escopo: Escopo, id: number) {
  * nenhuma. Meia transferência deixaria o saldo das contas errado.
  */
 export async function createTransferPair(
-  userId: number,
+  escopo: Escopo,
   origin: TransactionValues,
   destination: TransactionValues
 ) {
@@ -1167,53 +1180,53 @@ export async function createTransferPair(
   if (!db) throw new Error("Database is not available");
 
   const ids = await db.transaction(async tx => {
-    const originResult = await tx.insert(financialTransactions).values({ userId, ...origin });
-    const destinationResult = await tx.insert(financialTransactions).values({ userId, ...destination });
+    const originResult = await tx.insert(financialTransactions).values({ userId: escopo.userId, companyId: escopo.companyId, ...origin });
+    const destinationResult = await tx.insert(financialTransactions).values({ userId: escopo.userId, companyId: escopo.companyId, ...destination });
     return [Number(originResult[0].insertId), Number(destinationResult[0].insertId)];
   });
 
-  const rows = await getTransactionsByIds(userId, ids);
+  const rows = await getTransactionsByIds(escopo, ids);
   return rows;
 }
 
-export async function getTransferGroup(userId: number, transferGroupId: string) {
+export async function getTransferGroup(escopo: Escopo, transferGroupId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.transferGroupId, transferGroupId)))
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.transferGroupId, transferGroupId)))
     .orderBy(financialTransactions.amount);
 }
 
 /** Reescreve as duas pernas de uma transferência existente, atomicamente. */
 export async function updateTransferPair(
-  userId: number,
+  escopo: Escopo,
   transferGroupId: string,
   origin: TransactionValues,
   destination: TransactionValues
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const existing = await getTransferGroup(userId, transferGroupId);
+  const existing = await getTransferGroup(escopo, transferGroupId);
   if (existing.length !== 2) return null;
   const [outgoing, incoming] = Number(existing[0].amount) <= Number(existing[1].amount)
     ? [existing[0], existing[1]]
     : [existing[1], existing[0]];
 
   await db.transaction(async tx => {
-    await tx.update(financialTransactions).set(origin).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, outgoing.id)));
-    await tx.update(financialTransactions).set(destination).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.id, incoming.id)));
+    await tx.update(financialTransactions).set(origin).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, outgoing.id)));
+    await tx.update(financialTransactions).set(destination).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, incoming.id)));
   });
-  return getTransferGroup(userId, transferGroupId);
+  return getTransferGroup(escopo, transferGroupId);
 }
 
-export async function deleteTransferGroup(userId: number, transferGroupId: string) {
+export async function deleteTransferGroup(escopo: Escopo, transferGroupId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const result = await db
     .delete(financialTransactions)
-    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.transferGroupId, transferGroupId)));
+    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.transferGroupId, transferGroupId)));
   return Number(result[0].affectedRows ?? 0);
 }
 
@@ -1221,7 +1234,7 @@ export async function deleteTransferGroup(userId: number, transferGroupId: strin
  * Grava uma série inteira numa transação só. Uma série pela metade deixaria o
  * usuário com parcelas faltando no meio e sem sinal de que algo falhou.
  */
-export async function createTransactionSeries(userId: number, rows: TransactionValues[]) {
+export async function createTransactionSeries(escopo: Escopo, rows: TransactionValues[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (rows.length === 0) return [];
@@ -1229,13 +1242,13 @@ export async function createTransactionSeries(userId: number, rows: TransactionV
   const ids = await db.transaction(async tx => {
     const inserted: number[] = [];
     for (const row of rows) {
-      const result = await tx.insert(financialTransactions).values({ userId, ...row });
+      const result = await tx.insert(financialTransactions).values({ userId: escopo.userId, companyId: escopo.companyId, ...row });
       inserted.push(Number(result[0].insertId));
     }
     return inserted;
   });
 
-  return getTransactionsByIds(userId, ids);
+  return getTransactionsByIds(escopo, ids);
 }
 
 /**
@@ -1243,7 +1256,7 @@ export async function createTransactionSeries(userId: number, rows: TransactionV
  * A operação é atômica para nunca deixar uma recorrência criada pela metade.
  */
 export async function materializeTransactionSeries(
-  userId: number,
+  escopo: Escopo,
   existingId: number,
   rows: TransactionValues[],
 ) {
@@ -1256,7 +1269,8 @@ export async function materializeTransactionSeries(
       .update(financialTransactions)
       .set(rows[0])
       .where(and(
-        eq(financialTransactions.userId, userId),
+        eq(financialTransactions.userId, escopo.userId),
+        eq(financialTransactions.companyId, escopo.companyId),
         eq(financialTransactions.id, existingId),
         isNull(financialTransactions.recurrenceGroupId),
       ));
@@ -1266,23 +1280,24 @@ export async function materializeTransactionSeries(
 
     const insertedIds = [existingId];
     for (const row of rows.slice(1)) {
-      const result = await tx.insert(financialTransactions).values({ userId, ...row });
+      const result = await tx.insert(financialTransactions).values({ userId: escopo.userId, companyId: escopo.companyId, ...row });
       insertedIds.push(Number(result[0].insertId));
     }
     return insertedIds;
   });
 
-  return getTransactionsByIds(userId, ids);
+  return getTransactionsByIds(escopo, ids);
 }
 
-export async function getRecurrenceGroup(userId: number, recurrenceGroupId: string) {
+export async function getRecurrenceGroup(escopo: Escopo, recurrenceGroupId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.recurrenceGroupId, recurrenceGroupId)
     ))
     .orderBy(financialTransactions.transactionDate, financialTransactions.id);
@@ -1349,7 +1364,7 @@ export async function getAccountImportSummary(userId: number) {
 }
 
 /** Quantos lançamentos cada conta teve dentro do intervalo. */
-export async function getAccountTransactionCounts(userId: number, startDate: string, endDate: string) {
+export async function getAccountTransactionCounts(escopo: Escopo, startDate: string, endDate: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
@@ -1359,7 +1374,8 @@ export async function getAccountTransactionCounts(userId: number, startDate: str
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       isNotNull(financialTransactions.accountId),
       gte(financialTransactions.transactionDate, startDate),
       lt(financialTransactions.transactionDate, endDate)
@@ -1434,7 +1450,7 @@ export async function getUserPreferences(userId: number) {
  * aparece em todas as páginas e não pode pagar esse preço, então aqui é COUNT
  * no banco.
  */
-export async function countOpenTitles(userId: number, todayIso: string, monthLastDay: string) {
+export async function countOpenTitles(escopo: Escopo, todayIso: string, monthLastDay: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -1445,7 +1461,8 @@ export async function countOpenTitles(userId: number, todayIso: string, monthLas
     })
     .from(financialTransactions)
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pendente"),
       sql`${financialTransactions.type} <> 'transferencia'`,
       // A mesma janela da tela de títulos: o mês corrente mais o que já venceu.
@@ -1469,13 +1486,13 @@ export async function saveUserPreferences(userId: number, values: Omit<InsertUse
   return getUserPreferences(userId);
 }
 
-export async function getTransactionsByFingerprints(userId: number, fingerprints: string[]) {
+export async function getTransactionsByFingerprints(escopo: Escopo, fingerprints: string[]) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   if (!fingerprints.length) return [];
   const results: Array<{ fingerprint: string | null }> = [];
   for (const chunk of chunkImportRows(Array.from(new Set(fingerprints)))) {
-    results.push(...await db.select({ fingerprint: financialTransactions.fingerprint }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), inArray(financialTransactions.fingerprint, chunk))));
+    results.push(...await db.select({ fingerprint: financialTransactions.fingerprint }).from(financialTransactions).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), inArray(financialTransactions.fingerprint, chunk))));
   }
   return results;
 }
@@ -1520,7 +1537,7 @@ export async function listReconciliationLinks(userId: number, movementIds: numbe
  * movimentação. Só eles podem ser sugeridos: oferecer um lançamento já
  * conciliado seria propor conciliar a mesma coisa duas vezes.
  */
-export async function listUnlinkedTransactions(userId: number, accountId: number, start: string, end: string) {
+export async function listUnlinkedTransactions(escopo: Escopo, accountId: number, start: string, end: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
@@ -1537,7 +1554,8 @@ export async function listUnlinkedTransactions(userId: number, accountId: number
     .from(financialTransactions)
     .leftJoin(reconciliationLinks, eq(reconciliationLinks.transactionId, financialTransactions.id))
     .where(and(
-      eq(financialTransactions.userId, userId),
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.accountId, accountId),
       gte(financialTransactions.transactionDate, start),
       lte(financialTransactions.transactionDate, end),

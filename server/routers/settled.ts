@@ -1,5 +1,6 @@
 import { roundCurrency } from "@shared/currency";
 import { z } from "zod";
+import { escopoDe } from "../escopo";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
@@ -40,8 +41,8 @@ export const settledRouter = router({
      * TiDB, e a agregação inteira custa menos que uma delas — a lição do 2.7.
      */
     const [totals, items] = await Promise.all([
-      db.getSettledTotals(ctx.user.id, from, to),
-      db.listSettledInMonth(ctx.user.id, from, to),
+      db.getSettledTotals(escopoDe(ctx), from, to),
+      db.listSettledInMonth(escopoDe(ctx), from, to),
     ]);
 
     const received = roundCurrency(totals.received);

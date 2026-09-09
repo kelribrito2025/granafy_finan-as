@@ -100,7 +100,7 @@ export const reconciliationRouter = router({
       // A janela de candidatos passa dos limites do mês: um lançamento do dia 30
       // pode parear com uma movimentação do dia 2 do mês seguinte.
       db.listUnlinkedTransactions(
-        ctx.user.id,
+        escopoDe(ctx),
         account.id,
         addDays(start, -MAX_DATE_DISTANCE_DAYS),
         addDays(end, MAX_DATE_DISTANCE_DAYS)
@@ -112,7 +112,7 @@ export const reconciliationRouter = router({
 
     const links = await db.listReconciliationLinks(ctx.user.id, movements.map(movement => movement.id));
     const linkedTransactionIds = Array.from(new Set(links.map(link => link.transactionId)));
-    const linkedTransactions = await db.getTransactionsByIds(ctx.user.id, linkedTransactionIds);
+    const linkedTransactions = await db.getTransactionsByIds(escopoDe(ctx), linkedTransactionIds);
     const transactionById = new Map(linkedTransactions.map(transaction => [transaction.id, transaction]));
     const linkByMovement = new Map(links.map(link => [link.movementId, link]));
 
@@ -178,7 +178,7 @@ export const reconciliationRouter = router({
      * conta até a data-base do extrato. Pendente não passou pelo banco, então
      * incluí-lo criaria uma diferença que não existe.
      */
-    const balances = await db.getAccountBalances(ctx.user.id, statement?.asOf ?? end);
+    const balances = await db.getAccountBalances(escopoDe(ctx), statement?.asOf ?? end);
     const systemBalance = Number(account.initialBalance) + (balances.get(account.id) ?? 0);
     const difference = statement ? Math.round((statement.balance - systemBalance) * 100) / 100 : null;
 
@@ -233,7 +233,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Esta movimentação já está conciliada" });
       }
 
-      const [transaction] = await db.getTransactionsByIds(ctx.user.id, [input.transactionId]);
+      const [transaction] = await db.getTransactionsByIds(escopoDe(ctx), [input.transactionId]);
       if (!transaction) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
       /*
@@ -293,7 +293,7 @@ export const reconciliationRouter = router({
 
       const [candidateRows, rules, existingLinks] = await Promise.all([
         db.listUnlinkedTransactions(
-          ctx.user.id,
+          escopoDe(ctx),
           accountId,
           addDays(dates[0], -MAX_DATE_DISTANCE_DAYS),
           addDays(dates[dates.length - 1], MAX_DATE_DISTANCE_DAYS)
@@ -507,7 +507,7 @@ export const reconciliationRouter = router({
       const total = movements.reduce((sum, movement) => sum + Number(movement.amount), 0);
       const dates = movements.map(movement => movement.movementDate).sort();
       const rows = await db.listUnlinkedTransactions(
-        ctx.user.id,
+        escopoDe(ctx),
         movements[0].accountId,
         addDays(dates[0], -MAX_DATE_DISTANCE_DAYS),
         addDays(dates[dates.length - 1], MAX_DATE_DISTANCE_DAYS)
@@ -545,7 +545,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Desfaça a conciliação das movimentações antes de agrupar" });
       }
 
-      const [transaction] = await db.getTransactionsByIds(ctx.user.id, [input.transactionId]);
+      const [transaction] = await db.getTransactionsByIds(escopoDe(ctx), [input.transactionId]);
       if (!transaction) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
       const total = movements.reduce((sum, movement) => sum + Number(movement.amount), 0);
@@ -591,7 +591,7 @@ export const reconciliationRouter = router({
      * o dinheiro, mas não o coloca no saldo do sistema.
      */
     const responsaveis = movements.filter(movement => !conciliadas.has(movement.id));
-    const balances = await db.getAccountBalances(ctx.user.id, statement?.asOf ?? end);
+    const balances = await db.getAccountBalances(escopoDe(ctx), statement?.asOf ?? end);
     const systemBalance = Number(account.initialBalance) + (balances.get(account.id) ?? 0);
 
     return {
@@ -665,7 +665,7 @@ export const reconciliationRouter = router({
       throw new TRPCError({ code: "BAD_REQUEST", message: "Importe um extrato que declare o saldo para poder fechar o mês" });
     }
 
-    const balances = await db.getAccountBalances(ctx.user.id, statement.asOf);
+    const balances = await db.getAccountBalances(escopoDe(ctx), statement.asOf);
     const systemBalance = Number(account.initialBalance) + (balances.get(account.id) ?? 0);
     const difference = Math.round((statement.balance - systemBalance) * 100) / 100;
     if (difference !== 0) {
@@ -725,7 +725,7 @@ export const reconciliationRouter = router({
     const [movements, candidateRows, rules] = await Promise.all([
       db.listBankMovements(ctx.user.id, account.id, start, end),
       db.listUnlinkedTransactions(
-        ctx.user.id,
+        escopoDe(ctx),
         account.id,
         addDays(start, -MAX_DATE_DISTANCE_DAYS),
         addDays(end, MAX_DATE_DISTANCE_DAYS)

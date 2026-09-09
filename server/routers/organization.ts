@@ -121,13 +121,13 @@ export const organizationRouter = router({
       db.listFinancialAccounts(escopoDe(ctx)),
       db.listTransactionCategories(escopoDe(ctx)),
       db.listCostCenters(escopoDe(ctx)),
-      db.getTransactionStatsByAccount(ctx.user.id),
-      db.getTransactionStatsByCategory(ctx.user.id),
-      db.getTransactionStatsByCostCenter(ctx.user.id),
-      db.getUncategorizedSummary(ctx.user.id),
+      db.getTransactionStatsByAccount(escopoDe(ctx)),
+      db.getTransactionStatsByCategory(escopoDe(ctx)),
+      db.getTransactionStatsByCostCenter(escopoDe(ctx)),
+      db.getUncategorizedSummary(escopoDe(ctx)),
       db.listImportBatches(ctx.user.id),
       db.getAccountImportSummary(ctx.user.id),
-      db.getAccountTransactionCounts(ctx.user.id, monthStart, nextMonth),
+      db.getAccountTransactionCounts(escopoDe(ctx), monthStart, nextMonth),
     ]);
 
     return {
@@ -165,7 +165,7 @@ export const organizationRouter = router({
   accountBalances: protectedProcedure.query(async ({ ctx }) => {
     const [accounts, balances] = await Promise.all([
       db.listFinancialAccounts(escopoDe(ctx)),
-      db.getAccountBalances(ctx.user.id),
+      db.getAccountBalances(escopoDe(ctx)),
     ]);
     return accounts
       .filter(account => account.isActive)

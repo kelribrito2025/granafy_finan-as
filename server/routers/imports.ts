@@ -60,7 +60,7 @@ export const importsRouter = router({
         entrada: findCompatibleImportCategory(activeCategories, "entrada", input.incomeCategoryId),
         saida: findCompatibleImportCategory(activeCategories, "saida", input.expenseCategoryId),
       };
-      const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, parsed.map(row => row.fingerprint))).map(row => row.fingerprint));
+      const existing = new Set((await db.getTransactionsByFingerprints(escopoDe(ctx), parsed.map(row => row.fingerprint))).map(row => row.fingerprint));
       const seen = new Set<string>();
       let duplicateCount = 0;
       // As regras rodam na prévia, não na confirmação: assim o usuário vê o que
@@ -152,7 +152,7 @@ export const importsRouter = router({
     }
     const costCenterMap = new Map(costCenters.map(item => [item!.id, item!]));
 
-    const existing = new Set((await db.getTransactionsByFingerprints(ctx.user.id, input.rows.map(row => row.fingerprint))).map(row => row.fingerprint));
+    const existing = new Set((await db.getTransactionsByFingerprints(escopoDe(ctx), input.rows.map(row => row.fingerprint))).map(row => row.fingerprint));
     const seen = new Set<string>();
     const uniqueRows = input.rows.filter(row => {
       if (existing.has(row.fingerprint) || seen.has(row.fingerprint)) return false;

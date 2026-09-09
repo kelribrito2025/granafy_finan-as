@@ -1,3 +1,4 @@
+import { escopoDe } from "../escopo";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { shouldShowOnboarding } from "../onboarding";
@@ -14,7 +15,7 @@ export const onboardingRouter = router({
   status: protectedProcedure.query(async ({ ctx }) => {
     const [record, counts] = await Promise.all([
       db.getUserRecordById(ctx.user.id),
-      db.getOnboardingCounts(ctx.user.id),
+      db.getOnboardingCounts(escopoDe(ctx)),
     ]);
     return {
       show: shouldShowOnboarding({

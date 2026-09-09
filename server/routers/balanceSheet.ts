@@ -150,7 +150,7 @@ async function calculatePosition(escopo: Escopo, referenceDate: string) {
     db.listFinancialAccounts(escopo),
     // O saldo por conta vem somado do banco. Trazer o razão inteiro para fazer
     // a mesma soma em memória custava quase meio segundo por abertura da tela.
-    db.getAccountBalances(escopo.userId, referenceDate),
+    db.getAccountBalances(escopo, referenceDate),
   ]);
   const calculatedItems = calculatePatrimonialItems(items, referenceDate);
   const financial = summarizeAccountPositions(accounts, balances);

@@ -87,12 +87,12 @@ function toTitleRow(record: Record_): TitleRow {
  * em cada dia da série e sairia no CSV multiplicada.
  */
 async function openingBalance(
-  userId: number,
+  escopo: Escopo,
   accounts: Awaited<ReturnType<typeof db.listFinancialAccounts>>,
   date: string
 ) {
   const initial = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
-  return roundCurrency(initial + await db.sumPaidBefore(userId, date));
+  return roundCurrency(initial + await db.sumPaidBefore(escopo, date));
 }
 
 /*
@@ -105,7 +105,7 @@ async function openingBalance(
  */
 async function loadLedger(escopo: Escopo, from: string, to: string) {
   const [records, accounts] = await Promise.all([
-    db.listLedgerWindow(escopo.userId, from, to),
+    db.listLedgerWindow(escopo, from, to),
     db.listFinancialAccounts(escopo),
   ]);
   return { records, accounts };
@@ -116,7 +116,7 @@ export const payablesRouter = router({
   badges: protectedProcedure.query(async ({ ctx }) => {
     const today = await userToday(ctx.user.id);
     const [year, month] = today.split("-").map(Number);
-    return db.countOpenTitles(ctx.user.id, today, lastDayOf(year, month));
+    return db.countOpenTitles(escopoDe(ctx), today, lastDayOf(year, month));
   }),
 
 
@@ -141,7 +141,7 @@ export const payablesRouter = router({
     );
 
     const view = buildPayablesView(inScope.map(toTitleRow), today);
-    const opening = await openingBalance(ctx.user.id, accounts, start);
+    const opening = await openingBalance(escopoDe(ctx), accounts, start);
     const flow = buildDailyFlow(records.map(toFlowRow), { opening, start, end, todayIso: today });
 
     return {
@@ -172,14 +172,14 @@ export const cashflowRouter = router({
       const rows = records.map(toFlowRow);
 
       const flow = buildDailyFlow(rows, {
-        opening: await openingBalance(ctx.user.id, accounts, start),
+        opening: await openingBalance(escopoDe(ctx), accounts, start),
         start,
         end,
         todayIso: today,
       });
 
       // O saldo de hoje é caixa de verdade: só o que está pago, sem projeção.
-      const cashToday = await openingBalance(ctx.user.id, accounts, addOneDay(today));
+      const cashToday = await openingBalance(escopoDe(ctx), accounts, addOneDay(today));
       const next = proximo;
       const nextFlow = buildDailyFlow(rows, {
         opening: flow.closing,
@@ -225,7 +225,7 @@ export const cashflowRouter = router({
       );
 
       const columns = buildMonthlyFlow(records.map(toFlowRow), {
-        opening: await openingBalance(ctx.user.id, accounts, monthStart(first.year, first.month)),
+        opening: await openingBalance(escopoDe(ctx), accounts, monthStart(first.year, first.month)),
         months,
         todayIso: today,
       });
@@ -234,7 +234,7 @@ export const cashflowRouter = router({
       const averageOutflow = realized.length > 0
         ? roundCurrency(realized.reduce((sum, column) => sum + column.outgoing, 0) / realized.length)
         : 0;
-      const cashToday = await openingBalance(ctx.user.id, accounts, addOneDay(today));
+      const cashToday = await openingBalance(escopoDe(ctx), accounts, addOneDay(today));
 
       return {
         span: input.span,

@@ -346,9 +346,9 @@ export const transactionsRouter = router({
   list: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
     const { start, end } = periodBounds(input.year, input.month);
     const [records, previousTotal, accounts] = await Promise.all([
-      db.listTransactionsByPeriod(ctx.user.id, start, end),
+      db.listTransactionsByPeriod(escopoDe(ctx), start, end),
       // Só o total interessa aqui; a lista inteira era baixada para somar uma coluna.
-      db.sumTransactionsBefore(ctx.user.id, start),
+      db.sumTransactionsBefore(escopoDe(ctx), start),
       db.listFinancialAccounts(escopoDe(ctx)),
     ]);
     const initialBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
@@ -392,12 +392,12 @@ export const transactionsRouter = router({
 
     const [accounts, windowTotals, paidTotal, openTitles, monthlyTotals, revenueByCategory, recent] = await Promise.all([
       db.listFinancialAccounts(escopoDe(ctx)),
-      db.sumWindowTotals(ctx.user.id, start, end),
-      db.sumPaidTransactions(ctx.user.id),
-      db.sumOpenTitles(ctx.user.id, start, end, todayString),
-      db.sumMonthlyTotals(ctx.user.id, monthlyStart, monthlyEnd),
-      db.topRevenueCategories(ctx.user.id, start, end, 4),
-      db.listRecentTransactions(ctx.user.id, todayString, 5),
+      db.sumWindowTotals(escopoDe(ctx), start, end),
+      db.sumPaidTransactions(escopoDe(ctx)),
+      db.sumOpenTitles(escopoDe(ctx), start, end, todayString),
+      db.sumMonthlyTotals(escopoDe(ctx), monthlyStart, monthlyEnd),
+      db.topRevenueCategories(escopoDe(ctx), start, end, 4),
+      db.listRecentTransactions(escopoDe(ctx), todayString, 5),
     ]);
 
     const currentSummary = {
@@ -460,7 +460,7 @@ export const transactionsRouter = router({
     // linhas por vários meses e contas, e qualquer uma delas pode cair no mês
     // fechado. Conferir só a data digitada deixaria as parcelas passarem.
     await assertPeriodsOpen(escopoDe(ctx), rows.map(row => ({ accountId: row.accountId ?? null, date: row.transactionDate })));
-    const records = await db.createTransactionSeries(ctx.user.id, rows);
+    const records = await db.createTransactionSeries(escopoDe(ctx), rows);
     if (records.length !== rows.length) {
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
     }
@@ -471,7 +471,7 @@ export const transactionsRouter = router({
 
   update: protectedProcedure.input(transactionUpdateSchema).mutation(async ({ ctx, input }) => {
     const { id, scope, ...values } = input;
-    const existing = await db.getTransactionById(ctx.user.id, id);
+    const existing = await db.getTransactionById(escopoDe(ctx), id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
     /*
@@ -499,7 +499,7 @@ export const transactionsRouter = router({
     // pernas vinculadas.
     if (shouldMaterializeRecurrence(existing, values)) {
       const rows = await buildRowsForCreate(escopoDe(ctx), values, todayIso);
-      const records = await db.materializeTransactionSeries(ctx.user.id, id, rows);
+      const records = await db.materializeTransactionSeries(escopoDe(ctx), id, rows);
       if (records.length !== rows.length) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar todas as parcelas" });
       }
@@ -517,7 +517,7 @@ export const transactionsRouter = router({
     // seguintes muda o conteúdo do lançamento, não o calendário nem o que já
     // foi quitado.
     const seriesId = scope === "following" ? existing.recurrenceGroupId : null;
-    const group = seriesId ? await db.getRecurrenceGroup(ctx.user.id, seriesId) : [];
+    const group = seriesId ? await db.getRecurrenceGroup(escopoDe(ctx), seriesId) : [];
     const targets = seriesId ? selectSeriesTargets(group, existing) : [existing];
 
     if (wasTransfer) {
@@ -542,14 +542,14 @@ export const transactionsRouter = router({
           recurringMonths: month.recurringMonths,
         };
         const updated = await db.updateTransferPair(
-          ctx.user.id,
+          escopoDe(ctx),
           transferGroupId,
           { ...legs.origin, ...shared },
           { ...legs.destination, ...shared }
         );
         if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Transferência incompleta no banco" });
       }
-      const refreshed = await db.getTransactionById(ctx.user.id, id);
+      const refreshed = await db.getTransactionById(escopoDe(ctx), id);
       if (!refreshed) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
       return { ...toTransaction(refreshed), updatedCount: targets.length };
     }
@@ -563,7 +563,7 @@ export const transactionsRouter = router({
 
     for (const target of targets) {
       const isClicked = target.id === existing.id;
-      await db.updateTransaction(ctx.user.id, target.id, {
+      await db.updateTransaction(escopoDe(ctx), target.id, {
         ...normalized,
         transactionDate: isClicked ? values.transactionDate : target.transactionDate,
         status: isClicked ? values.status : target.status,
@@ -580,17 +580,17 @@ export const transactionsRouter = router({
       });
     }
 
-    const record = await db.getTransactionById(ctx.user.id, id);
+    const record = await db.getTransactionById(escopoDe(ctx), id);
     if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
     return { ...toTransaction(record), updatedCount: targets.length };
   }),
 
   duplicate: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-    const existing = await db.getTransactionById(ctx.user.id, input.id);
+    const existing = await db.getTransactionById(escopoDe(ctx), input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
     if (existing.transferGroupId) {
-      const group = await db.getTransferGroup(ctx.user.id, existing.transferGroupId);
+      const group = await db.getTransferGroup(escopoDe(ctx), existing.transferGroupId);
       if (group.length !== 2) throw new TRPCError({ code: "CONFLICT", message: "Transferência incompleta no banco" });
       const transferGroupId = randomUUID();
       const copyLeg = (record: TransactionRecord) => ({
@@ -613,12 +613,12 @@ export const transactionsRouter = router({
       const [outgoing, incoming] = Number(group[0].amount) <= Number(group[1].amount)
         ? [group[0], group[1]]
         : [group[1], group[0]];
-      const records = await db.createTransferPair(ctx.user.id, copyLeg(outgoing), copyLeg(incoming));
+      const records = await db.createTransferPair(escopoDe(ctx), copyLeg(outgoing), copyLeg(incoming));
       if (records.length !== 2) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível duplicar a transferência" });
       return toTransaction(records.find(record => Number(record.amount) < 0) ?? records[0]);
     }
 
-    const record = await db.createTransaction(ctx.user.id, {
+    const record = await db.createTransaction(escopoDe(ctx), {
       type: existing.type,
       transactionDate: existing.transactionDate,
       description: `${existing.description} (cópia)`.slice(0, 180),
@@ -651,7 +651,7 @@ export const transactionsRouter = router({
    * aconteceu mais.
    */
   toggleStatus: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-    const existing = await db.getTransactionById(ctx.user.id, input.id);
+    const existing = await db.getTransactionById(escopoDe(ctx), input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
     const status = existing.status === "Pago" ? "Pendente" as const : "Pago" as const;
@@ -664,14 +664,14 @@ export const transactionsRouter = router({
 
     // Uma perna paga e a outra pendente descasaria o saldo das duas contas.
     if (existing.transferGroupId) {
-      const group = await db.getTransferGroup(ctx.user.id, existing.transferGroupId);
-      await db.updateTransactions(ctx.user.id, group.map(record => record.id), { status, settledAt });
-      const refreshed = await db.getTransactionById(ctx.user.id, input.id);
+      const group = await db.getTransferGroup(escopoDe(ctx), existing.transferGroupId);
+      await db.updateTransactions(escopoDe(ctx), group.map(record => record.id), { status, settledAt });
+      const refreshed = await db.getTransactionById(escopoDe(ctx), input.id);
       if (!refreshed) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
       return toTransaction(refreshed);
     }
 
-    const record = await db.updateTransaction(ctx.user.id, input.id, {
+    const record = await db.updateTransaction(escopoDe(ctx), input.id, {
       type: existing.type,
       transactionDate: existing.transactionDate,
       description: existing.description,
@@ -694,7 +694,7 @@ export const transactionsRouter = router({
     changes: bulkUpdateChangesSchema,
   })).mutation(async ({ ctx, input }) => {
     const ids = Array.from(new Set(input.ids));
-    const records = await db.getTransactionsByIds(ctx.user.id, ids);
+    const records = await db.getTransactionsByIds(escopoDe(ctx), ids);
     if (records.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum lançamento selecionado foi encontrado" });
 
     const transferCount = records.filter(record => record.transferGroupId).length;
@@ -741,7 +741,7 @@ export const transactionsRouter = router({
       values.category = category.name;
     }
 
-    const updatedCount = await db.updateTransactions(ctx.user.id, ids, values);
+    const updatedCount = await db.updateTransactions(escopoDe(ctx), ids, values);
     return { success: true, requestedCount: ids.length, matchedCount: records.length, updatedCount } as const;
   }),
 
@@ -799,23 +799,23 @@ export const transactionsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), scope: seriesScopeSchema }))
     .mutation(async ({ ctx, input }) => {
-      const existing = await db.getTransactionById(ctx.user.id, input.id);
+      const existing = await db.getTransactionById(escopoDe(ctx), input.id);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
       await assertPeriodsOpen(escopoDe(ctx), [{ accountId: existing.accountId, date: existing.transactionDate }]);
 
       if (input.scope === "following" && existing.recurrenceGroupId) {
-        const group = await db.getRecurrenceGroup(ctx.user.id, existing.recurrenceGroupId);
+        const group = await db.getRecurrenceGroup(escopoDe(ctx), existing.recurrenceGroupId);
         const ids = selectSeriesTargets(group, existing).map(record => record.id);
-        const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
+        const deletedCount = await db.deleteTransactions(escopoDe(ctx), ids);
         return { success: true, deletedCount } as const;
       }
 
       // Apagar só uma perna deixaria o saldo de uma das contas errado para sempre.
       if (existing.transferGroupId) {
-        const deletedCount = await db.deleteTransferGroup(ctx.user.id, existing.transferGroupId);
+        const deletedCount = await db.deleteTransferGroup(escopoDe(ctx), existing.transferGroupId);
         return { success: true, deletedCount } as const;
       }
-      await db.deleteTransaction(ctx.user.id, input.id);
+      await db.deleteTransaction(escopoDe(ctx), input.id);
       return { success: true, deletedCount: 1 } as const;
     }),
 
@@ -823,9 +823,9 @@ export const transactionsRouter = router({
     ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_DELETE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
   })).mutation(async ({ ctx, input }) => {
     const ids = Array.from(new Set(input.ids));
-    const alvos = await db.getTransactionsByIds(ctx.user.id, ids);
+    const alvos = await db.getTransactionsByIds(escopoDe(ctx), ids);
     await assertPeriodsOpen(escopoDe(ctx), alvos.map(record => ({ accountId: record.accountId, date: record.transactionDate })));
-    const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
+    const deletedCount = await db.deleteTransactions(escopoDe(ctx), ids);
     return { success: true, requestedCount: ids.length, deletedCount } as const;
   }),
 });

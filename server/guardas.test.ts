@@ -28,9 +28,15 @@ import { describe, expect, it } from "vitest";
 const CAMINHO = path.resolve(import.meta.dirname, "db.ts");
 const FONTE = readFileSync(CAMINHO, "utf8");
 
-/** Cada função exportada do `db.ts`, com o corpo até a próxima. */
+/**
+ * Cada função do `db.ts`, com o corpo até a próxima.
+ *
+ * Exportada ou não: `statsPorColuna` e `liquidadasNoMes` são internas e carregam
+ * guarda de verdade — três e duas funções públicas delegam a elas. Enquanto a
+ * extração só olhava para `export`, essas duas guardas ficavam fora da rede.
+ */
 function funcoesDe(fonte: string) {
-  const achados = [...fonte.matchAll(/\nexport (?:async )?function (\w+)\(([^)]*)/g)];
+  const achados = [...fonte.matchAll(/\n(?:export )?(?:async )?function (\w+)\(([^)]*)/g)];
   return achados.map((achado, indice) => ({
     nome: achado[1]!,
     assinatura: achado[2]!,
@@ -68,10 +74,14 @@ describe("invariante das guardas de isolamento em db.ts", () => {
     /*
      * Trocar a assinatura e esquecer o corpo deixaria a consulta sem guarda
      * nenhuma — e `tsc` só reclamaria se o nome antigo tivesse sumido.
+     *
+     * Repassar o escopo inteiro para um ajudante conta como usar: é o que
+     * `getSettledTotals` faz com `liquidadasNoMes(escopo, …)`. O ajudante entra
+     * na mesma lista e responde pelas próprias guardas.
      */
     const mudas = funcoes
       .filter(f => f.assinatura.includes("escopo: Escopo"))
-      .filter(f => !f.corpo.includes("escopo.userId") && !f.corpo.includes("escopo.companyId"))
+      .filter(f => !/\bescopo\b/.test(f.corpo.slice(f.corpo.indexOf(")"))))
       .map(f => f.nome);
 
     expect(mudas).toEqual([]);

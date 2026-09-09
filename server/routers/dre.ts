@@ -6,6 +6,7 @@ import {
   type DreRow,
 } from "@shared/dre";
 import { addDays, calculateItemBookValue, roundCurrency } from "../balanceSheet";
+import { escopoDe } from "../escopo";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
@@ -107,7 +108,7 @@ export const dreRouter = router({
     const previous = shiftMonth(input.year, input.month, -1);
     const [records, items, snapshots] = await Promise.all([
       db.listTransactionsByPeriod(
-        ctx.user.id,
+        escopoDe(ctx),
         monthStart(previous.year, previous.month),
         monthEnd(input.year, input.month)
       ),
@@ -161,7 +162,7 @@ export const dreRouter = router({
       const first = shiftMonth(input.year, input.month, -(input.span - 1));
       const [records, items] = await Promise.all([
         db.listTransactionsByPeriod(
-          ctx.user.id,
+          escopoDe(ctx),
           monthStart(first.year, first.month),
           monthEnd(input.year, input.month)
         ),
