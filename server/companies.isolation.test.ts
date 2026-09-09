@@ -1,6 +1,6 @@
 import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { esquecerBancoDeTeste, listCompanies, usarBancoDeTesteEm } from "./db";
+import { ensureDefaultCompany, esquecerBancoDeTeste, getCompanyProfile, listCompanies, saveCompanyProfile, usarBancoDeTesteEm } from "./db";
 import {
   conectarNoBancoDeTeste,
   limparTabelas,
@@ -25,6 +25,7 @@ const ANA = 9_000_001;
 const BRUNO = 9_000_002;
 
 const TABELAS = ["companyProfiles", "users"] as const;
+const DONOS = [ANA, BRUNO] as const;
 
 async function semear(conexao: Connection) {
   for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"]] as const) {
@@ -39,9 +40,18 @@ async function semear(conexao: Connection) {
    * distinguir a empresa da Ana da do Bruno a não ser o dono. É o pior caso
    * para a guarda, e por isso é o caso que interessa.
    */
+  /*
+   * O id do Bruno é o MENOR de propósito.
+   *
+   * `getCompanyProfile` e `garantirEmpresaPadrao` ordenam por (sortOrder, id) e
+   * pegam a primeira. Se a guarda de dono sumir, a primeira do banco inteiro
+   * passa a ser a do Bruno — e é isso que faz a mutação virar vermelho em vez de
+   * passar por acaso. Com o id da Ana menor, apagar a guarda devolveria a dela
+   * do mesmo jeito e o teste não provaria nada.
+   */
   const empresas: Array<[number, number, string, number, boolean]> = [
-    [1, ANA, "Numero Virtual LTDA", 0, true],
-    [2, BRUNO, "Numero Virtual LTDA", 0, true],
+    [1, BRUNO, "Numero Virtual LTDA", 0, true],
+    [2, ANA, "Numero Virtual LTDA", 0, true],
   ];
   for (const [id, userId, razao, ordem, ativa] of empresas) {
     await conexao.query(
@@ -54,6 +64,11 @@ async function semear(conexao: Connection) {
 describe.runIf(temBancoDeTeste())("isolamento de listCompanies", () => {
   let conexao: Connection;
 
+  const contarEmpresas = async () => {
+    const [linhas] = await conexao.query("SELECT COUNT(*) AS n FROM companyProfiles");
+    return Number((linhas as Array<{ n: number }>)[0]!.n);
+  };
+
   beforeAll(async () => {
     conexao = await conectarNoBancoDeTeste();
     await prepararSchemaDeTeste(conexao);
@@ -61,12 +76,13 @@ describe.runIf(temBancoDeTeste())("isolamento de listCompanies", () => {
   }, 60_000);
 
   afterAll(async () => {
+    await limparTabelas(conexao, TABELAS, DONOS);
     await esquecerBancoDeTeste();
     await conexao?.end();
   });
 
   beforeEach(async () => {
-    await limparTabelas(conexao, TABELAS);
+    await limparTabelas(conexao, TABELAS, DONOS);
     await semear(conexao);
   });
 
@@ -102,6 +118,36 @@ describe.runIf(temBancoDeTeste())("isolamento de listCompanies", () => {
     const daAna = await listCompanies(ANA);
     expect(daAna).toHaveLength(1);
     expect(daAna[0]?.isActive).toBe(false);
+  });
+
+  it("getCompanyProfile devolve a empresa do dono, nunca a primeira do banco", async () => {
+    /*
+     * Dívida apontada pelo varredor de mutação: esta guarda não tinha prova
+     * nenhuma desde a Fase 1. Apagar `eq(companyProfiles.userId, userId)` fazia
+     * a função devolver a empresa do Bruno para a Ana, e nada ficava vermelho.
+     */
+    const daAna = await getCompanyProfile(ANA);
+    expect(daAna?.userId).toBe(ANA);
+    const doBruno = await getCompanyProfile(BRUNO);
+    expect(doBruno?.userId).toBe(BRUNO);
+    expect(daAna?.id).not.toBe(doBruno?.id);
+  });
+
+  it("saveCompanyProfile grava na empresa do dono e não encosta na do outro", async () => {
+    const antes = await getCompanyProfile(BRUNO);
+    await saveCompanyProfile(ANA, { legalName: "Só da Ana" } as never);
+
+    expect((await getCompanyProfile(ANA))?.legalName).toBe("Só da Ana");
+    // A do Bruno segue intacta, inclusive quando ele é o primeiro do banco.
+    expect((await getCompanyProfile(BRUNO))?.legalName).toBe(antes?.legalName);
+  });
+
+  it("ensureDefaultCompany devolve a empresa do dono, e não cria outra", async () => {
+    const antes = await contarEmpresas();
+    const idDaAna = await ensureDefaultCompany(ANA);
+    expect(idDaAna).toBe((await getCompanyProfile(ANA))?.id);
+    expect(idDaAna).not.toBe((await getCompanyProfile(BRUNO))?.id);
+    expect(await contarEmpresas()).toBe(antes);
   });
 
   /*

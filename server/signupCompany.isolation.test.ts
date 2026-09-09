@@ -21,26 +21,68 @@ import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoD
 
 const TABELAS = ["transactionCategories", "companyProfiles", "users"] as const;
 
+/*
+ * Esta suíte não tem faixa fixa: os ids vêm do auto-incremento, porque o que
+ * ela testa é justamente o CADASTRO criando a conta. Então ela anota quem criou
+ * e limpa exatamente isso — mesmo contrato das outras, por outro caminho.
+ */
+const criados: number[] = [];
+
+/*
+ * Os e-mails que esta suíte usa. Ficam listados porque o `users.email` é único:
+ * sobra de uma execução anterior colide no insert, e o teste morre por um
+ * motivo que não tem nada a ver com o que ele prova.
+ *
+ * Isso apareceu ao trocar a limpeza de "varre a tabela" para "limpa a própria
+ * faixa": o lixo que a versão antiga escondia ficou visível na hora. Faxina de
+ * uma vez, no início da suíte.
+ */
+const EMAILS = [
+  "nova@teste.local", "outra@teste.local", "p@teste.local",
+  "s@teste.local", "t@teste.local", "volta@teste.local",
+] as const;
+
+async function faxinaInicial(c: Connection) {
+  const marcas = EMAILS.map(() => "?").join(", ");
+  const [linhas] = await c.query(`SELECT id FROM users WHERE email IN (${marcas})`, [...EMAILS]);
+  const ids = (linhas as Array<{ id: number }>).map(l => l.id);
+  if (ids.length > 0) await limparTabelas(c, TABELAS, ids);
+}
+
+async function cadastrar(input: { email: string; name: string; passwordHash: string }) {
+  const usuario = await createLocalUser(input);
+  criados.push(usuario.id);
+  return usuario;
+}
+
+async function limparOsCriados(c: Connection) {
+  if (criados.length === 0) return;
+  await limparTabelas(c, TABELAS, criados);
+  criados.length = 0;
+}
+
 describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () => {
   let c: Connection;
 
   beforeAll(async () => {
     c = await conectarNoBancoDeTeste();
     await prepararSchemaDeTeste(c);
+    await faxinaInicial(c);
     await usarBancoDeTesteEm(process.env.TEST_DATABASE_URL!);
   }, 60_000);
 
   afterAll(async () => {
+    await limparOsCriados(c);
     await esquecerBancoDeTeste();
     await c?.end();
   });
 
   beforeEach(async () => {
-    await limparTabelas(c, TABELAS);
+    await limparOsCriados(c);
   });
 
   it("a conta nova nasce com exatamente uma empresa", async () => {
-    const usuario = await createLocalUser({
+    const usuario = await cadastrar({
       email: "nova@teste.local",
       name: "Conta Nova",
       passwordHash: "hash",
@@ -56,7 +98,7 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
   });
 
   it("nenhuma categoria-padrão nasce sem empresa", async () => {
-    const usuario = await createLocalUser({
+    const usuario = await cadastrar({
       email: "outra@teste.local",
       name: "Outra Conta",
       passwordHash: "hash",
@@ -75,8 +117,8 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
      * a última criada, por exemplo — as categorias da primeira apontariam para
      * a empresa da segunda, e nada mais no sistema denunciaria.
      */
-    const primeira = await createLocalUser({ email: "p@teste.local", name: "Primeira", passwordHash: "h" });
-    const segunda = await createLocalUser({ email: "s@teste.local", name: "Segunda", passwordHash: "h" });
+    const primeira = await cadastrar({ email: "p@teste.local", name: "Primeira", passwordHash: "h" });
+    const segunda = await cadastrar({ email: "s@teste.local", name: "Segunda", passwordHash: "h" });
 
     const [cruzadas] = await c.query(`
       SELECT COUNT(*) AS n
@@ -104,7 +146,7 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
      * e é ele que impede a mensagem de virar mentira.
      */
     const senha = "Granafy!2026";
-    const usuario = await createLocalUser({
+    const usuario = await cadastrar({
       email: "volta@teste.local",
       name: "Volta",
       passwordHash: await hashPassword(senha),
@@ -126,7 +168,7 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
   });
 
   it("todas as 50 categorias-padrão da conta carregam a mesma empresa", async () => {
-    const usuario = await createLocalUser({ email: "t@teste.local", name: "Terceira", passwordHash: "h" });
+    const usuario = await cadastrar({ email: "t@teste.local", name: "Terceira", passwordHash: "h" });
     const [linhas] = await c.query(
       "SELECT companyId, COUNT(*) AS n FROM transactionCategories WHERE userId = ? GROUP BY companyId",
       [usuario.id],

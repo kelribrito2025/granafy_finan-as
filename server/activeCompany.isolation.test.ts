@@ -22,6 +22,7 @@ const EMPRESA_DA_ANA = 7101;
 const EMPRESA_DO_BRUNO = 7103;
 
 const TABELAS = ["companyProfiles", "users"] as const;
+const DONOS = [ANA, BRUNO] as const;
 
 /** Um request só com os cabeçalhos que o contexto lê. */
 function requisicao(cookies: string[]) {
@@ -43,12 +44,13 @@ describe.runIf(temBancoDeTeste())("a empresa ativa do request", () => {
   }, 60_000);
 
   afterAll(async () => {
+    await limparTabelas(c, TABELAS, DONOS);
     await esquecerBancoDeTeste();
     await c?.end();
   });
 
   beforeEach(async () => {
-    await limparTabelas(c, TABELAS);
+    await limparTabelas(c, TABELAS, DONOS);
     await c.query(
       `INSERT INTO users (id, openId, email, name, loginMethod) VALUES
          (?, 'a', 'ana@t.local', 'Ana', 'password'),

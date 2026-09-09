@@ -2,7 +2,6 @@ import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   backfillSql,
-  donoCruzadoSql,
   EMPRESA_PADRAO_SQL,
   LOGINS_SEM_EMPRESA_SQL,
   nulosSql,
@@ -26,6 +25,22 @@ import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoD
 const COM_EMPRESA = 8_100_001;
 const SEM_EMPRESA_COM_DADOS = 8_100_002;
 const SEM_EMPRESA_VAZIO = 8_100_003;
+const DONOS = [COM_EMPRESA, SEM_EMPRESA_COM_DADOS, SEM_EMPRESA_VAZIO] as const;
+const TABELAS = ["transactions", "transactionCategories", "companyProfiles", "users"] as const;
+
+/*
+ * Toda contagem deste arquivo é DENTRO DA FAIXA, nunca do schema.
+ *
+ * A versão anterior contava `companyProfiles` e nulos do banco inteiro. Era a
+ * única suíte que afirmava sobre estado global num schema compartilhado por
+ * cinco arreios — e foi a única que falhou de forma intermitente, sempre nos
+ * dois testes que faziam essa contagem.
+ *
+ * O que estes testes querem provar é "o backfill adota tudo e não duplica". O
+ * universo que importa é o semeado aqui, não o schema; escopar não enfraquece a
+ * prova, só a torna independente de quem mais está usando o banco.
+ */
+const naFaixa = (coluna = "userId") => `${coluna} IN (${DONOS.join(", ")})`;
 
 async function semear(c: Connection) {
   await c.query(
@@ -60,10 +75,30 @@ async function semear(c: Connection) {
   }
 }
 
-async function contar(c: Connection, sql: string) {
+async function um(c: Connection, sql: string) {
   const [linhas] = await c.query(sql);
   return Number((linhas as Array<{ n: number }>)[0]!.n);
 }
+
+/*
+ * As contagens são escritas aqui, escopadas, em vez de reescrever por regex o
+ * SQL do módulo — os construtores têm formas diferentes (com e sem apelido de
+ * tabela) e um `replace` sobre eles quebraria em silêncio na próxima mudança.
+ *
+ * Que o SQL do módulo é exatamente o que o ritual roda já está provado em
+ * `backfillCompanies.test.ts`, por asserção sobre o texto. Aqui se prova o
+ * COMPORTAMENTO, dentro da faixa.
+ */
+const linhasSemEmpresa = (c: Connection, tabela: string) =>
+  um(c, `SELECT COUNT(*) AS n FROM \`${tabela}\` WHERE companyId IS NULL AND ${naFaixa()}`);
+
+const linhasComDonoCruzado = (c: Connection, tabela: string) =>
+  um(c, `SELECT COUNT(*) AS n FROM \`${tabela}\` x
+           JOIN companyProfiles cp ON cp.id = x.companyId
+          WHERE cp.userId <> x.userId AND ${naFaixa("x.userId")}`);
+
+const empresasDaFaixa = (c: Connection) =>
+  um(c, `SELECT COUNT(*) AS n FROM companyProfiles WHERE ${naFaixa()}`);
 
 describe.runIf(temBancoDeTeste())("ensaio do backfill de companyId", () => {
   let c: Connection;
@@ -74,15 +109,12 @@ describe.runIf(temBancoDeTeste())("ensaio do backfill de companyId", () => {
   }, 60_000);
 
   afterAll(async () => {
-    await c?.query("DELETE FROM transactions");
-    await c?.query("DELETE FROM transactionCategories");
-    await c?.query("DELETE FROM companyProfiles");
-    await c?.query("DELETE FROM users");
+    await limparTabelas(c, TABELAS, DONOS);
     await c?.end();
   });
 
   beforeEach(async () => {
-    await limparTabelas(c, ["transactions", "transactionCategories", "companyProfiles", "users"]);
+    await limparTabelas(c, TABELAS, DONOS);
     await semear(c);
   });
 
@@ -93,30 +125,30 @@ describe.runIf(temBancoDeTeste())("ensaio do backfill de companyId", () => {
      * alguém um dia inverter a ordem do ritual, este teste é o que avisa.
      */
     await c.query(backfillSql("transactions"));
-    expect(await contar(c, nulosSql("transactions"))).toBe(2);
-    expect(await contar(c, nulosSql("transactionCategories"))).toBe(6);
+    expect(await linhasSemEmpresa(c, "transactions")).toBe(2);
+    expect(await linhasSemEmpresa(c, "transactionCategories")).toBe(6);
   });
 
   it("a empresa padrão cobre todo login que não tem nenhuma", async () => {
     await c.query(EMPRESA_PADRAO_SQL);
-    const [faltantes] = await c.query(LOGINS_SEM_EMPRESA_SQL);
+    const [faltantes] = await c.query(`${LOGINS_SEM_EMPRESA_SQL} AND ${naFaixa("u.id")}`);
     expect(faltantes).toHaveLength(0);
     // Uma por login, nunca duas.
-    expect(await contar(c, "SELECT COUNT(*) AS n FROM companyProfiles")).toBe(3);
+    expect(await empresasDaFaixa(c)).toBe(3);
   });
 
   it("rodar a empresa padrão duas vezes não cria duplicata", async () => {
     await c.query(EMPRESA_PADRAO_SQL);
     await c.query(EMPRESA_PADRAO_SQL);
-    expect(await contar(c, "SELECT COUNT(*) AS n FROM companyProfiles")).toBe(3);
+    expect(await empresasDaFaixa(c)).toBe(3);
   });
 
   it("na ordem certa: zero órfãs e zero dono cruzado", async () => {
     await c.query(EMPRESA_PADRAO_SQL);
     for (const tabela of ["transactions", "transactionCategories"]) {
       await c.query(backfillSql(tabela));
-      expect(await contar(c, nulosSql(tabela))).toBe(0);
-      expect(await contar(c, donoCruzadoSql(tabela))).toBe(0);
+      expect(await linhasSemEmpresa(c, tabela)).toBe(0);
+      expect(await linhasComDonoCruzado(c, tabela)).toBe(0);
     }
   });
 
@@ -125,7 +157,7 @@ describe.runIf(temBancoDeTeste())("ensaio do backfill de companyId", () => {
     await c.query(backfillSql("transactions"));
     const [segunda] = await c.query(backfillSql("transactions"));
     expect((segunda as { affectedRows: number }).affectedRows).toBe(0);
-    expect(await contar(c, donoCruzadoSql("transactions"))).toBe(0);
+    expect(await linhasComDonoCruzado(c, "transactions")).toBe(0);
   });
 
   it("cada linha fica com a empresa do seu próprio dono", async () => {

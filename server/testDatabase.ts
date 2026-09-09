@@ -170,12 +170,40 @@ export async function prepararSchemaDeTeste(conexao: Connection) {
   }
 }
 
-/** Esvazia as tabelas antes de cada teste, para um não herdar dados do outro. */
-export async function limparTabelas(conexao: Connection, tabelas: readonly string[]) {
+/*
+ * Cada arreio é dono de uma faixa de `userId`, e só apaga o que é dela.
+ *
+ * A versão anterior fazia `DELETE FROM <tabela>` sem filtro: toda suíte
+ * esvaziava a tabela inteira do vizinho. Isso só é seguro enquanto os arquivos
+ * rodarem estritamente um por vez — ou seja, o isolamento entre arreios
+ * dependia de uma linha de CONFIGURAÇÃO (`fileParallelism: false`), não do
+ * desenho. Um arreio de isolamento que não é isolado de si mesmo é uma piada
+ * que só tem graça antes de dar problema.
+ *
+ * As faixas já existiam por convenção nos arquivos; aqui viram contrato. Com
+ * elas, duas suítes podem rodar juntas sem se enxergarem, e a ordem dos
+ * arquivos deixa de importar.
+ *
+ * A tabela `users` filtra por `id`; as demais, por `userId`.
+ */
+export async function limparTabelas(
+  conexao: Connection,
+  tabelas: readonly string[],
+  donos: readonly number[],
+) {
+  if (donos.length === 0) {
+    throw new BancoDeTesteRecusado("limparTabelas exige a faixa de donos da suíte.");
+  }
+  if (!donos.every(id => Number.isSafeInteger(id) && id > 0)) {
+    throw new BancoDeTesteRecusado("Faixa de donos inválida.");
+  }
+
   for (const tabela of tabelas) {
     if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(tabela)) {
       throw new BancoDeTesteRecusado(`Nome de tabela suspeito: "${tabela}".`);
     }
-    await conexao.query(`DELETE FROM \`${tabela}\``);
+    const coluna = tabela === "users" ? "id" : "userId";
+    const marcas = donos.map(() => "?").join(", ");
+    await conexao.query(`DELETE FROM \`${tabela}\` WHERE \`${coluna}\` IN (${marcas})`, [...donos]);
   }
 }
