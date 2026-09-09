@@ -7,7 +7,7 @@ import {
   nulosSql,
   TABELAS_COM_EMPRESA,
 } from "./backfillCompanies";
-import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste } from "./testDatabase";
+import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
  * O ensaio do backfill, versionado.
@@ -43,13 +43,17 @@ const TABELAS = ["transactions", "transactionCategories", "companyProfiles", "us
 const naFaixa = (coluna = "userId") => `${coluna} IN (${DONOS.join(", ")})`;
 
 async function semear(c: Connection) {
-  await c.query(
-    `INSERT INTO users (id, openId, email, name, loginMethod) VALUES
-       (?, 'a', 'a@t.local', 'Com empresa', 'password'),
-       (?, 'b', 'b@t.local', 'Sem empresa mas com dados', 'password'),
-       (?, 'c', 'c@t.local', 'Sem empresa e sem lancamento', 'password')`,
-    [COM_EMPRESA, SEM_EMPRESA_COM_DADOS, SEM_EMPRESA_VAZIO],
-  );
+  const logins = [
+    [COM_EMPRESA, "Com empresa"],
+    [SEM_EMPRESA_COM_DADOS, "Sem empresa mas com dados"],
+    [SEM_EMPRESA_VAZIO, "Sem empresa e sem lancamento"],
+  ] as const;
+  for (const [id, nome] of logins) {
+    await c.query(
+      "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
+      usuarioDeTeste(id, nome),
+    );
+  }
   await c.query("INSERT INTO companyProfiles (id, userId, legalName) VALUES (700, ?, 'Empresa do primeiro')", [COM_EMPRESA]);
 
   /*

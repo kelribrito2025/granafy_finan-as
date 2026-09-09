@@ -28,7 +28,7 @@ import {
   usarBancoDeTesteEm,
 } from "./db";
 import type { Escopo } from "./escopo";
-import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste } from "./testDatabase";
+import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
  * Os cadastros em DUAS dimensões, e a segunda quase passou batido.
@@ -90,11 +90,12 @@ async function cadastros(c: Connection, userId: number, companyId: number, sufix
 }
 
 async function semear(c: Connection) {
-  await c.query(
-    `INSERT INTO users (id, openId, email, name, loginMethod) VALUES
-       (?, 'a', 'ana@t.local', 'Ana', 'password'), (?, 'b', 'bruno@t.local', 'Bruno', 'password')`,
-    [ANA, BRUNO],
-  );
+  for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"]] as const) {
+    await c.query(
+      "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
+      usuarioDeTeste(id, nome),
+    );
+  }
   await c.query(
     `INSERT INTO companyProfiles (id, userId, legalName) VALUES (?, ?, 'Gêmea'), (?, ?, 'Gêmea')`,
     [EMPRESA_A, ANA, EMPRESA_C, BRUNO],

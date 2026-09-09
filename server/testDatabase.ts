@@ -207,3 +207,25 @@ export async function limparTabelas(
     await conexao.query(`DELETE FROM \`${tabela}\` WHERE \`${coluna}\` IN (${marcas})`, [...donos]);
   }
 }
+
+/**
+ * A identidade de um usuário de teste — derivada do id, sempre.
+ *
+ * A faixa de cada suíte é numérica, e é por ela que `limparTabelas` apaga. Só
+ * que `users` tem dois índices únicos de TEXTO — `openId` e `email` — e três
+ * arreios semeavam os mesmos literais: `'a'`, `'b'`, `'ana@t.local'`. Enquanto
+ * todo mundo roda até o fim, as faixas nunca se encontram e nada acontece.
+ *
+ * Basta uma suíte morrer antes do `afterAll` — um Ctrl-C, um `--bail`, um kill
+ * — para o literal sobreviver à faixa que o apagaria, e a PRÓXIMA suíte quebrar
+ * em "Duplicate entry" num arquivo que não tem nada a ver com o que falhou. Foi
+ * exatamente o que aconteceu: um `kill` no meio de `activeCompany` (faixa
+ * 7.100.00x) derrubou `cadastros` (6.100.00x) e `backfillCompanies`
+ * (8.100.00x), que só compartilhavam o `openId 'a'`.
+ *
+ * Derivando do id, a faixa passa a valer para as três chaves da tabela, e o
+ * isolamento volta a ser por desenho em vez de por sorte de escalonamento.
+ */
+export function usuarioDeTeste(id: number, nome: string) {
+  return [id, `teste-${id}`, `teste-${id}@t.local`, nome, "password"];
+}

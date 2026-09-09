@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createSessionToken } from "./auth";
 import { createContext } from "./_core/context";
 import { esquecerBancoDeTeste, usarBancoDeTesteEm } from "./db";
-import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste } from "./testDatabase";
+import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
  * O request da Ana pedindo a empresa do Bruno.
@@ -51,12 +51,12 @@ describe.runIf(temBancoDeTeste())("a empresa ativa do request", () => {
 
   beforeEach(async () => {
     await limparTabelas(c, TABELAS, DONOS);
-    await c.query(
-      `INSERT INTO users (id, openId, email, name, loginMethod) VALUES
-         (?, 'a', 'ana@t.local', 'Ana', 'password'),
-         (?, 'b', 'bruno@t.local', 'Bruno', 'password')`,
-      [ANA, BRUNO],
-    );
+    for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"]] as const) {
+      await c.query(
+        "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
+        usuarioDeTeste(id, nome),
+      );
+    }
     /*
      * Uma empresa por dono — não por escolha, por limite: o
      * company_profiles_user_uidx ainda está de pé e não deixa semear duas para

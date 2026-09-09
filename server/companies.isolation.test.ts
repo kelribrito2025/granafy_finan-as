@@ -6,6 +6,7 @@ import {
   limparTabelas,
   prepararSchemaDeTeste,
   temBancoDeTeste,
+  usuarioDeTeste,
 } from "./testDatabase";
 
 /*
@@ -30,8 +31,8 @@ const DONOS = [ANA, BRUNO] as const;
 async function semear(conexao: Connection) {
   for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"]] as const) {
     await conexao.query(
-      "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, 'password')",
-      [id, `local_${id}`, `${nome.toLowerCase()}@teste.local`, nome],
+      "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
+      usuarioDeTeste(id, nome),
     );
   }
 
