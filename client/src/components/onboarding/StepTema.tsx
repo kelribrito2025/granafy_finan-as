@@ -9,7 +9,7 @@ import { useTheme, type ThemePreference } from "@/contexts/ThemeContext";
  * e ainda pesaria no carregamento. Estas são quatro caixinhas com as cores de
  * verdade: o que a pessoa vê aqui é a mesma paleta que vai encontrar depois.
  */
-function Previa({ escuro }: { escuro: boolean }) {
+function Previa({ escuro, origem = false }: { escuro: boolean; origem?: boolean }) {
   const fundo = escuro ? "#0D1812" : "#EFF4F1";
   const cartao = escuro ? "#14241B" : "#FFFFFF";
   const linha = escuro ? "#22362A" : "#E3EBE6";
@@ -18,6 +18,16 @@ function Previa({ escuro }: { escuro: boolean }) {
   return (
     <span
       aria-hidden="true"
+      /*
+       * A prévia escura é de onde o modo escuro se abre.
+       *
+       * `data-theme-origin` é o mesmo gancho que o "Caixa disponível" usa no
+       * painel: o círculo nasce do único retângulo que já está escuro na tela
+       * clara. Sem ele aqui, a troca partia de um retângulo imaginário no meio
+       * da página — e justamente na tela em que a pessoa está olhando para o
+       * cartão que acabou de clicar.
+       */
+      {...(origem ? { "data-theme-origin": "" } : {})}
       className="flex h-[86px] w-full gap-1.5 overflow-hidden rounded-[10px] p-2"
       style={{ background: fundo }}
     >
@@ -78,7 +88,10 @@ export function StepTema() {
                   : "border-[#E3EBE6] hover:border-[#B9C7BE] hover:bg-[#F8FAF9]"
               }`}
             >
-              <Previa escuro={previaEscura} />
+              {/* A âncora fica na opção "Escuro" e não na prévia que estiver
+                  escura: assim o ponto de partida não pula de cartão quando o
+                  automático resolve para escuro. */}
+              <Previa escuro={previaEscura} origem={opcao.valor === "dark"} />
               <span className="flex items-center gap-2">
                 <strong className={`text-[14px] ${escolhido ? "text-[#0A7A42]" : "text-[#0B1F14]"}`}>
                   {opcao.nome}
