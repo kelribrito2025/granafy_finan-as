@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import type { Escopo } from "../escopo";
+import { escopoDe } from "../escopo";
 import { z } from "zod";
 import {
   MAX_DATE_DISTANCE_DAYS,
@@ -44,9 +46,9 @@ function addDays(date: string, days: number) {
  * lançamento de agosto e o saldo fechado deixaria de bater sem deixar rastro.
  * Para mexer, reabra — e a reabertura fica no histórico.
  */
-async function requireOpenPeriod(userId: number, accountId: number, date: string) {
+async function requireOpenPeriod(escopo: Escopo, accountId: number, date: string) {
   const [year, month] = date.split("-").map(Number);
-  const period = await db.getReconciliationPeriod(userId, accountId, year, month);
+  const period = await db.getReconciliationPeriod(escopo.userId, accountId, year, month);
   if (period && !period.reopenedAt) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -72,8 +74,8 @@ function toMovementSide(movement: MovementRecord): MovementSide {
  * A conta que a tela abre por padrão: a primeira com movimentação no mês, ou a
  * primeira ativa. Abrir numa conta vazia faria a tela parecer quebrada.
  */
-async function resolveAccount(userId: number, requested: number | null) {
-  const accounts = (await db.listFinancialAccounts(userId)).filter(account => account.isActive);
+async function resolveAccount(escopo: Escopo, requested: number | null) {
+  const accounts = (await db.listFinancialAccounts(escopo)).filter(account => account.isActive);
   if (accounts.length === 0) return { accounts, account: null };
   const account = requested
     ? accounts.find(item => item.id === requested) ?? null
@@ -84,7 +86,7 @@ async function resolveAccount(userId: number, requested: number | null) {
 export const reconciliationRouter = router({
   /** A fila de revisão do mês: movimentações, sugestões e os números do topo. */
   overview: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
-    const { accounts, account } = await resolveAccount(ctx.user.id, input.accountId);
+    const { accounts, account } = await resolveAccount(escopoDe(ctx), input.accountId);
     const start = monthStart(input.year, input.month);
     const end = lastDayOf(input.year, input.month);
     const label = `${MONTH_NAMES[input.month - 1]} de ${input.year}`;
@@ -103,7 +105,7 @@ export const reconciliationRouter = router({
         addDays(start, -MAX_DATE_DISTANCE_DAYS),
         addDays(end, MAX_DATE_DISTANCE_DAYS)
       ),
-      db.listCategoryRules(ctx.user.id),
+      db.listCategoryRules(escopoDe(ctx)),
       db.getStatementBalance(ctx.user.id, account.id, end),
       db.getReconciliationPeriod(ctx.user.id, account.id, input.year, input.month),
     ]);
@@ -224,7 +226,7 @@ export const reconciliationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const movement = await db.getBankMovement(ctx.user.id, input.movementId);
       if (!movement) throw new TRPCError({ code: "NOT_FOUND", message: "Movimentação não encontrada" });
-      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
 
       const existing = await db.listReconciliationLinks(ctx.user.id, [movement.id]);
       if (existing.length > 0) {
@@ -286,8 +288,8 @@ export const reconciliationRouter = router({
 
       const dates = movements.map(movement => movement.movementDate).sort();
       // O lote pode cruzar a virada do mês: basta uma ponta fechada para recusar.
-      await requireOpenPeriod(ctx.user.id, accountId, dates[0]);
-      await requireOpenPeriod(ctx.user.id, accountId, dates[dates.length - 1]);
+      await requireOpenPeriod(escopoDe(ctx), accountId, dates[0]);
+      await requireOpenPeriod(escopoDe(ctx), accountId, dates[dates.length - 1]);
 
       const [candidateRows, rules, existingLinks] = await Promise.all([
         db.listUnlinkedTransactions(
@@ -296,7 +298,7 @@ export const reconciliationRouter = router({
           addDays(dates[0], -MAX_DATE_DISTANCE_DAYS),
           addDays(dates[dates.length - 1], MAX_DATE_DISTANCE_DAYS)
         ),
-        db.listCategoryRules(ctx.user.id),
+        db.listCategoryRules(escopoDe(ctx)),
         db.listReconciliationLinks(ctx.user.id, movements.map(movement => movement.id)),
       ]);
 
@@ -361,7 +363,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Esta movimentação não está conciliada" });
       }
 
-      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
       await db.unlinkMovement({
         userId: ctx.user.id,
         movementId: movement.id,
@@ -401,7 +403,7 @@ export const reconciliationRouter = router({
         if (!related) throw new TRPCError({ code: "BAD_REQUEST", message: "A movimentação original não foi encontrada" });
       }
 
-      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
       await db.classifyMovement({
         userId: ctx.user.id,
         movementId: movement.id,
@@ -447,19 +449,19 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "As partes precisam ter o mesmo sinal da movimentação" });
       }
 
-      const account = await db.getFinancialAccount(ctx.user.id, movement.accountId);
+      const account = await db.getFinancialAccount(escopoDe(ctx), movement.accountId);
       if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
       const categories = await Promise.all(
         Array.from(new Set(input.parts.map(part => part.categoryId)))
-          .map(id => db.getTransactionCategory(ctx.user.id, id))
+          .map(id => db.getTransactionCategory(escopoDe(ctx), id))
       );
       const categoryById = new Map(categories.filter(Boolean).map(category => [category!.id, category!]));
       if (input.parts.some(part => !categoryById.get(part.categoryId)?.isActive)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Uma das categorias não está disponível" });
       }
 
-      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
       await db.createTransactionsForMovement({
         userId: ctx.user.id,
         movementId: movement.id,
@@ -557,7 +559,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Movimentações e lançamento precisam ser da mesma conta" });
       }
 
-      await requireOpenPeriod(ctx.user.id, movements[0].accountId, movements[0].movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movements[0].accountId, movements[0].movementDate);
       await db.groupMovements({
         userId: ctx.user.id,
         movementIds: movements.map(movement => movement.id),
@@ -571,7 +573,7 @@ export const reconciliationRouter = router({
 
   /** As movimentações que compõem a diferença de saldo. */
   difference: protectedProcedure.input(periodSchema).query(async ({ ctx, input }) => {
-    const { account } = await resolveAccount(ctx.user.id, input.accountId);
+    const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
     if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
     const start = monthStart(input.year, input.month);
@@ -628,11 +630,11 @@ export const reconciliationRouter = router({
       balance: z.number().finite(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
+      const account = await db.getFinancialAccount(escopoDe(ctx), input.accountId);
       if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
       // Mês fechado foi assinado com um saldo: trocar o saldo por baixo é
       // desfazer a assinatura sem reabrir.
-      await requireOpenPeriod(ctx.user.id, account.id, input.asOf);
+      await requireOpenPeriod(escopoDe(ctx), account.id, input.asOf);
 
       await db.saveStatementBalance({
         userId: ctx.user.id,
@@ -649,7 +651,7 @@ export const reconciliationRouter = router({
    * um número que não bate.
    */
   closePeriod: protectedProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
-    const { account } = await resolveAccount(ctx.user.id, input.accountId);
+    const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
     if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
     const start = monthStart(input.year, input.month);
@@ -689,7 +691,7 @@ export const reconciliationRouter = router({
   reopenPeriod: protectedProcedure
     .input(periodSchema.extend({ reason: z.string().trim().min(3, "Diga por que está reabrindo").max(500) }))
     .mutation(async ({ ctx, input }) => {
-      const { account } = await resolveAccount(ctx.user.id, input.accountId);
+      const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
       if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
       const period = await db.getReconciliationPeriod(ctx.user.id, account.id, input.year, input.month);
@@ -715,7 +717,7 @@ export const reconciliationRouter = router({
    * não automação.
    */
   applyAutoRules: protectedProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
-    const { account } = await resolveAccount(ctx.user.id, input.accountId);
+    const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
     if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
     const start = monthStart(input.year, input.month);
@@ -728,7 +730,7 @@ export const reconciliationRouter = router({
         addDays(start, -MAX_DATE_DISTANCE_DAYS),
         addDays(end, MAX_DATE_DISTANCE_DAYS)
       ),
-      db.listCategoryRules(ctx.user.id),
+      db.listCategoryRules(escopoDe(ctx)),
     ]);
 
     const automaticas = rules.filter(rule => rule.isActive && rule.autoReconcile);
@@ -767,7 +769,7 @@ export const reconciliationRouter = router({
       // Só entra o que a própria regra explicou; o resto continua esperando
       // confirmação, que é o combinado.
       if (!suggestion || !suggestion.reason.startsWith("regra")) continue;
-      await requireOpenPeriod(ctx.user.id, movement.accountId, movement.movementDate);
+      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
       await db.linkMovement({
         userId: ctx.user.id,
         movementId: movement.id,

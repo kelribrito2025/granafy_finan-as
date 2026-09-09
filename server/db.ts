@@ -40,6 +40,7 @@ import {
   defaultCategoryUpgradeValues,
   defaultCategoryValues,
 } from "./defaultCategories";
+import type { Escopo } from "./escopo";
 import { pickDeclaredBalance } from "./statementBalance";
 import { chunkImportRows } from "./importers";
 
@@ -585,10 +586,10 @@ export async function deleteTransactions(userId: number, ids: number[]) {
   });
 }
 
-export async function listFinancialAccounts(userId: number) {
+export async function listFinancialAccounts(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select().from(financialAccounts).where(eq(financialAccounts.userId, userId)).orderBy(desc(financialAccounts.isActive), financialAccounts.name);
+  return db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId))).orderBy(desc(financialAccounts.isActive), financialAccounts.name);
 }
 
 /**
@@ -1020,136 +1021,136 @@ export async function markOnboardingCompleted(userId: number) {
   await db.update(users).set({ onboardingCompletedAt: new Date() }).where(eq(users.id, userId));
 }
 
-export async function getFinancialAccount(userId: number, id: number) {
+export async function getFinancialAccount(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, userId), eq(financialAccounts.id, id))).limit(1);
+  const rows = await db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId), eq(financialAccounts.id, id))).limit(1);
   return rows[0];
 }
 
-export async function getFinancialAccountByName(userId: number, name: string) {
+export async function getFinancialAccountByName(escopo: Escopo, name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, userId), eq(financialAccounts.name, name))).limit(1);
+  const rows = await db.select().from(financialAccounts).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId), eq(financialAccounts.name, name))).limit(1);
   return rows[0];
 }
 
-export async function createFinancialAccount(userId: number, values: Omit<InsertFinancialAccount, "userId">) {
+export async function createFinancialAccount(escopo: Escopo, values: Omit<InsertFinancialAccount, "userId" | "companyId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(financialAccounts).values({ userId, ...values });
-  return getFinancialAccount(userId, Number(result[0].insertId));
+  const result = await db.insert(financialAccounts).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getFinancialAccount(escopo, Number(result[0].insertId));
 }
 
-export async function updateFinancialAccount(userId: number, id: number, values: Partial<Omit<InsertFinancialAccount, "userId">>) {
+export async function updateFinancialAccount(escopo: Escopo, id: number, values: Partial<Omit<InsertFinancialAccount, "userId" | "companyId">>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(financialAccounts).set(values).where(and(eq(financialAccounts.userId, userId), eq(financialAccounts.id, id)));
+  await db.update(financialAccounts).set(values).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId), eq(financialAccounts.id, id)));
   if (values.name) {
-    await db.update(financialTransactions).set({ account: values.name }).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.accountId, id)));
+    await db.update(financialTransactions).set({ account: values.name }).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.accountId, id)));
   }
-  return getFinancialAccount(userId, id);
+  return getFinancialAccount(escopo, id);
 }
 
-export async function deleteFinancialAccount(userId: number, id: number) {
+export async function deleteFinancialAccount(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.accountId, id))).limit(1);
+  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.accountId, id))).limit(1);
   if (used.length) return false;
-  await db.delete(financialAccounts).where(and(eq(financialAccounts.userId, userId), eq(financialAccounts.id, id)));
+  await db.delete(financialAccounts).where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId), eq(financialAccounts.id, id)));
   return true;
 }
 
-export async function listTransactionCategories(userId: number) {
+export async function listTransactionCategories(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select().from(transactionCategories).where(eq(transactionCategories.userId, userId)).orderBy(desc(transactionCategories.isActive), transactionCategories.name);
+  return db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, escopo.userId), eq(transactionCategories.companyId, escopo.companyId))).orderBy(desc(transactionCategories.isActive), transactionCategories.name);
 }
 
-export async function getTransactionCategory(userId: number, id: number) {
+export async function getTransactionCategory(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.id, id))).limit(1);
+  const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, escopo.userId), eq(transactionCategories.companyId, escopo.companyId), eq(transactionCategories.id, id))).limit(1);
   return rows[0];
 }
 
-export async function getTransactionCategoryByName(userId: number, name: string) {
+export async function getTransactionCategoryByName(escopo: Escopo, name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.name, name))).limit(1);
+  const rows = await db.select().from(transactionCategories).where(and(eq(transactionCategories.userId, escopo.userId), eq(transactionCategories.companyId, escopo.companyId), eq(transactionCategories.name, name))).limit(1);
   return rows[0];
 }
 
-export async function createTransactionCategory(userId: number, values: Omit<InsertTransactionCategory, "userId">) {
+export async function createTransactionCategory(escopo: Escopo, values: Omit<InsertTransactionCategory, "userId" | "companyId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(transactionCategories).values({ userId, ...values });
-  return getTransactionCategory(userId, Number(result[0].insertId));
+  const result = await db.insert(transactionCategories).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getTransactionCategory(escopo, Number(result[0].insertId));
 }
 
-export async function updateTransactionCategory(userId: number, id: number, values: Partial<Omit<InsertTransactionCategory, "userId">>) {
+export async function updateTransactionCategory(escopo: Escopo, id: number, values: Partial<Omit<InsertTransactionCategory, "userId" | "companyId">>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(transactionCategories).set(values).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.id, id)));
+  await db.update(transactionCategories).set(values).where(and(eq(transactionCategories.userId, escopo.userId), eq(transactionCategories.companyId, escopo.companyId), eq(transactionCategories.id, id)));
   if (values.name) {
-    await db.update(financialTransactions).set({ category: values.name }).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.categoryId, id)));
+    await db.update(financialTransactions).set({ category: values.name }).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.categoryId, id)));
   }
-  return getTransactionCategory(userId, id);
+  return getTransactionCategory(escopo, id);
 }
 
-export async function deleteTransactionCategory(userId: number, id: number) {
+export async function deleteTransactionCategory(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.categoryId, id))).limit(1);
+  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.categoryId, id))).limit(1);
   if (used.length) return false;
-  await db.delete(transactionCategories).where(and(eq(transactionCategories.userId, userId), eq(transactionCategories.id, id)));
+  await db.delete(transactionCategories).where(and(eq(transactionCategories.userId, escopo.userId), eq(transactionCategories.companyId, escopo.companyId), eq(transactionCategories.id, id)));
   return true;
 }
 
-export async function listCostCenters(userId: number) {
+export async function listCostCenters(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select().from(costCenters).where(eq(costCenters.userId, userId)).orderBy(desc(costCenters.isActive), costCenters.name);
+  return db.select().from(costCenters).where(and(eq(costCenters.userId, escopo.userId), eq(costCenters.companyId, escopo.companyId))).orderBy(desc(costCenters.isActive), costCenters.name);
 }
 
-export async function getCostCenter(userId: number, id: number) {
+export async function getCostCenter(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id))).limit(1);
+  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, escopo.userId), eq(costCenters.companyId, escopo.companyId), eq(costCenters.id, id))).limit(1);
   return rows[0];
 }
 
-export async function getCostCenterByName(userId: number, name: string) {
+export async function getCostCenterByName(escopo: Escopo, name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.name, name))).limit(1);
+  const rows = await db.select().from(costCenters).where(and(eq(costCenters.userId, escopo.userId), eq(costCenters.companyId, escopo.companyId), eq(costCenters.name, name))).limit(1);
   return rows[0];
 }
 
-export async function createCostCenter(userId: number, values: Omit<InsertCostCenter, "userId">) {
+export async function createCostCenter(escopo: Escopo, values: Omit<InsertCostCenter, "userId" | "companyId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(costCenters).values({ userId, ...values });
-  return getCostCenter(userId, Number(result[0].insertId));
+  const result = await db.insert(costCenters).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getCostCenter(escopo, Number(result[0].insertId));
 }
 
-export async function updateCostCenter(userId: number, id: number, values: Partial<Omit<InsertCostCenter, "userId">>) {
+export async function updateCostCenter(escopo: Escopo, id: number, values: Partial<Omit<InsertCostCenter, "userId" | "companyId">>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(costCenters).set(values).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id)));
+  await db.update(costCenters).set(values).where(and(eq(costCenters.userId, escopo.userId), eq(costCenters.companyId, escopo.companyId), eq(costCenters.id, id)));
   if (values.name) {
-    await db.update(financialTransactions).set({ costCenter: values.name }).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.costCenterId, id)));
+    await db.update(financialTransactions).set({ costCenter: values.name }).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.costCenterId, id)));
   }
-  return getCostCenter(userId, id);
+  return getCostCenter(escopo, id);
 }
 
 /** Recusa a exclusão enquanto houver lançamento apontando para o centro de custo. */
-export async function deleteCostCenter(userId: number, id: number) {
+export async function deleteCostCenter(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.costCenterId, id))).limit(1);
+  const used = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.costCenterId, id))).limit(1);
   if (used.length) return false;
-  await db.delete(costCenters).where(and(eq(costCenters.userId, userId), eq(costCenters.id, id)));
+  await db.delete(costCenters).where(and(eq(costCenters.userId, escopo.userId), eq(costCenters.companyId, escopo.companyId), eq(costCenters.id, id)));
   return true;
 }
 
@@ -1287,41 +1288,41 @@ export async function getRecurrenceGroup(userId: number, recurrenceGroupId: stri
     .orderBy(financialTransactions.transactionDate, financialTransactions.id);
 }
 
-export async function listCategoryRules(userId: number) {
+export async function listCategoryRules(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(categoryRules)
-    .where(eq(categoryRules.userId, userId))
+    .where(and(eq(categoryRules.userId, escopo.userId), eq(categoryRules.companyId, escopo.companyId)))
     .orderBy(desc(categoryRules.isActive), categoryRules.priority, categoryRules.id);
 }
 
-export async function getCategoryRule(userId: number, id: number) {
+export async function getCategoryRule(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const rows = await db.select().from(categoryRules).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id))).limit(1);
+  const rows = await db.select().from(categoryRules).where(and(eq(categoryRules.userId, escopo.userId), eq(categoryRules.companyId, escopo.companyId), eq(categoryRules.id, id))).limit(1);
   return rows[0];
 }
 
-export async function createCategoryRule(userId: number, values: Omit<InsertCategoryRule, "userId">) {
+export async function createCategoryRule(escopo: Escopo, values: Omit<InsertCategoryRule, "userId" | "companyId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(categoryRules).values({ userId, ...values });
-  return getCategoryRule(userId, Number(result[0].insertId));
+  const result = await db.insert(categoryRules).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getCategoryRule(escopo, Number(result[0].insertId));
 }
 
-export async function updateCategoryRule(userId: number, id: number, values: Partial<Omit<InsertCategoryRule, "userId">>) {
+export async function updateCategoryRule(escopo: Escopo, id: number, values: Partial<Omit<InsertCategoryRule, "userId" | "companyId">>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(categoryRules).set(values).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id)));
-  return getCategoryRule(userId, id);
+  await db.update(categoryRules).set(values).where(and(eq(categoryRules.userId, escopo.userId), eq(categoryRules.companyId, escopo.companyId), eq(categoryRules.id, id)));
+  return getCategoryRule(escopo, id);
 }
 
-export async function deleteCategoryRule(userId: number, id: number) {
+export async function deleteCategoryRule(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.delete(categoryRules).where(and(eq(categoryRules.userId, userId), eq(categoryRules.id, id)));
+  await db.delete(categoryRules).where(and(eq(categoryRules.userId, escopo.userId), eq(categoryRules.companyId, escopo.companyId), eq(categoryRules.id, id)));
   return { success: true } as const;
 }
 

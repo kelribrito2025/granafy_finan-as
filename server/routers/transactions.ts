@@ -1,4 +1,6 @@
 import { roundCurrency } from "@shared/currency";
+import type { Escopo } from "../escopo";
+import { escopoDe } from "../escopo";
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -165,15 +167,15 @@ function isCashFlow(record: Pick<TransactionRecord, "type">) {
   return record.type !== "transferencia";
 }
 
-async function resolveTransactionOrganization(userId: number, input: TransactionValuesInput) {
+async function resolveTransactionOrganization(escopo: Escopo, input: TransactionValuesInput) {
   const normalized = { ...input };
   if (input.accountId) {
-    const account = await db.getFinancialAccount(userId, input.accountId);
+    const account = await db.getFinancialAccount(escopo, input.accountId);
     if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada ou inativa" });
     normalized.account = account.name;
   }
   if (input.categoryId) {
-    const category = await db.getTransactionCategory(userId, input.categoryId);
+    const category = await db.getTransactionCategory(escopo, input.categoryId);
     if (!category?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Categoria não encontrada ou inativa" });
     if (category.type !== "ambos" && category.type !== input.type) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "A categoria não é compatível com o tipo do lançamento" });
@@ -181,7 +183,7 @@ async function resolveTransactionOrganization(userId: number, input: Transaction
     normalized.category = category.name;
   }
   if (input.costCenterId) {
-    const costCenter = await db.getCostCenter(userId, input.costCenterId);
+    const costCenter = await db.getCostCenter(escopo, input.costCenterId);
     if (!costCenter?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Centro de custo não encontrado ou inativo" });
     normalized.costCenter = costCenter.name;
   } else {
@@ -195,10 +197,10 @@ async function resolveTransactionOrganization(userId: number, input: Transaction
  * conta de origem e entrada na de destino, com o mesmo grupo, data, situação,
  * centro de custo e anexo. A categoria é fixa para não poluir os relatórios.
  */
-async function buildTransferLegs(userId: number, input: TransactionValuesInput) {
+async function buildTransferLegs(escopo: Escopo, input: TransactionValuesInput) {
   const [origin, destination] = await Promise.all([
-    db.getFinancialAccount(userId, input.accountId!),
-    db.getFinancialAccount(userId, input.destinationAccountId!),
+    db.getFinancialAccount(escopo, input.accountId!),
+    db.getFinancialAccount(escopo, input.destinationAccountId!),
   ]);
   if (!origin?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de origem não encontrada ou inativa" });
   if (!destination?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de destino não encontrada ou inativa" });
@@ -263,7 +265,7 @@ const ATTACHMENT_CONTENT_TYPES = [
  * dinheiro de novembro não foi recebido hoje, e marcá-lo como pago inflaria o
  * caixa e as contas a receber do painel.
  */
-async function buildRowsForCreate(userId: number, input: TransactionValuesInput, todayIso: string) {
+async function buildRowsForCreate(escopo: Escopo, input: TransactionValuesInput, todayIso: string) {
   const dates = input.recurring && input.recurringMonths
     ? buildRecurrenceDates(input.transactionDate, input.recurringMonths, input.recurrenceStart as RecurrenceStart)
     : [input.transactionDate];
@@ -279,7 +281,7 @@ async function buildRowsForCreate(userId: number, input: TransactionValuesInput,
   const recurrenceIndexFor = (index: number) => (recurrenceGroupId ? index + 1 : null);
 
   if (input.type === "transferencia") {
-    const legs = await buildTransferLegs(userId, input);
+    const legs = await buildTransferLegs(escopo, input);
     return dates.flatMap((transactionDate, index) => {
       // Cada mês é uma transferência inteira, com o seu próprio par.
       const shared = {
@@ -299,7 +301,7 @@ async function buildRowsForCreate(userId: number, input: TransactionValuesInput,
     destinationAccountId: _unusedDestination,
     recurrenceStart: _unusedStart,
     ...normalized
-  } = await resolveTransactionOrganization(userId, input);
+  } = await resolveTransactionOrganization(escopo, input);
   const amount = signedAmount(input).toFixed(2);
 
   return dates.map((transactionDate, index) => ({
@@ -347,7 +349,7 @@ export const transactionsRouter = router({
       db.listTransactionsByPeriod(ctx.user.id, start, end),
       // Só o total interessa aqui; a lista inteira era baixada para somar uma coluna.
       db.sumTransactionsBefore(ctx.user.id, start),
-      db.listFinancialAccounts(ctx.user.id),
+      db.listFinancialAccounts(escopoDe(ctx)),
     ]);
     const initialBalance = accounts.reduce((sum, account) => sum + Number(account.initialBalance), 0);
     const previousBalance = roundCurrency(initialBalance + previousTotal);
@@ -389,7 +391,7 @@ export const transactionsRouter = router({
     const monthlyEnd = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
 
     const [accounts, windowTotals, paidTotal, openTitles, monthlyTotals, revenueByCategory, recent] = await Promise.all([
-      db.listFinancialAccounts(ctx.user.id),
+      db.listFinancialAccounts(escopoDe(ctx)),
       db.sumWindowTotals(ctx.user.id, start, end),
       db.sumPaidTransactions(ctx.user.id),
       db.sumOpenTitles(ctx.user.id, start, end, todayString),
@@ -453,11 +455,11 @@ export const transactionsRouter = router({
   }),
 
   create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
-    const rows = await buildRowsForCreate(ctx.user.id, input, await userToday(ctx.user.id));
+    const rows = await buildRowsForCreate(escopoDe(ctx), input, await userToday(ctx.user.id));
     // Depois de montar: uma série recorrente ou uma transferência espalha
     // linhas por vários meses e contas, e qualquer uma delas pode cair no mês
     // fechado. Conferir só a data digitada deixaria as parcelas passarem.
-    await assertPeriodsOpen(ctx.user.id, rows.map(row => ({ accountId: row.accountId ?? null, date: row.transactionDate })));
+    await assertPeriodsOpen(escopoDe(ctx), rows.map(row => ({ accountId: row.accountId ?? null, date: row.transactionDate })));
     const records = await db.createTransactionSeries(ctx.user.id, rows);
     if (records.length !== rows.length) {
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar o lançamento" });
@@ -476,7 +478,7 @@ export const transactionsRouter = router({
      * Os dois meses contam: tirar um lançamento de um mês fechado o desequilibra
      * tanto quanto colocar um novo lá dentro.
      */
-    await assertPeriodsOpen(ctx.user.id, [
+    await assertPeriodsOpen(escopoDe(ctx), [
       { accountId: existing.accountId, date: existing.transactionDate },
       { accountId: values.accountId ?? existing.accountId, date: values.transactionDate },
     ]);
@@ -496,7 +498,7 @@ export const transactionsRouter = router({
     // caixa e DRE. Transferências precisam ser recriadas porque cada mês tem duas
     // pernas vinculadas.
     if (shouldMaterializeRecurrence(existing, values)) {
-      const rows = await buildRowsForCreate(ctx.user.id, values, todayIso);
+      const rows = await buildRowsForCreate(escopoDe(ctx), values, todayIso);
       const records = await db.materializeTransactionSeries(ctx.user.id, id, rows);
       if (records.length !== rows.length) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar todas as parcelas" });
@@ -519,7 +521,7 @@ export const transactionsRouter = router({
     const targets = seriesId ? selectSeriesTargets(group, existing) : [existing];
 
     if (wasTransfer) {
-      const legs = await buildTransferLegs(ctx.user.id, values);
+      const legs = await buildTransferLegs(escopoDe(ctx), values);
       const transferGroupIds = Array.from(new Set(
         targets.map(record => record.transferGroupId).filter((value): value is string => Boolean(value))
       ));
@@ -556,7 +558,7 @@ export const transactionsRouter = router({
       destinationAccountId: _unusedDestination,
       recurrenceStart: _unusedStart,
       ...normalized
-    } = await resolveTransactionOrganization(ctx.user.id, values);
+    } = await resolveTransactionOrganization(escopoDe(ctx), values);
     const amount = signedAmount(values).toFixed(2);
 
     for (const target of targets) {
@@ -723,14 +725,14 @@ export const transactionsRouter = router({
     if (input.changes.recurring !== undefined) values.recurring = input.changes.recurring;
 
     if (input.changes.accountId !== undefined) {
-      const account = await db.getFinancialAccount(ctx.user.id, input.changes.accountId);
+      const account = await db.getFinancialAccount(escopoDe(ctx), input.changes.accountId);
       if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada ou inativa" });
       values.accountId = account.id;
       values.account = account.name;
     }
 
     if (input.changes.categoryId !== undefined) {
-      const category = await db.getTransactionCategory(ctx.user.id, input.changes.categoryId);
+      const category = await db.getTransactionCategory(escopoDe(ctx), input.changes.categoryId);
       if (!category?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Categoria não encontrada ou inativa" });
       if (records.some(record => category.type !== "ambos" && category.type !== record.type)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A categoria não é compatível com todos os lançamentos selecionados" });
@@ -799,7 +801,7 @@ export const transactionsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const existing = await db.getTransactionById(ctx.user.id, input.id);
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
-      await assertPeriodsOpen(ctx.user.id, [{ accountId: existing.accountId, date: existing.transactionDate }]);
+      await assertPeriodsOpen(escopoDe(ctx), [{ accountId: existing.accountId, date: existing.transactionDate }]);
 
       if (input.scope === "following" && existing.recurrenceGroupId) {
         const group = await db.getRecurrenceGroup(ctx.user.id, existing.recurrenceGroupId);
@@ -822,7 +824,7 @@ export const transactionsRouter = router({
   })).mutation(async ({ ctx, input }) => {
     const ids = Array.from(new Set(input.ids));
     const alvos = await db.getTransactionsByIds(ctx.user.id, ids);
-    await assertPeriodsOpen(ctx.user.id, alvos.map(record => ({ accountId: record.accountId, date: record.transactionDate })));
+    await assertPeriodsOpen(escopoDe(ctx), alvos.map(record => ({ accountId: record.accountId, date: record.transactionDate })));
     const deletedCount = await db.deleteTransactions(ctx.user.id, ids);
     return { success: true, requestedCount: ids.length, deletedCount } as const;
   }),

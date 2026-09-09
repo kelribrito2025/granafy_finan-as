@@ -1,4 +1,6 @@
 import { roundCurrency } from "@shared/currency";
+import { escopoDe } from "../escopo";
+import type { Escopo } from "../escopo";
 import { z } from "zod";
 import {
   buildDailyFlow,
@@ -101,10 +103,10 @@ async function openingBalance(
  * inteiro era pagar rede por linha que ia ser jogada fora em memória. Medido
  * contra o TiDB: 539 ms para tudo, 189 ms para o recorte.
  */
-async function loadLedger(userId: number, from: string, to: string) {
+async function loadLedger(escopo: Escopo, from: string, to: string) {
   const [records, accounts] = await Promise.all([
-    db.listLedgerWindow(userId, from, to),
-    db.listFinancialAccounts(userId),
+    db.listLedgerWindow(escopo.userId, from, to),
+    db.listFinancialAccounts(escopo),
   ]);
   return { records, accounts };
 }
@@ -131,7 +133,7 @@ export const payablesRouter = router({
     const end = lastDayOf(input.year, input.month);
     // A janela do recorte vai até o dia seguinte ao fim do mês porque `end` é
     // inclusivo aqui e o recorte do banco é exclusivo à direita.
-    const { records, accounts } = await loadLedger(ctx.user.id, start, addOneDay(end));
+    const { records, accounts } = await loadLedger(escopoDe(ctx), start, addOneDay(end));
 
     const inScope = records.filter(record =>
       (record.transactionDate >= start && record.transactionDate <= end) ||
@@ -165,7 +167,7 @@ export const cashflowRouter = router({
       // A tela desenha este mês e o seguinte: o recorte precisa alcançar os dois.
       const proximo = shiftMonth(input.year, input.month, 1);
       const { records, accounts } = await loadLedger(
-        ctx.user.id, start, addOneDay(lastDayOf(proximo.year, proximo.month))
+        escopoDe(ctx), start, addOneDay(lastDayOf(proximo.year, proximo.month))
       );
       const rows = records.map(toFlowRow);
 
@@ -219,7 +221,7 @@ export const cashflowRouter = router({
       const first = shiftMonth(last.year, last.month, -(input.span - 1));
       const months = Array.from({ length: input.span }, (_, index) => shiftMonth(first.year, first.month, index));
       const { records, accounts } = await loadLedger(
-        ctx.user.id, monthStart(first.year, first.month), addOneDay(lastDayOf(last.year, last.month))
+        escopoDe(ctx), monthStart(first.year, first.month), addOneDay(lastDayOf(last.year, last.month))
       );
 
       const columns = buildMonthlyFlow(records.map(toFlowRow), {

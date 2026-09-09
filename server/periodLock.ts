@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import type { Escopo } from "./escopo";
 import * as db from "./db";
 
 /*
@@ -42,7 +43,7 @@ function monthKey(accountId: number, date: string) {
  * A mensagem diz qual mês, qual conta e onde reabrir: um "operação não
  * permitida" faria a pessoa procurar o problema no lugar errado.
  */
-export async function assertPeriodsOpen(userId: number, targets: readonly PeriodTarget[]) {
+export async function assertPeriodsOpen(escopo: Escopo, targets: readonly PeriodTarget[]) {
   const pares = new Map<string, { accountId: number; date: string }>();
   for (const target of targets) {
     if (target.accountId == null || !target.date) continue;
@@ -53,7 +54,7 @@ export async function assertPeriodsOpen(userId: number, targets: readonly Period
   }
   if (pares.size === 0) return;
 
-  const fechados = await db.listClosedReconciliationPeriods(userId);
+  const fechados = await db.listClosedReconciliationPeriods(escopo.userId);
   if (fechados.length === 0) return;
 
   const trancados = new Set(fechados.map(period => monthKey(period.accountId, `${period.year}-${String(period.month).padStart(2, "0")}`)));
@@ -62,7 +63,7 @@ export async function assertPeriodsOpen(userId: number, targets: readonly Period
 
   const [, alvo] = bloqueio;
   const [ano, mes] = alvo.date.split("-").map(Number);
-  const conta = await db.getFinancialAccount(userId, alvo.accountId);
+  const conta = await db.getFinancialAccount(escopo, alvo.accountId);
   const nomeDaConta = conta ? ` na conta ${conta.name}` : "";
 
   throw new TRPCError({

@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { escopoDe } from "../escopo";
+import type { Escopo } from "../escopo";
 import { z } from "zod";
 import { ASSET_CATEGORIES, assetItemType } from "@shared/assetCategory";
 import {
@@ -108,12 +110,12 @@ function todayUtc() {
  * item categorizado como Estoque chegar ao banco como "bem".
  */
 async function resolveItemValues(
-  userId: number,
+  escopo: Escopo,
   input: z.infer<typeof patrimonialItemValuesSchema>
 ) {
   let costCenter = "";
   if (input.costCenterId) {
-    const found = await db.getCostCenter(userId, input.costCenterId);
+    const found = await db.getCostCenter(escopo, input.costCenterId);
     if (!found?.isActive) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Centro de custo não encontrado ou inativo" });
     }
@@ -122,7 +124,7 @@ async function resolveItemValues(
 
   let sourceAccount = "";
   if (input.sourceAccountId) {
-    const found = await db.getFinancialAccount(userId, input.sourceAccountId);
+    const found = await db.getFinancialAccount(escopo, input.sourceAccountId);
     if (!found?.isActive) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Conta de origem não encontrada ou inativa" });
     }
@@ -142,13 +144,13 @@ async function resolveItemValues(
   };
 }
 
-async function calculatePosition(userId: number, referenceDate: string) {
+async function calculatePosition(escopo: Escopo, referenceDate: string) {
   const [items, accounts, balances] = await Promise.all([
-    db.listPatrimonialItems(userId),
-    db.listFinancialAccounts(userId),
+    db.listPatrimonialItems(escopo.userId),
+    db.listFinancialAccounts(escopo),
     // O saldo por conta vem somado do banco. Trazer o razão inteiro para fazer
     // a mesma soma em memória custava quase meio segundo por abertura da tela.
-    db.getAccountBalances(userId, referenceDate),
+    db.getAccountBalances(escopo.userId, referenceDate),
   ]);
   const calculatedItems = calculatePatrimonialItems(items, referenceDate);
   const financial = summarizeAccountPositions(accounts, balances);
@@ -199,7 +201,7 @@ export const balanceSheetRouter = router({
     .query(async ({ ctx, input }) => {
       const referenceDate = input?.referenceDate ?? todayUtc();
       const [{ items, summary, accountCount }, snapshots] = await Promise.all([
-        calculatePosition(ctx.user.id, referenceDate),
+        calculatePosition(escopoDe(ctx), referenceDate),
         db.listBalanceSheetSnapshots(ctx.user.id, 24),
       ]);
       return {
@@ -223,7 +225,7 @@ export const balanceSheetRouter = router({
       }
       try {
         return await db.createPatrimonialItem(ctx.user.id, {
-          ...await resolveItemValues(ctx.user.id, input),
+          ...await resolveItemValues(escopoDe(ctx), input),
           isActive: true,
         });
       } catch (error) {
@@ -246,7 +248,7 @@ export const balanceSheetRouter = router({
         });
       }
       try {
-        return await db.updatePatrimonialItem(ctx.user.id, id, await resolveItemValues(ctx.user.id, values));
+        return await db.updatePatrimonialItem(ctx.user.id, id, await resolveItemValues(escopoDe(ctx), values));
       } catch (error) {
         return persistenceError(error);
       }
@@ -281,7 +283,7 @@ export const balanceSheetRouter = router({
           message: "A data da posição não pode estar no futuro.",
         });
       }
-      const { items, summary } = await calculatePosition(ctx.user.id, input.referenceDate);
+      const { items, summary } = await calculatePosition(escopoDe(ctx), input.referenceDate);
       return db.upsertBalanceSheetSnapshot(ctx.user.id, {
         referenceDate: input.referenceDate,
         cashAndEquivalents: summary.cashAndEquivalents.toFixed(2),

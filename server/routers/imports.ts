@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import type { Escopo } from "../escopo";
+import { escopoDe } from "../escopo";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -39,21 +41,21 @@ const importRowSchema = z.object({
   ruleLabel: z.string().max(200).nullable().default(null),
 });
 
-async function validateOrganization(userId: number, accountId: number) {
-  const account = await db.getFinancialAccount(userId, accountId);
+async function validateOrganization(escopo: Escopo, accountId: number) {
+  const account = await db.getFinancialAccount(escopo, accountId);
   if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma conta ativa" });
   return account;
 }
 
 export const importsRouter = router({
   preview: protectedProcedure.input(previewInputSchema).mutation(async ({ ctx, input }) => {
-    const account = await validateOrganization(ctx.user.id, input.accountId);
+    const account = await validateOrganization(escopoDe(ctx), input.accountId);
     try {
       const parsed = applyImportClassification(
         parseImportFile({ userId: ctx.user.id, accountId: input.accountId, format: input.format, content: input.content }),
         input.classification,
       );
-      const activeCategories = (await db.listTransactionCategories(ctx.user.id)).filter(item => item.isActive);
+      const activeCategories = (await db.listTransactionCategories(escopoDe(ctx))).filter(item => item.isActive);
       const preferredCategories = {
         entrada: findCompatibleImportCategory(activeCategories, "entrada", input.incomeCategoryId),
         saida: findCompatibleImportCategory(activeCategories, "saida", input.expenseCategoryId),
@@ -63,7 +65,7 @@ export const importsRouter = router({
       let duplicateCount = 0;
       // As regras rodam na prévia, não na confirmação: assim o usuário vê o que
       // elas fizeram antes de gravar, em vez de descobrir depois.
-      const rules = (await db.listCategoryRules(ctx.user.id)) as unknown as CategoryRule[];
+      const rules = (await db.listCategoryRules(escopoDe(ctx))) as unknown as CategoryRule[];
       const categoryById = new Map(activeCategories.map(item => [item.id, item]));
 
       const rows = parsed.map(row => {
@@ -124,16 +126,16 @@ export const importsRouter = router({
     }).nullable().default(null),
     rows: z.array(importRowSchema).min(1, "Selecione ao menos um lançamento"),
   })).mutation(async ({ ctx, input }) => {
-    const account = await db.getFinancialAccount(ctx.user.id, input.accountId);
+    const account = await db.getFinancialAccount(escopoDe(ctx), input.accountId);
     if (!account?.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "A conta selecionada não está disponível" });
     /*
      * O extrato costuma cobrir mais de um mês. Recusar o lote inteiro é o certo:
      * importar só a parte aberta deixaria o arquivo pela metade sem o usuário
      * saber, e ele reimportaria achando que faltou.
      */
-    await assertPeriodsOpen(ctx.user.id, input.rows.map(row => ({ accountId: account.id, date: row.transactionDate })));
+    await assertPeriodsOpen(escopoDe(ctx), input.rows.map(row => ({ accountId: account.id, date: row.transactionDate })));
     const categoryIds = Array.from(new Set(input.rows.map(row => row.categoryId)));
-    const categories = await Promise.all(categoryIds.map(id => db.getTransactionCategory(ctx.user.id, id)));
+    const categories = await Promise.all(categoryIds.map(id => db.getTransactionCategory(escopoDe(ctx), id)));
     if (categories.some(category => !category?.isActive)) throw new TRPCError({ code: "BAD_REQUEST", message: "Uma das categorias não está disponível" });
     const categoryMap = new Map(categories.map(category => [category!.id, category!]));
     if (input.rows.some(row => {
@@ -144,7 +146,7 @@ export const importsRouter = router({
     // O centro de custo vem da prévia; conferimos aqui porque o cliente pode
     // mandar qualquer id e a prévia não é uma garantia.
     const costCenterIds = Array.from(new Set(input.rows.map(row => row.costCenterId).filter((id): id is number => Boolean(id))));
-    const costCenters = await Promise.all(costCenterIds.map(id => db.getCostCenter(ctx.user.id, id)));
+    const costCenters = await Promise.all(costCenterIds.map(id => db.getCostCenter(escopoDe(ctx), id)));
     if (costCenters.some(item => !item?.isActive)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Um dos centros de custo não está disponível" });
     }
