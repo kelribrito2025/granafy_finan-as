@@ -1,34 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
+import { umLancamento } from "./fixtures";
 import { isCashFlow, summarize, transactionValuesSchema } from "./routers/transactions";
 
 function record(amount: string, type: TransactionRecord["type"]): TransactionRecord {
-  return {
-    id: 1,
-    userId: 1,
-    type,
-    transactionDate: "2026-09-07",
-    description: "Teste",
-    contact: "",
-    category: type === "transferencia" ? "Transferência" : "Validação",
+  return umLancamento({
     amount,
-    account: "Teste",
+    type,
+    category: type === "transferencia" ? "Transferência" : "Validação",
     accountId: 1,
-    categoryId: null,
-    costCenter: "",
-    costCenterId: null,
     status: "Pago",
-    recurring: false,
-    recurringMonths: null,
-    attachmentKey: null,
-    attachmentName: null,
     transferGroupId: type === "transferencia" ? "grupo-1" : null,
-    importBatchId: null,
-    externalId: null,
-    fingerprint: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 }
 
 const base = {

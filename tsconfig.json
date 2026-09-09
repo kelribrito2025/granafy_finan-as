@@ -1,10 +1,17 @@
 {
   "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "build", "dist"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
+    /*
+     * Sem "target", o TypeScript cai no padrão ES5 — enquanto "module" e "lib"
+     * já são ESNext. A incoerência custava erros de "downlevelIteration" e de
+     * top-level await em arquivos que o build (vite/esbuild) compila para JS
+     * moderno sem reclamar.
+     */
+    "target": "ESNext",
     "module": "ESNext",
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],

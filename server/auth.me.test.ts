@@ -1,31 +1,11 @@
 import type { TrpcContext } from "./_core/context";
 import { describe, expect, it } from "vitest";
+import { umContexto, umUsuario } from "./fixtures";
 import { appRouter } from "./routers";
 
-type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
+const createContext = (user: TrpcContext["user"]) => umContexto({ user });
 
-function createContext(user: TrpcContext["user"]): TrpcContext {
-  return {
-    user,
-    req: {
-      protocol: "https",
-      headers: {},
-    } as TrpcContext["req"],
-    res: {} as TrpcContext["res"],
-  };
-}
-
-const user: AuthenticatedUser = {
-  id: 1,
-  openId: "auth-test-user",
-  name: "Giovani",
-  email: "giovani@example.com",
-  loginMethod: "manus",
-  role: "user",
-  createdAt: new Date("2026-09-06T12:00:00.000Z"),
-  updatedAt: new Date("2026-09-06T12:00:00.000Z"),
-  lastSignedIn: new Date("2026-09-06T12:00:00.000Z"),
-};
+const user = umUsuario({ openId: "auth-test-user", name: "Giovani", email: "giovani@example.com", loginMethod: "manus" });
 
 describe("auth.me", () => {
   it("returns null for an anonymous visitor", async () => {

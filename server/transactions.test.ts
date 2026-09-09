@@ -1,24 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
 import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
+import { umLancamento } from "./fixtures";
 import { bulkUpdateChangesSchema, isOpenInWindow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
-  return {
-    id: 1,
-    userId: 1,
-    type: Number(amount) >= 0 ? "entrada" : "saida",
-    transactionDate: "2026-09-07",
-    description: "Teste",
-    contact: "",
-    category: "Validação",
-    amount,
-    account: "Teste",
-    status: "Pendente",
-    recurring: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  return umLancamento({ amount, type: Number(amount) >= 0 ? "entrada" : "saida" });
 }
 
 describe("transactions helpers", () => {
@@ -35,8 +22,10 @@ describe("transactions helpers", () => {
       category: "Validação",
       amount: 123.45,
       account: "Teste",
+      costCenter: "",
       status: "Pendente" as const,
       recurring: false,
+      recurrenceStart: "este_mes" as const,
     };
     expect(signedAmount({ ...base, type: "entrada" })).toBe(123.45);
     expect(signedAmount({ ...base, type: "saida" })).toBe(-123.45);

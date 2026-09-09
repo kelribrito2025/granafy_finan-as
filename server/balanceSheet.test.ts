@@ -11,29 +11,17 @@ import {
   calculatePatrimonialItems,
   summarizeBalanceSheet,
 } from "./balanceSheet";
+import { umaConta, umBem, umLancamento } from "./fixtures";
 import { patrimonialItemValuesSchema } from "./routers/balanceSheet";
 
-function patrimonialItem(
-  overrides: Partial<PatrimonialItemRecord> = {}
-): PatrimonialItemRecord {
-  return {
-    id: 1,
-    userId: 1,
+function patrimonialItem(overrides: Partial<PatrimonialItemRecord> = {}): PatrimonialItemRecord {
+  return umBem({
     name: "Veículo operacional",
-    balanceGroup: "ativo_nao_circulante",
-    itemType: "bem",
     acquisitionDate: "2025-01-15",
     acquisitionValue: "12000.00",
     currentValue: "12000.00",
-    valuationMethod: "manual",
-    usefulLifeMonths: null,
-    residualValue: "0.00",
-    notes: "",
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
     ...overrides,
-  };
+  });
 }
 
 function account(
@@ -41,18 +29,7 @@ function account(
   type: FinancialAccountRecord["accountType"],
   initialBalance: string
 ): FinancialAccountRecord {
-  return {
-    id,
-    userId: 1,
-    name: `Conta ${id}`,
-    institution: "Teste",
-    accountType: type,
-    color: "#12B85C",
-    initialBalance,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  return umaConta({ id, name: `Conta ${id}`, institution: "Teste", accountType: type, initialBalance });
 }
 
 function transaction(
@@ -61,26 +38,14 @@ function transaction(
   amount: string,
   status: TransactionRecord["status"] = "Pago"
 ): TransactionRecord {
-  return {
+  return umLancamento({
     id,
-    userId: 1,
-    type: Number(amount) >= 0 ? "entrada" : "saida",
-    transactionDate: "2026-09-07",
-    description: "Teste patrimonial",
-    contact: "",
-    category: "Teste",
-    amount,
-    account: `Conta ${accountId}`,
     accountId,
-    categoryId: null,
+    amount,
     status,
-    recurring: false,
-    importBatchId: null,
-    externalId: null,
-    fingerprint: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+    type: Number(amount) >= 0 ? "entrada" : "saida",
+    description: "Teste patrimonial",
+  });
 }
 
 describe("balance sheet calculations", () => {
