@@ -5,8 +5,8 @@ import {
   CardIcon,
   CheckIcon,
   ChevronRightIcon,
-  MenuIcon,
   SettingsIcon,
+  SidebarMenuIcon,
   TagIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
@@ -46,6 +46,9 @@ type SettingsTab = "company" | "preferences" | "onboarding" | "plans" | "subscri
 const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
   empresa: "company",
   preferencias: "preferences",
+  tour: "onboarding",
+  /* O endereço antigo desta aba. Continua respondendo para não quebrar link
+     salvo antes de ela virar "Tour do produto". */
   "primeiro-acesso": "onboarding",
   planos: "plans",
   assinatura: "subscription",
@@ -54,7 +57,7 @@ const ABA_POR_PARAMETRO: Record<string, SettingsTab> = {
 const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
   company: "empresa",
   preferences: "preferencias",
-  onboarding: "primeiro-acesso",
+  onboarding: "tour",
   plans: "planos",
   subscription: "assinatura",
 };
@@ -62,7 +65,7 @@ const PARAMETRO_POR_ABA: Record<SettingsTab, string> = {
 const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
   company: "Dados cadastrais e endereço da empresa",
   preferences: "Como o sistema mostra períodos, valores e datas",
-  onboarding: "Os passos da configuração inicial, para refazer quando quiser",
+  onboarding: "O tour de 90 segundos e os passos da configuração inicial, para refazer quando quiser",
   plans: "O que cada plano inclui e quanto custa",
   subscription: "Plano em vigor, uso do ciclo, faturas e forma de pagamento",
 };
@@ -70,7 +73,7 @@ const SUBTITULO_POR_ABA: Record<SettingsTab, string> = {
 const ABAS: Array<{ value: SettingsTab; label: string; icon: IconlyIcon }> = [
   { value: "company", label: "Empresa", icon: BuildingIcon },
   { value: "preferences", label: "Preferências", icon: SettingsIcon },
-  { value: "onboarding", label: "Primeiro acesso", icon: CheckIcon },
+  { value: "onboarding", label: "Tour do produto", icon: CheckIcon },
   { value: "plans", label: "Planos", icon: TagIcon },
   { value: "subscription", label: "Assinatura", icon: CardIcon },
 ];
@@ -154,7 +157,7 @@ export default function SettingsPage() {
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
-            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><MenuIcon size={18} /></button>
+            <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{SUBTITULO_POR_ABA[tab]}</p>
