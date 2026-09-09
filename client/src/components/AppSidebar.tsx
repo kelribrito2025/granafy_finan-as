@@ -8,6 +8,7 @@ import {
   CloseIcon,
   DashboardIcon,
   DocumentIcon,
+  ReportIcon,
   TrendUpIcon,
   WalletIcon,
   type IconlyIcon,
@@ -36,11 +37,22 @@ type Item = {
  * trás na próxima mudança.
  */
 const GROUPS: Array<{ title: string; items: Item[] }> = [
+  /*
+   * "Painel" tinha seis itens e virou uma lista, não um agrupamento. A quebra
+   * separa o que se olha do que se opera: quem abre o sistema para saber como
+   * está o mês fica em Painel; quem vem lançar, conciliar ou conferir o que já
+   * andou fica em Movimentações.
+   */
   {
     title: "Painel",
     items: [
       { label: "Visão geral", icon: DashboardIcon, path: "/" },
       { label: "Fluxo de caixa", icon: TrendUpIcon, path: "/fluxo-de-caixa" },
+    ],
+  },
+  {
+    title: "Movimentações",
+    items: [
       { label: "A pagar e receber", icon: ArrowUpIcon, path: "/a-pagar-e-receber", counter: true },
       { label: "Pagas e recebidas", icon: ArrowsUpDownIcon, path: "/pagas-e-recebidas" },
       { label: "Lançamentos", icon: DocumentIcon, path: "/lancamentos" },
@@ -50,7 +62,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   {
     title: "Análise",
     items: [
-      { label: "DRE", icon: DocumentIcon, path: "/dre" },
+      { label: "DRE", icon: ReportIcon, path: "/dre" },
       { label: "Balanço Patrimonial", icon: ChartIcon, path: "/balanco-patrimonial" },
     ],
   },
