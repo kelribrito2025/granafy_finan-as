@@ -5,8 +5,12 @@ const ONTEM = new Date("2026-09-07T12:00:00Z");
 const ANTES = new Date("2026-09-01T12:00:00Z");
 const DEPOIS = new Date("2026-09-09T12:00:00Z");
 
-/* A empresa antiga é o caso de quem já usava o sistema antes de haver empresa. */
-const antiga = { companyCreatedAt: ANTES };
+/*
+ * A empresa antiga é o caso de quem já usava o sistema antes de haver empresa —
+ * e, desde a Fase 7, também o de quem existia antes da coluna por empresa.
+ * `companyCompletedAt: null` é o que a torna antiga.
+ */
+const antiga = { companyCreatedAt: ANTES, companyCompletedAt: null };
 
 describe("shouldShowOnboarding", () => {
   it("mostra para conta nova e vazia", () => {
@@ -45,7 +49,7 @@ describe("shouldShowOnboarding", () => {
      * regra, criar uma empresa levaria direto ao painel vazio.
      */
     expect(shouldShowOnboarding({
-      completedAt: ONTEM, companyCreatedAt: DEPOIS, accountCount: 0, transactionCount: 0,
+      companyCompletedAt: null, completedAt: ONTEM, companyCreatedAt: DEPOIS, accountCount: 0, transactionCount: 0,
     })).toBe(true);
   });
 
@@ -56,20 +60,55 @@ describe("shouldShowOnboarding", () => {
      * esvaziasse a conta veria o assistente de volta.
      */
     expect(shouldShowOnboarding({
-      completedAt: DEPOIS, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0,
+      companyCompletedAt: null, completedAt: DEPOIS, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0,
     })).toBe(false);
   });
 
   it("empresa nova com dado dentro não mostra: quem já lançou não precisa", () => {
     expect(shouldShowOnboarding({
-      completedAt: ONTEM, companyCreatedAt: DEPOIS, accountCount: 1, transactionCount: 0,
+      companyCompletedAt: null, completedAt: ONTEM, companyCreatedAt: DEPOIS, accountCount: 1, transactionCount: 0,
+    })).toBe(false);
+  });
+
+  // ── a coluna por empresa, da Fase 7 ──────────────────────────────────────
+
+  it("empresa que já passou pelo fluxo não mostra, aconteça o que for com o login", () => {
+    /*
+     * A coluna da empresa responde antes de tudo. Aqui o login nunca concluiu
+     * nada (`completedAt: null`), o que sozinho diria "mostre" — e não mostra,
+     * porque ESTA empresa já passou.
+     */
+    expect(shouldShowOnboarding({
+      companyCompletedAt: ONTEM, completedAt: null, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0,
+    })).toBe(false);
+  });
+
+  it("a limitação da Fase 6 morreu: concluir numa empresa não cala a outra", () => {
+    /*
+     * O caso que a fase inteira existe para consertar, e ele é um par.
+     *
+     * Duas empresas criadas no mesmo instante (ANTES). O fluxo foi concluído na
+     * primeira, DEPOIS. Antes da coluna, a comparação de datas respondia
+     * `ANTES > DEPOIS` = false para as DUAS, e a segunda perdia o assistente
+     * sem nunca ter visto.
+     */
+    const concluida = { companyCompletedAt: DEPOIS, completedAt: null, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0 };
+    const intocada = { companyCompletedAt: null, completedAt: null, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0 };
+
+    expect(shouldShowOnboarding(concluida)).toBe(false);
+    expect(shouldShowOnboarding(intocada)).toBe(true);
+  });
+
+  it("empresa que passou pelo fluxo e ficou vazia continua fora — apagar tudo não traz o assistente", () => {
+    expect(shouldShowOnboarding({
+      companyCompletedAt: ANTES, completedAt: ANTES, companyCreatedAt: ANTES, accountCount: 0, transactionCount: 0,
     })).toBe(false);
   });
 
   it("sem data de criação da empresa, não arrisca mostrar", () => {
     /* Contexto sem empresa ativa não deveria chegar aqui; se chegar, não invade a tela. */
     expect(shouldShowOnboarding({
-      completedAt: ONTEM, companyCreatedAt: null, accountCount: 0, transactionCount: 0,
+      companyCompletedAt: null, completedAt: ONTEM, companyCreatedAt: null, accountCount: 0, transactionCount: 0,
     })).toBe(false);
   });
 });

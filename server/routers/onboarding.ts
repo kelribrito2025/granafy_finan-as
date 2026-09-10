@@ -22,6 +22,8 @@ export const onboardingRouter = router({
 
     return {
       show: shouldShowOnboarding({
+        /* A coluna da empresa manda; a do login é o legado que responde por quem não a tem. */
+        companyCompletedAt: empresaAtiva?.onboardingCompletedAt ?? null,
         completedAt: record?.onboardingCompletedAt ?? null,
         companyCreatedAt: empresaAtiva?.createdAt ?? null,
         ...counts,
@@ -32,9 +34,14 @@ export const onboardingRouter = router({
     };
   }),
 
-  /** Vale para "terminei" e para "configurar depois": pular também é decidir. */
+  /**
+   * Vale para "terminei" e para "configurar depois": pular também é decidir.
+   *
+   * E decide para ESTA empresa, não para o login. Concluir na segunda empresa
+   * não cala o assistente na terceira.
+   */
   complete: protectedProcedure.mutation(async ({ ctx }) => {
-    await db.markOnboardingCompleted(ctx.user.id);
+    await db.markOnboardingCompleted(escopoDe(ctx));
     return { success: true } as const;
   }),
 });

@@ -184,6 +184,44 @@ describe("invariante das guardas de isolamento em db.ts", () => {
     expect(frouxos).toEqual([]);
   });
 
+  it("a lista de quem pode receber userId cru está fechada — é a Fase 7", () => {
+    /*
+     * `userId: number` no lugar de `escopo: Escopo` não é erro por si: sete
+     * funções são legitimamente por login, e algumas TÊM que ser — `listCompanies`
+     * não poderia receber uma empresa para listar empresas.
+     *
+     * O risco é outro: uma função nova nascer por login e tocar tabela que tem
+     * empresa. Foi exatamente isso que a Fase 7 achou no
+     * `ensureDefaultTransactionCategories` — por login, escrevendo em
+     * `transactionCategories`, e com isso o catálogo novo entrava em uma
+     * empresa só. Nada reclamou; o furo só apareceu na leitura.
+     *
+     * Então a lista é fechada por nome. Acrescentar uma função por login passa
+     * a ser uma decisão explícita, tomada aqui, com o motivo escrito ao lado —
+     * e não um efeito colateral de assinatura.
+     */
+    const PODEM = new Map([
+      ["ensureDefaultCompany", "garante a empresa padrão: não pode receber a empresa que vai criar"],
+      ["garantirEmpresaPadrao", "o ajudante do de cima, dentro da transação"],
+      ["ensureDefaultTransactionCategories", "varre TODAS as empresas do login, uma por uma, cada uma com a versão dela"],
+      ["getRecentPasswordResetRequest", "recuperação de senha é do login; empresa não participa"],
+      ["createPasswordResetRequest", "idem: a tabela de reset não tem companyId, e senha não é por empresa"],
+      ["completePasswordReset", "idem"],
+      ["listCompanies", "lista as empresas do login — receber uma empresa não faria sentido"],
+      ["createCompany", "cria a empresa: ela não existe para ser recebida"],
+      ["getUserPreferences", "fuso, moeda e barra lateral são do login, e a tabela não tem companyId"],
+      ["saveUserPreferences", "o par do de cima"],
+    ]);
+
+    const porLogin = funcoes.filter(f => /\buserId: number\b/.test(f.assinatura)).map(f => f.nome);
+    const naoAutorizadas = porLogin.filter(nome => !PODEM.has(nome));
+    const autorizadasQueSumiram = [...PODEM.keys()].filter(nome => !porLogin.includes(nome));
+
+    expect(naoAutorizadas).toEqual([]);
+    /* A lista também não pode envelhecer: nome que saiu do arquivo sai da lista. */
+    expect(autorizadasQueSumiram).toEqual([]);
+  });
+
   it("os tipos derivados de Insert que a rede acima cobre não passam de zero por acidente", () => {
     /*
      * A mesma armadilha do primeiro teste deste arquivo: se a extração do

@@ -179,7 +179,8 @@ async function garantirEmpresaPadrao(tx: ComEscrita, userId: number): Promise<nu
     .limit(1);
   if (existente) return existente.id;
 
-  const criada = await tx.insert(companyProfiles).values({ userId });
+  /* Nasce na versão corrente porque quem a cria insere o catálogo inteiro em seguida. */
+  const criada = await tx.insert(companyProfiles).values({ userId, categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION });
   return Number(criada[0].insertId);
 }
 
@@ -255,41 +256,62 @@ export async function updateLastSignedIn(id: number) {
   await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, id));
 }
 
+/**
+ * O catálogo de categorias-padrão, garantido EM CADA EMPRESA do login.
+ *
+ * Era por login, e isso era um furo com prazo: a versão morava em `users`, a
+ * função pedia a empresa padrão e carimbava o login. Com duas empresas, a
+ * primeira recebia as categorias novas, o login passava a constar atualizado, e
+ * a segunda ficava sem elas PARA SEMPRE — sem erro, sem aviso, e só se descobre
+ * na hora de escolher categoria num lançamento.
+ *
+ * Agora a versão mora em `companyProfiles.categoryDefaultsVersion` e cada
+ * empresa é decidida por si. Uma transação por empresa, e não uma para todas:
+ * se a terceira falhar, as duas primeiras já estão prontas e a próxima chamada
+ * retoma da terceira. O contrário — tudo ou nada — só transformaria uma falha
+ * em nenhuma empresa atualizada.
+ *
+ * `users.categoryDefaultsVersion` fica de pé e sem escritor, como a outra coluna
+ * legada. Ninguém lê mais.
+ */
 export async function ensureDefaultTransactionCategories(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
-  const [record] = await db
-    .select({ version: users.categoryDefaultsVersion })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!record) throw new Error("User not found");
-  if (record.version >= DEFAULT_CATEGORY_CATALOG_VERSION) {
-    return { applied: false, version: record.version };
+  const empresas = await db
+    .select({ id: companyProfiles.id, versao: companyProfiles.categoryDefaultsVersion })
+    .from(companyProfiles)
+    .where(eq(companyProfiles.userId, userId));
+
+  const atrasadas = empresas.filter(empresa => empresa.versao < DEFAULT_CATEGORY_CATALOG_VERSION);
+  if (atrasadas.length === 0) {
+    return { applied: false, empresas: 0, version: DEFAULT_CATEGORY_CATALOG_VERSION };
   }
 
-  await db.transaction(async tx => {
-    /*
-     * O outro caminho que insere categoria. Passou despercebido na primeira
-     * leitura e vazaria do mesmo jeito: conta antiga recebendo categoria nova
-     * gravaria linha sem empresa.
-     */
-    const companyId = await garantirEmpresaPadrao(tx, userId);
-    const upgradeValues = defaultCategoryUpgradeValues(userId, companyId, record.version);
-    if (upgradeValues.length > 0) {
+  for (const empresa of atrasadas) {
+    await db.transaction(async tx => {
+      const upgradeValues = defaultCategoryUpgradeValues(userId, empresa.id, empresa.versao);
+      if (upgradeValues.length > 0) {
+        /*
+         * `onDuplicateKeyUpdate` contra `transaction_categories_company_name_uidx`,
+         * que é (userId, companyId, name): a categoria que já existe não é
+         * tocada — em especial o `isActive` dela, para não ressuscitar o que
+         * alguém desativou de propósito. É o que faz a versão nascer em 0 nas
+         * empresas antigas ser seguro em vez de destrutivo.
+         */
+        await tx
+          .insert(transactionCategories)
+          .values(upgradeValues)
+          .onDuplicateKeyUpdate({ set: { userId } });
+      }
       await tx
-        .insert(transactionCategories)
-        .values(upgradeValues)
-        .onDuplicateKeyUpdate({ set: { userId } });
-    }
-    await tx
-      .update(users)
-      .set({ categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION })
-      .where(eq(users.id, userId));
-  });
+        .update(companyProfiles)
+        .set({ categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION })
+        .where(and(eq(companyProfiles.userId, userId), eq(companyProfiles.id, empresa.id)));
+    });
+  }
 
-  return { applied: true, version: DEFAULT_CATEGORY_CATALOG_VERSION };
+  return { applied: true, empresas: atrasadas.length, version: DEFAULT_CATEGORY_CATALOG_VERSION };
 }
 
 /** As datas das falhas de entrada desse e-mail dentro da janela. */
@@ -1028,10 +1050,27 @@ export async function getOnboardingCounts(escopo: Escopo) {
 }
 
 /** Terminou ou pulou: nos dois casos o fluxo não volta a aparecer. */
-export async function markOnboardingCompleted(userId: number) {
+/**
+ * "Terminei" ou "configuro depois", gravado NA EMPRESA.
+ *
+ * Escrevia em `users` e era essa a limitação da Fase 6: a conclusão de uma
+ * empresa calava o assistente em todas as outras criadas antes dela. Agora
+ * carimba a empresa ativa e não toca mais na coluna do login — que fica de pé,
+ * sem escritor, respondendo pelas empresas anteriores à Fase 7.
+ *
+ * Se a linha não for do login, nada é escrito e o erro sobe. Não é zelo: o id
+ * vem do cookie de empresa ativa, que é dado do cliente.
+ */
+export async function markOnboardingCompleted(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(users).set({ onboardingCompletedAt: new Date() }).where(eq(users.id, userId));
+  const resultado = await db
+    .update(companyProfiles)
+    .set({ onboardingCompletedAt: new Date() })
+    .where(and(eq(companyProfiles.userId, escopo.userId), eq(companyProfiles.id, escopo.companyId)));
+  if (Number(resultado[0].affectedRows ?? 0) === 0) {
+    throw new Error("Empresa não encontrada para este login.");
+  }
 }
 
 export async function getFinancialAccount(escopo: Escopo, id: number) {
@@ -1467,7 +1506,7 @@ export class UltimaEmpresaAtiva extends Error {}
 /**
  * Cria uma empresa para o login, com as categorias-padrão dela.
  *
- * As cinquenta categorias vão junto pelo mesmo motivo que vão no cadastro de
+ * As categorias-padrão vão junto pelo mesmo motivo que vão no cadastro de
  * conta: empresa sem categoria não deixa lançar nada, e a pessoa que acabou de
  * criar a segunda empresa não quer descobrir isso na hora de registrar a
  * primeira venda. É a mesma lista do `createLocalUser` — não há duas versões.
@@ -1490,7 +1529,16 @@ export async function createCompany(userId: number, values: Omit<InsertCompanyPr
   }
 
   const id = await db.transaction(async tx => {
-    const criada = await tx.insert(companyProfiles).values({ userId, ...values });
+    /*
+     * O carimbo vem DEPOIS do espalhamento, como o `companyId` dos itens de
+     * patrimônio: antes, um valor vindo de fora sobrescreveria a versão e a
+     * empresa nasceria "atrasada" com o catálogo inteiro dentro.
+     */
+    const criada = await tx.insert(companyProfiles).values({
+      userId,
+      ...values,
+      categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION,
+    });
     const novoId = Number(criada[0].insertId);
     await tx.insert(transactionCategories).values(defaultCategoryValues(userId, novoId));
     return novoId;

@@ -2,15 +2,18 @@ import type { Connection, RowDataPacket } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCompany,
+  ensureDefaultCompany,
+  ensureDefaultTransactionCategories,
   esquecerBancoDeTeste,
   getCompanyProfile,
   listCompanies,
+  markOnboardingCompleted,
   MAXIMO_DE_EMPRESAS,
   saveCompanyProfile,
   setCompanyArchived,
   usarBancoDeTesteEm,
 } from "./db";
-import { DEFAULT_TRANSACTION_CATEGORIES } from "./defaultCategories";
+import { DEFAULT_CATEGORY_CATALOG_VERSION, DEFAULT_TRANSACTION_CATEGORIES } from "./defaultCategories";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { COMPANY_COOKIE_NAME } from "@shared/const";
@@ -272,5 +275,132 @@ describe.runIf(temBancoDeTeste())("as empresas de um login", () => {
     const daAna = await listCompanies(ANA);
     expect(daAna.map(e => [e.legalName, e.isActive])).toEqual([["Segunda", true], ["Primeira", false]]);
     expect(await listCompanies(BRUNO)).toHaveLength(1);
+  });
+
+  // ── a Fase 7: as duas colunas por empresa ────────────────────────────────
+
+  it("o catálogo novo entra em TODAS as empresas do login, não na primeira", async () => {
+    /*
+     * O furo que a Fase 7 achou, e o teste que o prova morto.
+     *
+     * Antes, a versão do catálogo morava em `users`: a função pegava a empresa
+     * padrão, inseria as categorias novas nela e carimbava o LOGIN. Da segunda
+     * chamada em diante o login já constava atualizado, e a outra empresa
+     * ficava sem as categorias novas para sempre.
+     *
+     * As duas empresas voltam para a versão 0 de propósito — é a forma de uma
+     * empresa antiga, criada antes da coluna existir.
+     */
+    const padaria = await createCompany(ANA, { legalName: "Padaria", tradeName: "Padaria", taxId: "" });
+    const oficina = await createCompany(ANA, { legalName: "Oficina", tradeName: "Oficina", taxId: "" });
+
+    await c.query("UPDATE companyProfiles SET categoryDefaultsVersion = 0 WHERE userId = ?", [ANA]);
+    await c.query("DELETE FROM transactionCategories WHERE userId = ?", [ANA]);
+
+    const resultado = await ensureDefaultTransactionCategories(ANA);
+
+    expect(resultado.empresas).toBe(2);
+    expect(await contarCategorias(c, padaria!.id)).toBe(DEFAULT_TRANSACTION_CATEGORIES.length);
+    expect(await contarCategorias(c, oficina!.id)).toBe(DEFAULT_TRANSACTION_CATEGORIES.length);
+
+    const [versoes] = await c.query<(RowDataPacket & { categoryDefaultsVersion: number })[]>(
+      "SELECT categoryDefaultsVersion FROM companyProfiles WHERE userId = ?", [ANA],
+    );
+    expect(versoes.map(l => l.categoryDefaultsVersion)).toEqual([DEFAULT_CATEGORY_CATALOG_VERSION, DEFAULT_CATEGORY_CATALOG_VERSION]);
+  });
+
+  it("passar duas vezes não duplica categoria nem ressuscita a desativada", async () => {
+    /*
+     * É o que torna seguro a coluna nascer em 0 nas empresas que já existem: a
+     * primeira passada sobre empresa completa não insere nada, e quem desativou
+     * uma categoria de propósito não a vê voltar.
+     */
+    const empresa = await createCompany(ANA, { legalName: "Mercado", tradeName: "Mercado", taxId: "" });
+    const antes = await contarCategorias(c, empresa!.id);
+
+    await c.query("UPDATE transactionCategories SET isActive = 0 WHERE companyId = ? LIMIT 1", [empresa!.id]);
+    await c.query("UPDATE companyProfiles SET categoryDefaultsVersion = 0 WHERE id = ?", [empresa!.id]);
+
+    await ensureDefaultTransactionCategories(ANA);
+
+    expect(await contarCategorias(c, empresa!.id)).toBe(antes);
+    const [inativas] = await c.query<(RowDataPacket & { n: number })[]>(
+      "SELECT COUNT(*) n FROM transactionCategories WHERE companyId = ? AND isActive = 0", [empresa!.id],
+    );
+    expect(Number(inativas[0]!.n)).toBe(1);
+  });
+
+  it("o catálogo de uma pessoa não entra na empresa da outra", async () => {
+    const daAna = await createCompany(ANA, { legalName: "Da Ana", tradeName: "Ana", taxId: "" });
+    const doBruno = await createCompany(BRUNO, { legalName: "Do Bruno", tradeName: "Bruno", taxId: "" });
+
+    await c.query("UPDATE companyProfiles SET categoryDefaultsVersion = 0");
+    const resultado = await ensureDefaultTransactionCategories(ANA);
+
+    expect(resultado.empresas).toBe(1);
+    const [versao] = await c.query<(RowDataPacket & { categoryDefaultsVersion: number })[]>(
+      "SELECT categoryDefaultsVersion FROM companyProfiles WHERE id = ?", [doBruno!.id],
+    );
+    /* A empresa do Bruno continua atrasada: a varredura da Ana não a alcança. */
+    expect(versao[0]!.categoryDefaultsVersion).toBe(0);
+    expect(daAna!.id).not.toBe(doBruno!.id);
+  });
+
+  it("concluir as boas-vindas carimba a empresa, e só ela", async () => {
+    const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "1", taxId: "" });
+    const segunda = await createCompany(ANA, { legalName: "Segunda", tradeName: "2", taxId: "" });
+
+    await markOnboardingCompleted({ userId: ANA, companyId: primeira!.id });
+
+    const marcada = await getCompanyProfile({ userId: ANA, companyId: primeira!.id });
+    const intocada = await getCompanyProfile({ userId: ANA, companyId: segunda!.id });
+    expect(marcada?.onboardingCompletedAt).toBeInstanceOf(Date);
+    /* A limitação da Fase 6, morta: a segunda empresa continua oferecendo o fluxo. */
+    expect(intocada?.onboardingCompletedAt).toBeNull();
+  });
+
+  it("concluir as boas-vindas na empresa de outra pessoa não escreve nada", async () => {
+    const doBruno = await createCompany(BRUNO, { legalName: "Do Bruno", tradeName: "Bruno", taxId: "" });
+
+    await expect(markOnboardingCompleted({ userId: ANA, companyId: doBruno!.id })).rejects.toThrow();
+
+    const [linha] = await c.query<(RowDataPacket & { onboardingCompletedAt: Date | null })[]>(
+      "SELECT onboardingCompletedAt FROM companyProfiles WHERE id = ?", [doBruno!.id],
+    );
+    expect(linha[0]!.onboardingCompletedAt).toBeNull();
+  });
+
+  it("a empresa padrão de quem não tem nenhuma é NOVA, e não a de outra pessoa", async () => {
+    /*
+     * Guarda que existia sem prova, achada por varredura de mutação — apagar o
+     * `eq(companyProfiles.userId, userId)` de `garantirEmpresaPadrao` deixava a
+     * suíte inteira verde.
+     *
+     * O que ela segura: sem o filtro, o SELECT devolve a PRIMEIRA empresa da
+     * tabela, de quem for. Um login sem empresa passaria a "ter" a empresa de
+     * outra pessoa no login seguinte — e no cadastro, que chama a mesma função
+     * dentro da transação, as categorias-padrão do recém-chegado seriam
+     * inseridas dentro da empresa de um estranho.
+     *
+     * O arreio nunca tinha passado por aqui: todos os outros testes criam
+     * empresa por `createCompany`, que não usa este caminho.
+     */
+    const daAna = await createCompany(ANA, { legalName: "Da Ana", tradeName: "Ana", taxId: "" });
+
+    /* O Bruno existe e não tem empresa nenhuma — é o estado que aciona o caminho. */
+    const doBruno = await ensureDefaultCompany(BRUNO);
+
+    expect(doBruno).not.toBe(daAna!.id);
+    const [linha] = await c.query<(RowDataPacket & { userId: number })[]>(
+      "SELECT userId FROM companyProfiles WHERE id = ?", [doBruno],
+    );
+    expect(linha[0]!.userId).toBe(BRUNO);
+  });
+
+  it("a empresa padrão de quem já tem uma é a que ele já tem", async () => {
+    /* O par do de cima: a função não pode criar empresa a cada login. */
+    const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "1", taxId: "" });
+    expect(await ensureDefaultCompany(ANA)).toBe(primeira!.id);
+    expect((await listCompanies(ANA)).length).toBe(1);
   });
 });
