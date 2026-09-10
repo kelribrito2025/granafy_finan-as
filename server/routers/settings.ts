@@ -7,6 +7,7 @@ import {
   DEFAULT_PREFERENCES,
   SIDEBAR_MODES,
 } from "@shared/preferences";
+import { escopoDe } from "../escopo";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
@@ -46,14 +47,14 @@ const EMPTY_COMPANY = companyValuesSchema.parse({});
 
 export const settingsRouter = router({
   company: protectedProcedure.query(async ({ ctx }) => {
-    const profile = await db.getCompanyProfile(ctx.user.id);
+    const profile = await db.getCompanyProfile(escopoDe(ctx));
     if (!profile) return { ...EMPTY_COMPANY, logoKey: null, logoName: null };
     const { id: _id, userId: _userId, createdAt: _createdAt, updatedAt: _updatedAt, ...values } = profile;
     return values;
   }),
 
   saveCompany: protectedProcedure.input(companyValuesSchema).mutation(async ({ ctx, input }) => {
-    await db.saveCompanyProfile(ctx.user.id, { ...input, state: input.state.toUpperCase() });
+    await db.saveCompanyProfile(escopoDe(ctx), { ...input, state: input.state.toUpperCase() });
     return { success: true } as const;
   }),
 

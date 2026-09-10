@@ -379,25 +379,18 @@ describe.runIf(temBancoDeTeste())("isolamento da conciliação entre empresas", 
     expect(await listBankMovements(anaB, empresaA().conta, "2026-09-01", "2026-09-30")).toEqual([]);
   });
 
-  it("os índices únicos por dono continuam sem companyId — é isso que torna duas guardas inverificáveis", async () => {
+  it("os índices da conciliação incluem a empresa, e as duas guardas voltaram a valer", async () => {
     /*
-     * Este teste não prova guarda nenhuma: prova a RAZÃO de duas delas não
-     * poderem ser provadas, e avisa no dia em que a razão deixar de valer.
+     * A versão anterior deste teste travava a definição ERRADA de propósito:
+     * `transactions_user_fingerprint_uidx` e
+     * `statement_balances_account_date_uidx` eram únicos por dono, sem empresa,
+     * e era isso que tornava DUAS guardas desta leva inverificáveis por
+     * mutação — o banco já garantia uma linha por dono, então apagar a guarda
+     * não mudava resultado nenhum.
      *
-     * `transactions_user_fingerprint_uidx` é único em (userId, fingerprint) e
-     * `statement_balances_account_date_uidx` em (userId, accountId, asOf) —
-     * nenhum dos dois inclui `companyId`. Enquanto for assim, o banco garante
-     * uma linha por dono nesses recortes, e a guarda de empresa dentro de
-     * `createImportBatch` e `saveStatementBalance` não tem como mudar
-     * resultado: a varredura de mutação as encontra vivas, e está certa.
-     *
-     * A tentação era apagar as duas guardas para o boletim ficar limpo. Elas
-     * ficam: cobrem escrita — vínculo de conciliação e histórico de saldo — e o
-     * dia em que esses índices ganharem `companyId`, ou em que a Fase 6
-     * permitir mover conta entre empresas, elas passam a valer sozinhas.
-     *
-     * Quando esse dia chegar, este teste fica vermelho e cobra os dois testes
-     * que hoje não existem porque não podem existir.
+     * Com o aperto da Fase 5 as duas passam a valer sozinhas, saíram da
+     * marcação `// inverificável-por-índice-único` e entraram no padrão da
+     * varredura. Este teste vira o de sempre: trava a definição certa.
      */
     const unicos = async (tabela: string) => {
       const [linhas] = await c.query<(RowDataPacket & { Key_name: string; Column_name: string; Non_unique: number })[]>(
@@ -410,10 +403,91 @@ describe.runIf(temBancoDeTeste())("isolamento da conciliação entre empresas", 
       return porNome;
     };
 
-    expect((await unicos("transactions")).get("transactions_user_fingerprint_uidx"))
-      .toEqual(["userId", "fingerprint"]);
-    expect((await unicos("statementBalances")).get("statement_balances_account_date_uidx"))
-      .toEqual(["userId", "accountId", "asOf"]);
+    const lancamentos = await unicos("transactions");
+    expect(lancamentos.get("transactions_company_fingerprint_uidx")).toEqual(["userId", "companyId", "fingerprint"]);
+    expect(lancamentos.has("transactions_user_fingerprint_uidx")).toBe(false);
+
+    const saldos = await unicos("statementBalances");
+    expect(saldos.get("statement_balances_company_date_uidx")).toEqual(["userId", "companyId", "accountId", "asOf"]);
+    expect(saldos.has("statement_balances_account_date_uidx")).toBe(false);
+  });
+
+  // ── as três guardas que o aperto da Fase 5 tornou provaveis ──────────────
+
+  it("o lote não prende a movimentação ao lançamento de outra empresa", async () => {
+    /*
+     * Esta guarda custou três tentativas de arreio, e as duas primeiras
+     * falharam pelo mesmo motivo: elas dependiam da ORDEM de um `SELECT` sem
+     * `ORDER BY`.
+     *
+     * Lá dentro o casamento é `new Map(ledger.map(l => [l.fingerprint, l.id]))`,
+     * e num mapa a última chave repetida vence. Quando as duas linhas — a certa
+     * e a intrusa — tinham a mesma digital, qual delas ganhava era decisão do
+     * banco, e ele escolhia a certa com frequência suficiente para a mutação
+     * sobreviver. Teste que passa por sorte de ordenação é teste que não prova.
+     *
+     * A versão que prova não empata: a digital do movimento existe SÓ na outra
+     * empresa. Com a guarda, o mapa não a tem e nenhum vínculo nasce para ele;
+     * sem a guarda, o mapa a tem e o vínculo nasce prendendo a movimentação da
+     * empresa A ao lançamento da empresa B. Não há ordem que salve.
+     */
+    await c.query(
+      `INSERT INTO transactions (userId, companyId, type, transactionDate, description, category, costCenter, amount, account, accountId, status, recurring, importBatchId, fingerprint)
+         VALUES (?, ?, 'entrada', '2026-09-10', 'Intrusa', 'Vendas', '', '42.00', 'Conta B', ?, 'Pago', false, 'lote-a', 'digital-so-da-b')`,
+      [ANA, EMPRESA_B, empresaB().conta],
+    );
+    /* Uma movimentação da empresa A com a digital que só a empresa B tem. */
+    await c.query(
+      `INSERT INTO bankMovements (userId, companyId, accountId, movementDate, description, contact, amount, status, classificationNote, fingerprint, importBatchId)
+         VALUES (?, ?, ?, '2026-09-10', 'Órfã', '', '42.00', 'sem_par', '', 'digital-so-da-b', 'lote-a')`,
+      [ANA, EMPRESA_A, empresaA().conta],
+    );
+
+    await createImportBatch(anaA, {
+      id: "lote-a",
+      fileName: "extrato.ofx", format: "ofx", accountId: empresaA().conta,
+      duplicateCount: 0, statementBalance: null,
+      transactions: [{
+        type: "entrada", transactionDate: "2026-09-10", description: "Importada", category: "Vendas",
+        amount: "10.00", account: "Conta A", status: "Pago", recurring: false, fingerprint: "digital-legitima",
+      }],
+    });
+
+    const [vinculos] = await c.query<(RowDataPacket & { transacaoEmpresa: number; digital: string })[]>(
+      `SELECT t.companyId AS transacaoEmpresa, t.fingerprint AS digital
+         FROM reconciliationLinks l JOIN transactions t ON t.id = l.transactionId
+        WHERE l.userId = ? AND l.origin = 'importacao'`,
+      [ANA],
+    );
+    // Um vínculo só: o do lançamento que o lote realmente importou.
+    expect(vinculos).toHaveLength(1);
+    expect(vinculos[0]!.digital).toBe("digital-legitima");
+    expect(vinculos[0]!.transacaoEmpresa).toBe(EMPRESA_A);
+  });
+
+  it("informar saldo na mesma conta e data não lê o histórico da outra empresa", async () => {
+    /*
+     * `statement_balances_company_date_uidx` agora permite duas linhas com o
+     * mesmo (dono, conta, data) em empresas diferentes. A guarda decide qual
+     * delas vira o `previousStatus` do histórico — e histórico que cita o valor
+     * da outra empresa é pior que histórico nenhum.
+     */
+    await c.query(
+      "INSERT INTO statementBalances (userId, companyId, accountId, asOf, balance) VALUES (?, ?, ?, '2026-10-31', '111.00')",
+      [ANA, EMPRESA_B, empresaA().conta],
+    );
+
+    await saveStatementBalance(anaA, {
+      accountId: empresaA().conta, asOf: "2026-10-31", balance: "222.00", accountName: "Conta A",
+    });
+
+    const [historico] = await c.query<(RowDataPacket & { previousStatus: string })[]>(
+      "SELECT previousStatus FROM reconciliationAudit WHERE userId = ? AND companyId = ? AND action LIKE 'saldo_extrato%'",
+      [ANA, EMPRESA_A],
+    );
+    expect(historico).toHaveLength(1);
+    // Vazio, porque na empresa A não havia saldo anterior — e não "111.00", que é o da B.
+    expect(historico[0]!.previousStatus).toBe("");
   });
 
   // ── a dimensão de sempre: donos diferentes ────────────────────────────────

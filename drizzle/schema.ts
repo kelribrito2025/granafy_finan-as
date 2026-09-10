@@ -72,15 +72,15 @@ export const financialAccounts = mysqlTable("financialAccounts", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   name: varchar("name", { length: 80 }).notNull(),
   institution: varchar("institution", { length: 100 }).default("").notNull(),
   accountType: mysqlEnum("accountType", ["corrente", "poupanca", "carteira", "cartao", "gateway", "outro"]).default("corrente").notNull(),
@@ -103,7 +103,7 @@ export const financialAccounts = mysqlTable("financialAccounts", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("financial_accounts_user_name_uidx").on(table.userId, table.name),
+  uniqueIndex("financial_accounts_company_name_uidx").on(table.userId, table.companyId, table.name),
   index("financial_accounts_user_active_idx").on(table.userId, table.isActive),
   index("financial_accounts_company_idx").on(table.companyId),
 ]);
@@ -112,15 +112,15 @@ export const transactionCategories = mysqlTable("transactionCategories", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   name: varchar("name", { length: 120 }).notNull(),
   type: mysqlEnum("type", ["entrada", "saida", "ambos"]).default("ambos").notNull(),
   color: varchar("color", { length: 7 }).default("#4C6355").notNull(),
@@ -128,7 +128,7 @@ export const transactionCategories = mysqlTable("transactionCategories", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("transaction_categories_user_name_uidx").on(table.userId, table.name),
+  uniqueIndex("transaction_categories_company_name_uidx").on(table.userId, table.companyId, table.name),
   index("transaction_categories_user_active_idx").on(table.userId, table.isActive),
   index("transaction_categories_company_idx").on(table.companyId),
 ]);
@@ -137,22 +137,22 @@ export const costCenters = mysqlTable("costCenters", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   name: varchar("name", { length: 120 }).notNull(),
   color: varchar("color", { length: 7 }).default("#4C6355").notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("cost_centers_user_name_uidx").on(table.userId, table.name),
+  uniqueIndex("cost_centers_company_name_uidx").on(table.userId, table.companyId, table.name),
   index("cost_centers_user_active_idx").on(table.userId, table.isActive),
   index("cost_centers_company_idx").on(table.companyId),
 ]);
@@ -186,11 +186,11 @@ export const companyProfiles = mysqlTable("companyProfiles", {
    * perfil único. Os dois campos abaixo são o que uma lista precisa e o
    * cadastro de empresa não tinha.
    *
-   * O `company_profiles_user_uidx` continua de pé de propósito: enquanto o
-   * `saveCompanyProfile` for um lê-depois-escreve, ele é a única coisa que
-   * impede duas gravações simultâneas de criarem dois perfis para o mesmo
-   * login. Ele cai junto dos outros únicos, quando as consultas já filtrarem
-   * por empresa e houver o que colocar no lugar.
+   * O `company_profiles_user_uidx` CAIU na Fase 5, e com ele a proibição de um
+   * login ter duas empresas — que é a fase inteira. O que entrou no lugar foi o
+   * `saveCompanyProfile` deixar de ser um lê-depois-escreve: hoje ele é um
+   * UPDATE só, com a chave completa `(userId, id)`, então não há corrida a
+   * proteger nem alcance além de uma linha.
    */
   /** Arquivar em vez de excluir: empresa guarda razão contábil. */
   isActive: boolean("isActive").default(true).notNull(),
@@ -199,7 +199,6 @@ export const companyProfiles = mysqlTable("companyProfiles", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("company_profiles_user_uidx").on(table.userId),
   index("company_profiles_user_order_idx").on(table.userId, table.sortOrder),
 ]);
 
@@ -233,15 +232,15 @@ export const categoryRules = mysqlTable("categoryRules", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   matchType: mysqlEnum("matchType", ["descricao", "contato", "conta"]).notNull(),
   matchValue: varchar("matchValue", { length: 180 }).notNull(),
   categoryId: int("categoryId"),
@@ -270,15 +269,15 @@ export const transactionImportBatches = mysqlTable("transactionImportBatches", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   fileName: varchar("fileName", { length: 255 }).notNull(),
   format: mysqlEnum("format", ["csv", "ofx"]).notNull(),
   accountId: int("accountId").notNull(),
@@ -312,15 +311,15 @@ export const bankMovements = mysqlTable("bankMovements", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   accountId: int("accountId").notNull(),
   movementDate: date("movementDate", { mode: "string" }).notNull(),
   description: varchar("description", { length: 255 }).notNull(),
@@ -354,7 +353,7 @@ export const bankMovements = mysqlTable("bankMovements", {
   index("bank_movements_user_account_date_idx").on(table.userId, table.accountId, table.movementDate),
   index("bank_movements_user_status_idx").on(table.userId, table.status),
   index("bank_movements_user_batch_idx").on(table.userId, table.importBatchId),
-  uniqueIndex("bank_movements_user_fingerprint_uidx").on(table.userId, table.fingerprint),
+  uniqueIndex("bank_movements_company_fingerprint_uidx").on(table.userId, table.companyId, table.fingerprint),
   index("bank_movements_company_idx").on(table.companyId),
 ]);
 
@@ -371,15 +370,15 @@ export const reconciliationLinks = mysqlTable("reconciliationLinks", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   movementId: int("movementId").notNull(),
   transactionId: int("transactionId").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
@@ -409,15 +408,15 @@ export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   accountId: int("accountId").notNull(),
   year: int("year").notNull(),
   month: int("month").notNull(),
@@ -430,7 +429,7 @@ export const reconciliationPeriods = mysqlTable("reconciliationPeriods", {
   reopenedBy: int("reopenedBy"),
   reopenReason: varchar("reopenReason", { length: 500 }).default("").notNull(),
 }, table => [
-  uniqueIndex("reconciliation_periods_uidx").on(table.userId, table.accountId, table.year, table.month),
+  uniqueIndex("reconciliation_periods_company_uidx").on(table.userId, table.companyId, table.accountId, table.year, table.month),
   index("reconciliation_periods_company_idx").on(table.companyId),
 ]);
 
@@ -450,15 +449,15 @@ export const statementBalances = mysqlTable("statementBalances", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   accountId: int("accountId").notNull(),
   /** A data a que o saldo se refere, não a data em que foi digitado. */
   asOf: date("asOf", { mode: "string" }).notNull(),
@@ -468,7 +467,7 @@ export const statementBalances = mysqlTable("statementBalances", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
   // Um saldo por conta e por data: informar de novo corrige, não empilha.
-  uniqueIndex("statement_balances_account_date_uidx").on(table.userId, table.accountId, table.asOf),
+  uniqueIndex("statement_balances_company_date_uidx").on(table.userId, table.companyId, table.accountId, table.asOf),
   index("statement_balances_user_account_idx").on(table.userId, table.accountId),
   index("statement_balances_company_idx").on(table.companyId),
 ]);
@@ -477,15 +476,15 @@ export const reconciliationAudit = mysqlTable("reconciliationAudit", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   movementId: int("movementId"),
   transactionId: int("transactionId"),
   action: varchar("action", { length: 40 }).notNull(),
@@ -505,15 +504,15 @@ export const transactions = mysqlTable("transactions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   type: mysqlEnum("type", ["entrada", "saida", "transferencia"]).notNull(),
   transactionDate: date("transactionDate", { mode: "string" }).notNull(),
   description: varchar("description", { length: 180 }).notNull(),
@@ -574,7 +573,7 @@ export const transactions = mysqlTable("transactions", {
   index("transactions_user_cost_center_idx").on(table.userId, table.costCenterId),
   index("transactions_user_transfer_group_idx").on(table.userId, table.transferGroupId),
   index("transactions_user_recurrence_group_idx").on(table.userId, table.recurrenceGroupId),
-  uniqueIndex("transactions_user_fingerprint_uidx").on(table.userId, table.fingerprint),
+  uniqueIndex("transactions_company_fingerprint_uidx").on(table.userId, table.companyId, table.fingerprint),
   index("transactions_company_idx").on(table.companyId),
 ]);
 
@@ -586,15 +585,15 @@ export const patrimonialItems = mysqlTable("patrimonialItems", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   name: varchar("name", { length: 120 }).notNull(),
   balanceGroup: mysqlEnum("balanceGroup", [
     "ativo_circulante",
@@ -646,7 +645,7 @@ export const patrimonialItems = mysqlTable("patrimonialItems", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("patrimonial_items_user_name_uidx").on(table.userId, table.name),
+  uniqueIndex("patrimonial_items_company_name_uidx").on(table.userId, table.companyId, table.name),
   index("patrimonial_items_user_group_idx").on(table.userId, table.balanceGroup),
   index("patrimonial_items_user_active_idx").on(table.userId, table.isActive),
   index("patrimonial_items_company_idx").on(table.companyId),
@@ -657,15 +656,15 @@ export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   /*
-   * A empresa dona da linha. Anulável nesta fase de propósito: a coluna nasce,
-   * é preenchida pelo backfill e fica ignorada até as consultas passarem a
-   * filtrar por ela. Vira NOT NULL na última fase, quando não houver mais como
-   * uma linha nascer sem empresa.
+   * A empresa dona da linha. NOT NULL desde a Fase 5: a coluna nasceu anulável
+   * para o backfill poder preenchê-la sem parar o app, e apertou quando toda
+   * inserção passou a carimbá-la. Uma linha sem empresa não é mais um estado
+   * possível.
    *
    * O `userId` fica. As duas guardas juntas são o que faz o pior caso ser "vi
    * a minha empresa errada" em vez de "vi a empresa de outro".
    */
-  companyId: int("companyId"),
+  companyId: int("companyId").notNull(),
   referenceDate: date("referenceDate", { mode: "string" }).notNull(),
   cashAndEquivalents: decimal("cashAndEquivalents", { precision: 15, scale: 2 }).default("0.00").notNull(),
   currentAssets: decimal("currentAssets", { precision: 15, scale: 2 }).default("0.00").notNull(),
@@ -680,7 +679,7 @@ export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
-  uniqueIndex("balance_sheet_snapshots_user_date_uidx").on(table.userId, table.referenceDate),
+  uniqueIndex("balance_sheet_snapshots_company_date_uidx").on(table.userId, table.companyId, table.referenceDate),
   index("balance_sheet_snapshots_user_created_idx").on(table.userId, table.createdAt),
   index("balance_sheet_snapshots_company_idx").on(table.companyId),
 ]);

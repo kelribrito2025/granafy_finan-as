@@ -199,27 +199,47 @@ describe.runIf(temBancoDeTeste())("isolamento do patrimônio entre empresas", ()
 
   // ── o achado da leva ──────────────────────────────────────────────────────
 
-  it("os dois índices únicos do patrimônio ignoram companyId — e um deles perde dado", async () => {
+  it("cada empresa fecha o mesmo mês, e a leitura devolve o fechamento certo", async () => {
     /*
-     * Este teste não prova guarda: trava dois índices e o problema que eles
-     * criam, para o dia em que alguém for mexer neles.
+     * A terceira guarda que o aperto ressuscitou, e a que cobria o defeito
+     * destrutivo: até a Fase 5, `balance_sheet_snapshots_user_date_uidx` era
+     * único em (userId, referenceDate), então fechar setembro na segunda
+     * empresa REESCREVIA o fechamento da primeira — o `onDuplicateKeyUpdate`
+     * batia na mesma chave.
      *
-     * `patrimonial_items_user_name_uidx` é único em (userId, name). Duas
-     * empresas do mesmo dono não podem ter um bem chamado "Notebook". Chato,
-     * mas não destrói nada — o INSERT é recusado e a pessoa vê o erro.
+     * Agora cada empresa tem o seu, e é a guarda de empresa dentro do
+     * `upsertBalanceSheetSnapshot` que faz a leitura de volta devolver o certo.
+     */
+    const naA = await upsertBalanceSheetSnapshot(anaA, {
+      referenceDate: "2026-11-30", totalAssets: "111.00", netWorth: "111.00", itemCount: 1,
+    });
+    const naB = await upsertBalanceSheetSnapshot(anaB, {
+      referenceDate: "2026-11-30", totalAssets: "222.00", netWorth: "222.00", itemCount: 1,
+    });
+
+    expect(naA!.companyId).toBe(EMPRESA_A);
+    expect(naA!.totalAssets).toBe("111.00");
+    expect(naB!.companyId).toBe(EMPRESA_B);
+    expect(naB!.totalAssets).toBe("222.00");
+
+    // E o da A continua lá depois de a B fechar o mesmo mês — que era o defeito.
+    const daA = (await listBalanceSheetSnapshots(anaA)).find(f => f.referenceDate === "2026-11-30");
+    expect(daA!.totalAssets).toBe("111.00");
+  });
+
+  it("os índices do patrimônio incluem a empresa — o aperto da Fase 5", () => {
+    /*
+     * Este teste nasceu ao contrário: até a Fase 5 ele travava a definição
+     * ERRADA, para avisar no dia em que ela mudasse. O dia chegou, e a versão
+     * anterior deste arquivo é o registro de por que a migration existiu:
      *
-     * `balance_sheet_snapshots_user_date_uidx` é único em (userId,
-     * referenceDate), e este É GRAVE. O fechamento é gravado com
-     * `onDuplicateKeyUpdate`: fechar setembro na empresa B SOBRESCREVE o
-     * fechamento de setembro da empresa A, sem erro, sem aviso. E 30/09 é 30/09
-     * para todas as empresas — não há como as datas não colidirem.
+     *   `balance_sheet_snapshots_user_date_uidx` era único em
+     *   (userId, referenceDate), e o fechamento é gravado com
+     *   `onDuplicateKeyUpdate` nessa chave — então fechar setembro na segunda
+     *   empresa APAGAVA o fechamento de setembro da primeira, sem erro nenhum.
      *
-     * É por isso que a semeadura acima usa datas diferentes por empresa. Não
-     * era escolha de desenho: era o índice mandando.
-     *
-     * O conserto é migration — incluir `companyId` nos dois — e migration não
-     * roda sem decisão explícita. Enquanto não rodar, este teste segura a
-     * definição atual e fica vermelho no dia em que ela mudar.
+     * Agora ele trava a definição certa, e o motivo é o mesmo: ninguém volta a
+     * mexer nesses índices sem passar por aqui.
      */
     const unicos = async (tabela: string) => {
       const [linhas] = await c.query<(RowDataPacket & { Key_name: string; Column_name: string; Non_unique: number })[]>(
@@ -232,9 +252,11 @@ describe.runIf(temBancoDeTeste())("isolamento do patrimônio entre empresas", ()
       return porNome;
     };
 
-    expect((await unicos("patrimonialItems")).get("patrimonial_items_user_name_uidx"))
-      .toEqual(["userId", "name"]);
-    expect((await unicos("balanceSheetSnapshots")).get("balance_sheet_snapshots_user_date_uidx"))
-      .toEqual(["userId", "referenceDate"]);
+    return Promise.all([unicos("patrimonialItems"), unicos("balanceSheetSnapshots")]).then(([bens, fechamentos]) => {
+      expect(bens.get("patrimonial_items_company_name_uidx")).toEqual(["userId", "companyId", "name"]);
+      expect(bens.has("patrimonial_items_user_name_uidx")).toBe(false);
+      expect(fechamentos.get("balance_sheet_snapshots_company_date_uidx")).toEqual(["userId", "companyId", "referenceDate"]);
+      expect(fechamentos.has("balance_sheet_snapshots_user_date_uidx")).toBe(false);
+    });
   });
 });

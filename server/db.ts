@@ -1411,29 +1411,56 @@ export async function listCompanies(userId: number) {
  * cair, esta ordem é o que mantém a escolha previsível. Custa nada agora e
  * tira uma mina do caminho.
  */
-export async function getCompanyProfile(userId: number) {
+/**
+ * A empresa ativa do request, e não "a primeira do login".
+ *
+ * Enquanto `company_profiles_user_uidx` existiu, os dois eram a mesma coisa: um
+ * login tinha uma empresa e ordenar por `sortOrder` sempre devolvia ela. O
+ * índice cai na Fase 5, e a partir daí "a primeira" passa a ser uma resposta
+ * errada com cara de certa — a tela de configurações mostraria a empresa A
+ * enquanto a barra de cima diz B.
+ *
+ * A guarda de dono continua ao lado da de empresa, pelo mesmo motivo de sempre:
+ * o pior caso tem que ser "vi minha empresa errada", nunca "vi a de outro".
+ */
+export async function getCompanyProfile(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
     .select()
     .from(companyProfiles)
-    .where(eq(companyProfiles.userId, userId))
-    .orderBy(asc(companyProfiles.sortOrder), asc(companyProfiles.id))
+    .where(and(eq(companyProfiles.userId, escopo.userId), eq(companyProfiles.id, escopo.companyId)))
     .limit(1);
   return rows[0];
 }
 
 /** Uma linha por usuário: cria na primeira gravação, atualiza depois. */
-export async function saveCompanyProfile(userId: number, values: Omit<InsertCompanyProfile, "userId">) {
+/**
+ * Grava a empresa ativa. É um UPDATE só, e isso é o ponto.
+ *
+ * A versão anterior lia, decidia e escrevia — e o UPDATE filtrava só por
+ * `userId`. Enquanto o único de um-perfil-por-login estava de pé, ele era a
+ * única coisa impedindo duas gravações simultâneas de criarem dois perfis; e
+ * num login com duas empresas, aquele UPDATE teria reescrito AS DUAS de uma vez.
+ *
+ * Com a chave completa `(userId, id)` não há leitura no meio, não há corrida a
+ * proteger e o alcance é uma linha. É o que entra no lugar do índice quando ele
+ * cair — e é por isso que este conserto vem ANTES da migration, não depois.
+ *
+ * Zero linha afetada não é sucesso silencioso: significa que a empresa ativa não
+ * pertence a quem pediu, e quem chamou precisa saber.
+ */
+export async function saveCompanyProfile(escopo: Escopo, values: Omit<InsertCompanyProfile, "userId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const existing = await getCompanyProfile(userId);
-  if (existing) {
-    await db.update(companyProfiles).set(values).where(eq(companyProfiles.userId, userId));
-  } else {
-    await db.insert(companyProfiles).values({ userId, ...values });
+  const resultado = await db
+    .update(companyProfiles)
+    .set(values)
+    .where(and(eq(companyProfiles.userId, escopo.userId), eq(companyProfiles.id, escopo.companyId)));
+  if (Number(resultado[0].affectedRows ?? 0) === 0) {
+    throw new Error("Empresa ativa não encontrada para este login.");
   }
-  return getCompanyProfile(userId);
+  return getCompanyProfile(escopo);
 }
 
 export async function getUserPreferences(userId: number) {
@@ -1637,27 +1664,20 @@ export async function saveStatementBalance(escopo: Escopo, input: {
 
   await db.transaction(async tx => {
     /*
-     * A guarda de empresa aqui é inverificável, e vale dizer por quê em vez de
-     * fingir que não é.
+     * Esta guarda foi inverificável até a Fase 5, e o dia previsto chegou.
      *
-     * `statement_balances_account_date_uidx` é único em (userId, accountId,
-     * asOf) — sem `companyId`. Como uma conta pertence a uma empresa só, esse
-     * índice já garante que existe no máximo UMA linha para este trio, e a
-     * guarda de empresa nunca pode mudar o resultado desta leitura. Apagá-la
-     * não deixa teste nenhum vermelho, e não porque falte teste: porque o
-     * schema torna a diferença impossível.
-     *
-     * Fica de pé mesmo assim. O dia em que esse índice ganhar `companyId` — ou
-     * em que a Fase 6 permitir mover conta entre empresas — a guarda passa a
-     * valer sozinha, e é barato demais para ser removida agora em troca de um
-     * boletim de mutação mais bonito.
+     * `statement_balances_account_date_uidx` era único em (userId, accountId,
+     * asOf), sem `companyId`: o banco já garantia uma linha por trio e apagar a
+     * guarda não mudava resultado nenhum. Com o índice apertado, duas empresas
+     * do mesmo dono podem ter saldo na mesma conta e data — e aí é esta guarda,
+     * sozinha, que decide qual delas o histórico vai citar.
      */
     const [anterior] = await tx
       .select({ balance: statementBalances.balance })
       .from(statementBalances)
       .where(and(
         eq(statementBalances.userId, escopo.userId),
-        eq(statementBalances.companyId, escopo.companyId), // inverificável-por-índice-único
+        eq(statementBalances.companyId, escopo.companyId),
         eq(statementBalances.accountId, input.accountId),
         eq(statementBalances.asOf, input.asOf)
       ))
@@ -1818,7 +1838,7 @@ export async function createTransactionsForMovement(escopo: Escopo, input: {
     const criados: number[] = [];
     for (const part of input.parts) {
       const { linkAmount: _linkAmount, ...values } = part;
-      const [inserted] = await tx.insert(financialTransactions).values({ userId: escopo.userId, ...values });
+      const [inserted] = await tx.insert(financialTransactions).values({ ...values, userId: escopo.userId, companyId: escopo.companyId });
       criados.push(Number(inserted.insertId));
     }
     await tx.insert(reconciliationLinks).values(
@@ -2072,22 +2092,25 @@ export async function createImportBatch(escopo: Escopo, input: {
     // alocado por faixa e adivinhar a sequência de um insert em lote daria
     // vínculo trocado.
     /*
-     * A guarda de empresa na leitura do razão é inverificável, pelo mesmo
-     * motivo da de `saveStatementBalance`: `transactions_user_fingerprint_uidx`
-     * é único em (userId, fingerprint), sem `companyId`. O mapa abaixo casa por
-     * fingerprint, e o índice garante um fingerprint por dono — então nenhuma
-     * linha de outra empresa deste mesmo dono pode casar, com guarda ou sem.
+     * Defesa em profundidade, e o aperto da Fase 5 mudou o que isso significa
+     * aqui — só que não do jeito que eu tinha escrito.
      *
-     * Fica de pé porque o estrago que ela cobre é dos graves: esta leitura é o
-     * que vira VÍNCULO DE CONCILIAÇÃO gravado, e um intruso na lista prenderia
-     * o movimento ao lançamento de outra empresa. No dia em que esse índice
-     * ganhar `companyId`, a guarda passa a valer sozinha — e aí ela vira
-     * falsificável, e `arreios.test.ts` cobra o teste.
+     * O filtro é `importBatchId`, que é UUID: no fluxo normal ele sozinho já
+     * isola o lote, e a guarda de empresa não muda resultado nenhum, com índice
+     * apertado ou não. O que o aperto mudou foi a POSSIBILIDADE do estado
+     * perigoso: enquanto a digital era única por dono, duas linhas do mesmo
+     * dono com o mesmo `fingerprint` não podiam existir. Agora podem — é o
+     * caso de uso de importar o mesmo extrato em duas empresas.
+     *
+     * Daí em diante basta um `importBatchId` repetido entre empresas para o
+     * mapa por digital abaixo casar a linha errada, e o estrago não é leitura:
+     * é VÍNCULO DE CONCILIAÇÃO gravado prendendo a movimentação ao lançamento
+     * da outra empresa. O arreio semeia exatamente esse estado.
      */
     const [ledger, statement] = await Promise.all([
       tx.select({ id: financialTransactions.id, fingerprint: financialTransactions.fingerprint })
         .from(financialTransactions)
-        .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), /* inverificável-por-índice-único */ eq(financialTransactions.importBatchId, input.id))),
+        .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.importBatchId, input.id))),
       tx.select({ id: bankMovements.id, fingerprint: bankMovements.fingerprint })
         .from(bankMovements)
         .where(and(eq(bankMovements.userId, escopo.userId), eq(bankMovements.companyId, escopo.companyId), eq(bankMovements.importBatchId, input.id))),
@@ -2156,11 +2179,11 @@ export async function getPatrimonialItemByName(escopo: Escopo, name: string) {
 
 export async function createPatrimonialItem(
   escopo: Escopo,
-  values: Omit<InsertPatrimonialItem, "userId">
+  values: Omit<InsertPatrimonialItem, "userId" | "companyId">
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(patrimonialItems).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  const result = await db.insert(patrimonialItems).values({ ...values, userId: escopo.userId, companyId: escopo.companyId });
   return getPatrimonialItem(escopo, Number(result[0].insertId));
 }
 
@@ -2199,13 +2222,13 @@ export async function listBalanceSheetSnapshots(escopo: Escopo, limit = 24) {
 
 export async function upsertBalanceSheetSnapshot(
   escopo: Escopo,
-  values: Omit<InsertBalanceSheetSnapshot, "userId">
+  values: Omit<InsertBalanceSheetSnapshot, "userId" | "companyId">
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   await db
     .insert(balanceSheetSnapshots)
-    .values({ userId: escopo.userId, companyId: escopo.companyId, ...values })
+    .values({ ...values, userId: escopo.userId, companyId: escopo.companyId })
     .onDuplicateKeyUpdate({
       set: {
         cashAndEquivalents: values.cashAndEquivalents,
@@ -2227,19 +2250,14 @@ export async function upsertBalanceSheetSnapshot(
     .where(and(
       eq(balanceSheetSnapshots.userId, escopo.userId),
       /*
-       * Inverificável, e é o terceiro caso do mesmo padrão desta fase:
-       * `balance_sheet_snapshots_user_date_uidx` é único em (userId,
-       * referenceDate), sem `companyId`. O banco garante uma linha por dono e
-       * data, então esta guarda não tem como mudar o resultado da leitura —
-       * apagá-la não deixa teste nenhum vermelho.
-       *
-       * Fica de pé porque este é o pior dos três: o gravação logo acima usa
-       * `onDuplicateKeyUpdate` na mesma única, então fechar o mês na empresa B
-       * SOBRESCREVE o fechamento da A. O dia em que o índice ganhar
-       * `companyId`, esta guarda passa a ser a única coisa entre a leitura e a
-       * linha da outra empresa.
+       * Antes da Fase 5 esta guarda não podia ser provada, e o índice que a
+       * tornava inútil era o mesmo que APAGAVA dado: fechar o mês na segunda
+       * empresa reescrevia o fechamento da primeira, porque a gravação logo
+       * acima usa `onDuplicateKeyUpdate`. Com (userId, companyId,
+       * referenceDate), cada empresa tem o seu — e é esta guarda que devolve o
+       * certo.
        */
-      eq(balanceSheetSnapshots.companyId, escopo.companyId), // inverificável-por-índice-único
+      eq(balanceSheetSnapshots.companyId, escopo.companyId),
       eq(balanceSheetSnapshots.referenceDate, values.referenceDate)
     ))
     .limit(1);

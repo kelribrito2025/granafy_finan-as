@@ -63,7 +63,13 @@ describe("invariante das guardas de isolamento em db.ts", () => {
       .map(f => ({
         nome: f.nome,
         dono: (f.corpo.match(/\.userId, escopo\.userId/g) ?? []).length,
-        empresa: (f.corpo.match(/\.companyId, escopo\.companyId/g) ?? []).length,
+        /*
+         * Duas formas contam como guarda de empresa, e a segunda não é exceção:
+         * é a tabela de EMPRESAS. Em `companyProfiles` a chave da empresa é o
+         * próprio `id` — não existe coluna `companyId` numa tabela que é a
+         * empresa. A paridade continua sendo exigida do mesmo jeito.
+         */
+        empresa: (f.corpo.match(/\.companyId, escopo\.companyId|companyProfiles\.id, escopo\.companyId/g) ?? []).length,
       }))
       .filter(f => f.dono !== f.empresa);
 

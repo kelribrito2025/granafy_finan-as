@@ -25,6 +25,10 @@ import {
 const ANA = 9_000_001;
 const BRUNO = 9_000_002;
 
+/** As empresas semeadas abaixo, como escopo. O id do Bruno é o menor de propósito. */
+const anaEmpresa = { userId: ANA, companyId: 2 };
+const brunoEmpresa = { userId: BRUNO, companyId: 1 };
+
 const TABELAS = ["companyProfiles", "users"] as const;
 const DONOS = [ANA, BRUNO] as const;
 
@@ -127,27 +131,44 @@ describe.runIf(temBancoDeTeste())("isolamento de listCompanies", () => {
      * nenhuma desde a Fase 1. Apagar `eq(companyProfiles.userId, userId)` fazia
      * a função devolver a empresa do Bruno para a Ana, e nada ficava vermelho.
      */
-    const daAna = await getCompanyProfile(ANA);
+    const daAna = await getCompanyProfile(anaEmpresa);
     expect(daAna?.userId).toBe(ANA);
-    const doBruno = await getCompanyProfile(BRUNO);
+    const doBruno = await getCompanyProfile(brunoEmpresa);
     expect(doBruno?.userId).toBe(BRUNO);
     expect(daAna?.id).not.toBe(doBruno?.id);
+
+    /*
+     * A guarda de dono, agora que a busca é por id: pedir a empresa do Bruno
+     * com o userId da Ana não devolve nada. Antes da Fase 5 este caso não
+     * existia — a busca era por dono e o id nem entrava.
+     */
+    expect(await getCompanyProfile({ userId: ANA, companyId: 1 })).toBeUndefined();
   });
 
   it("saveCompanyProfile grava na empresa do dono e não encosta na do outro", async () => {
-    const antes = await getCompanyProfile(BRUNO);
-    await saveCompanyProfile(ANA, { legalName: "Só da Ana" } as never);
+    const antes = await getCompanyProfile(brunoEmpresa);
+    await saveCompanyProfile(anaEmpresa, { legalName: "Só da Ana" } as never);
 
-    expect((await getCompanyProfile(ANA))?.legalName).toBe("Só da Ana");
+    expect((await getCompanyProfile(anaEmpresa))?.legalName).toBe("Só da Ana");
     // A do Bruno segue intacta, inclusive quando ele é o primeiro do banco.
-    expect((await getCompanyProfile(BRUNO))?.legalName).toBe(antes?.legalName);
+    expect((await getCompanyProfile(brunoEmpresa))?.legalName).toBe(antes?.legalName);
+
+    /*
+     * Gravar na empresa do Bruno com o userId da Ana não é sucesso silencioso:
+     * zero linha afetada agora é erro. Era o buraco do lê-depois-escreve — o
+     * UPDATE antigo filtrava só por dono e, num login com duas empresas, teria
+     * reescrito as duas.
+     */
+    await expect(saveCompanyProfile({ userId: ANA, companyId: 1 }, { legalName: "Invasora" } as never))
+      .rejects.toThrow(/não encontrada/);
+    expect((await getCompanyProfile(brunoEmpresa))?.legalName).toBe(antes?.legalName);
   });
 
   it("ensureDefaultCompany devolve a empresa do dono, e não cria outra", async () => {
     const antes = await contarEmpresas();
     const idDaAna = await ensureDefaultCompany(ANA);
-    expect(idDaAna).toBe((await getCompanyProfile(ANA))?.id);
-    expect(idDaAna).not.toBe((await getCompanyProfile(BRUNO))?.id);
+    expect(idDaAna).toBe((await getCompanyProfile(anaEmpresa))?.id);
+    expect(idDaAna).not.toBe((await getCompanyProfile(brunoEmpresa))?.id);
     expect(await contarEmpresas()).toBe(antes);
   });
 
