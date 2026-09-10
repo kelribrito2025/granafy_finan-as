@@ -6,6 +6,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import type { TrpcContext } from "../_core/context";
 import * as db from "../db";
+import { userToday } from "../userToday";
 
 /**
  * As empresas do login.
@@ -24,6 +25,13 @@ import * as db from "../db";
  * devolve a padrão quando não pertence, sem erro e sem atender o pedido. Este
  * router só grava a intenção; quem decide se ela vale é o contexto, a cada vez.
  */
+
+/** `2026-09-10` → `2026-09-11`, pelo UTC, que é como as datas ISO do produto andam. */
+function diaSeguinte(iso: string) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /** Um mês. Cookie de sessão faria a empresa voltar à padrão a cada navegador fechado. */
 const VALIDADE_DA_ESCOLHA = 30 * 24 * 60 * 60 * 1000;
@@ -65,7 +73,20 @@ function escopoDoAlvo(ctx: { user: { id: number } | null }, companyId: number) {
 
 export const companiesRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    const empresas = await db.listCompanies(ctx.user.id);
+    /*
+     * O saldo vem junto porque a lista é onde se escolhe, e escolher empresa
+     * sem ver o caixa dela é escolher no escuro. Uma consulta agregada para
+     * todas, não uma por linha.
+     *
+     * `amanhã` e não `hoje`: o critério é "pago ANTES desta data", então o dia
+     * de hoje só entra se a data for a de amanhã. É o mesmo `addOneDay(today)`
+     * que o painel usa, e a razão de o saldo do modal bater com o dele.
+     */
+    const hoje = await userToday(ctx.user.id);
+    const [empresas, saldos] = await Promise.all([
+      db.listCompanies(ctx.user.id),
+      db.saldosDeCaixaPorEmpresa(ctx.user.id, diaSeguinte(hoje)),
+    ]);
     return empresas.map(empresa => ({
       id: empresa.id,
       displayName: companyDisplayName(empresa, ctx.user.name ?? ""),
@@ -79,6 +100,23 @@ export const companiesRouter = router({
        * que era verdade enquanto a lista tinha uma linha só.
        */
       isCurrent: empresa.id === ctx.activeCompanyId,
+      /** Empresa sem conta e sem lançamento não aparece na agregação: é zero, não nulo. */
+      saldo: saldos.get(empresa.id) ?? 0,
+      criadaEm: empresa.createdAt,
+      /*
+       * FIXO, e assumido como fixo. Papéis de usuário não existem: um login tem
+       * acesso total às empresas dele e não há como compartilhar. O rótulo está
+       * aqui porque o desenho pede a linha, e "Administradora" é o que é
+       * verdade hoje para todo mundo que vê esta tela. No dia em que houver
+       * convite e papel, ele passa a sair do banco — e este comentário é o
+       * marcador de onde.
+       *
+       * O ÚLTIMO ACESSO não entrou. Nenhuma coluna sabe quando alguém abriu uma
+       * empresa, e data inventada em tela é o que acabou de sair do cartão de
+       * uso dos Planos. A linha mostra a criação, que é verdade. Ter o último
+       * acesso de verdade custa uma coluna e uma escrita no `gravarEscolha`.
+       */
+      papel: "Administradora" as const,
     }));
   }),
 

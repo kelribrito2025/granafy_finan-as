@@ -40,6 +40,7 @@ import {
   defaultCategoryUpgradeValues,
   defaultCategoryValues,
 } from "./defaultCategories";
+import { roundCurrency } from "@shared/currency";
 import type { Escopo } from "./escopo";
 import { pickDeclaredBalance } from "./statementBalance";
 import { chunkImportRows } from "./importers";
@@ -911,6 +912,61 @@ export async function sumPaidBefore(escopo: Escopo, date: string) {
       lt(financialTransactions.transactionDate, date)
     ));
   return Number(row?.total ?? 0);
+}
+
+/**
+ * O caixa de hoje de CADA empresa do login, em duas consultas.
+ *
+ * O modal de trocar empresa mostra um saldo por linha, e ele tem que ser o
+ * MESMO número do "Caixa disponível" do painel — dois saldos diferentes para a
+ * mesma empresa na mesma tela é pior que saldo nenhum. Por isso o critério aqui
+ * é copiado do `openingBalance` do fluxo e do `sumPaidBefore`, e não reinventado:
+ * saldo inicial das contas, mais o que está PAGO antes de `amanha`,
+ * transferência de fora (ela move dinheiro entre contas da mesma empresa e
+ * somaria duas vezes).
+ *
+ * Duas consultas com `GROUP BY companyId`, e não duas por empresa. Vinte
+ * empresas dariam quarenta idas ao banco para desenhar um modal.
+ *
+ * Recebe `userId` cru de propósito, e é o único caso do arquivo em que uma
+ * função por login toca tabela que tem empresa. O que a torna correta é o
+ * `GROUP BY`: ela não escolhe empresa nenhuma, devolve todas as do login
+ * separadas, e o `WHERE userId` impede que a soma de outra pessoa entre na
+ * conta. Está na lista fechada de `guardas.test.ts` com esse motivo escrito.
+ */
+export async function saldosDeCaixaPorEmpresa(userId: number, amanha: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [iniciais, pagos] = await Promise.all([
+    db
+      .select({
+        companyId: financialAccounts.companyId,
+        total: sql<string>`COALESCE(SUM(${financialAccounts.initialBalance}), 0)`,
+      })
+      .from(financialAccounts)
+      .where(eq(financialAccounts.userId, userId))
+      .groupBy(financialAccounts.companyId),
+    db
+      .select({
+        companyId: financialTransactions.companyId,
+        total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)`,
+      })
+      .from(financialTransactions)
+      .where(and(
+        eq(financialTransactions.userId, userId),
+        eq(financialTransactions.status, "Pago"),
+        sql`${financialTransactions.type} <> 'transferencia'`,
+        lt(financialTransactions.transactionDate, amanha),
+      ))
+      .groupBy(financialTransactions.companyId),
+  ]);
+
+  const saldos = new Map<number, number>();
+  for (const linha of iniciais) saldos.set(linha.companyId, Number(linha.total));
+  for (const linha of pagos) saldos.set(linha.companyId, (saldos.get(linha.companyId) ?? 0) + Number(linha.total));
+  for (const [companyId, valor] of saldos) saldos.set(companyId, roundCurrency(valor));
+  return saldos;
 }
 
 /**

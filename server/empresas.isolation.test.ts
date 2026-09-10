@@ -9,6 +9,7 @@ import {
   listCompanies,
   markOnboardingCompleted,
   MAXIMO_DE_EMPRESAS,
+  saldosDeCaixaPorEmpresa,
   saveCompanyProfile,
   setCompanyArchived,
   usarBancoDeTesteEm,
@@ -38,7 +39,7 @@ import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoD
 const ANA = 6_700_001;
 const BRUNO = 6_700_002;
 
-const TABELAS = ["transactionCategories", "companyProfiles", "users"] as const;
+const TABELAS = ["transactions", "financialAccounts", "transactionCategories", "companyProfiles", "users"] as const;
 const DONOS = [ANA, BRUNO] as const;
 
 async function semear(c: Connection) {
@@ -402,5 +403,61 @@ describe.runIf(temBancoDeTeste())("as empresas de um login", () => {
     const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "1", taxId: "" });
     expect(await ensureDefaultCompany(ANA)).toBe(primeira!.id);
     expect((await listCompanies(ANA)).length).toBe(1);
+  });
+
+  // ── o saldo por empresa do modal de troca ─────────────────────────────────
+
+  it("o saldo de cada empresa é o dela: nem soma a irmã, nem a de outro dono", async () => {
+    /*
+     * O número que decide a escolha no modal. Se ele somar empresas, a pessoa
+     * troca de empresa olhando um total que não existe em lugar nenhum — e o
+     * modal passa a discordar do painel, que calcula certo.
+     *
+     * Semeado à mão porque o que se prova aqui é a AGREGAÇÃO, e ela precisa de
+     * casos que as funções de criação não produzem: pendente, transferência e
+     * lançamento de amanhã têm de ficar fora.
+     */
+    const padaria = await createCompany(ANA, { legalName: "Padaria", tradeName: "Padaria", taxId: "" });
+    const oficina = await createCompany(ANA, { legalName: "Oficina", tradeName: "Oficina", taxId: "" });
+    const doBruno = await createCompany(BRUNO, { legalName: "Do Bruno", tradeName: "Bruno", taxId: "" });
+
+    const conta = async (userId: number, companyId: number, nome: string, inicial: string) => {
+      const [r] = await c.query<never>(
+        "INSERT INTO financialAccounts (userId, companyId, name, initialBalance) VALUES (?, ?, ?, ?)",
+        [userId, companyId, nome, inicial],
+      );
+      return Number((r as unknown as { insertId: number }).insertId);
+    };
+    const lancar = (userId: number, companyId: number, valor: string, status: string, tipo: string, data: string) =>
+      c.query(
+        `INSERT INTO transactions (userId, companyId, type, transactionDate, description, amount, status, account, category)
+         VALUES (?, ?, ?, ?, 'x', ?, ?, 'c', 'y')`,
+        [userId, companyId, tipo, data, valor, status],
+      );
+
+    await conta(ANA, padaria!.id, "Caixa da padaria", "100.00");
+    await conta(ANA, oficina!.id, "Caixa da oficina", "500.00");
+    await conta(BRUNO, doBruno!.id, "Caixa do Bruno", "9000.00");
+
+    await lancar(ANA, padaria!.id, "30.00", "Pago", "entrada", "2026-09-01");
+    await lancar(ANA, oficina!.id, "7.00", "Pago", "entrada", "2026-09-01");
+    /* Os três que NÃO entram, um por motivo. */
+    await lancar(ANA, padaria!.id, "1000.00", "Pendente", "entrada", "2026-09-01");
+    await lancar(ANA, padaria!.id, "2000.00", "Pago", "transferencia", "2026-09-01");
+    await lancar(ANA, padaria!.id, "4000.00", "Pago", "entrada", "2026-09-30");
+    await lancar(BRUNO, doBruno!.id, "50.00", "Pago", "entrada", "2026-09-01");
+
+    const saldos = await saldosDeCaixaPorEmpresa(ANA, "2026-09-10");
+
+    expect(saldos.get(padaria!.id)).toBe(130);
+    expect(saldos.get(oficina!.id)).toBe(507);
+    /* A empresa do Bruno não existe no mapa da Ana — não é zero, é ausente. */
+    expect(saldos.has(doBruno!.id)).toBe(false);
+  });
+
+  it("empresa sem conta e sem lançamento não aparece no mapa — a tela mostra zero", async () => {
+    const vazia = await createCompany(ANA, { legalName: "Vazia", tradeName: "Vazia", taxId: "" });
+    const saldos = await saldosDeCaixaPorEmpresa(ANA, "2026-09-10");
+    expect(saldos.has(vazia!.id)).toBe(false);
   });
 });

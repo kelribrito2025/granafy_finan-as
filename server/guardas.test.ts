@@ -211,6 +211,14 @@ describe("invariante das guardas de isolamento em db.ts", () => {
       ["createCompany", "cria a empresa: ela não existe para ser recebida"],
       ["getUserPreferences", "fuso, moeda e barra lateral são do login, e a tabela não tem companyId"],
       ["saveUserPreferences", "o par do de cima"],
+      /*
+       * A exceção pensada, e a única que toca tabela COM empresa. O que a torna
+       * correta é o `GROUP BY companyId`: ela não escolhe empresa nenhuma,
+       * devolve todas as do login separadas por chave, e o `WHERE userId`
+       * impede a soma de outra pessoa entrar na conta. Se alguém um dia tirar o
+       * GROUP BY daqui, o arreio de isolamento é que pega — não esta lista.
+       */
+      ["saldosDeCaixaPorEmpresa", "agrega por empresa, todas as do login, só leitura e com GROUP BY companyId"],
     ]);
 
     const porLogin = funcoes.filter(f => /\buserId: number\b/.test(f.assinatura)).map(f => f.nome);

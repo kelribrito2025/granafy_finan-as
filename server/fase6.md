@@ -89,8 +89,37 @@ numa conta com duas empresas.
 - **Cadeado por recurso: descartado.** Sem cobrança conectada, só serviria para
   tirar recurso de quem já usa.
 
+## Leva 5 — o modal deixa de ser lista de botões
+
+Depois de usar com duas empresas de verdade, o modal estava errado de um jeito
+que só o uso mostra: "Editar" e "Arquivar" na cara de cada linha punham duas
+ações de gestão no caminho de quem só queria TROCAR. O modal é de troca; gestão
+é o desvio, não o destino.
+
+- As duas ações foram para trás de um menu `⋮`, ao lado da marca de seleção.
+- A marca virou rádio: check verde cheio na aberta, círculo vazio nas outras. A
+  seta dizia "vai para lá", que é verdade mas não responde a pergunta da tela.
+- **O saldo entrou**, embaixo do nome, e é o MESMO número do "Caixa disponível"
+  do painel — `saldosDeCaixaPorEmpresa` copia o critério do `openingBalance` e
+  do `sumPaidBefore` em vez de reinventar: saldo inicial das contas mais o que
+  está pago antes de amanhã, transferência de fora. Duas consultas com
+  `GROUP BY companyId` para todas as empresas, e não duas por empresa.
+
 ## O que ficou anotado, não esquecido
 
-Saldo por empresa na lista do modal, papéis de usuário (Administradora / Somente
-leitura) e último acesso por empresa. Os três aparecem no mockup do modal e
-nenhum existe — entram por decisão própria, não de arrasto.
+- **Papéis de usuário.** O rótulo "Administradora" está FIXO na tela, por
+  decisão: o desenho pede a linha e é o que é verdade hoje para todo mundo que a
+  vê, porque um login tem acesso total às empresas dele e não existe convite. No
+  dia em que houver papel, ele passa a sair do banco.
+- **Último acesso por empresa.** NÃO entrou, e foi decisão contra o pedido:
+  nenhuma coluna sabe quando alguém abriu uma empresa, e data inventada em tela
+  é o erro que acabou de sair do cartão de uso dos Planos. A linha mostra a
+  criação, que é verdade. Ter o último acesso custa uma coluna e uma escrita no
+  `gravarEscolha`.
+- **Excluir empresa.** Desenhada e adiada pelo dono: menu com Excluir,
+  confirmação digitando `deletar`, e backup opcional em 3 CSV (lançamentos,
+  contas, categorias) com o botão virando "Continuar para exclusão" depois do
+  download. Fica como leva própria porque mexe em DELETE, e o `Excluir` só sobe
+  depois de um arreio que prove que apagar a empresa A não tira uma linha da B.
+  Custo conhecido a decidir junto: apagar os lançamentos não apaga os anexos do
+  storage, que ficam pagos e inalcançáveis.
