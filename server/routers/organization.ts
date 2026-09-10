@@ -125,8 +125,8 @@ export const organizationRouter = router({
       db.getTransactionStatsByCategory(escopoDe(ctx)),
       db.getTransactionStatsByCostCenter(escopoDe(ctx)),
       db.getUncategorizedSummary(escopoDe(ctx)),
-      db.listImportBatches(ctx.user.id),
-      db.getAccountImportSummary(ctx.user.id),
+      db.listImportBatches(escopoDe(ctx)),
+      db.getAccountImportSummary(escopoDe(ctx)),
       db.getAccountTransactionCounts(escopoDe(ctx), monthStart, nextMonth),
     ]);
 

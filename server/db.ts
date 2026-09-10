@@ -1342,7 +1342,7 @@ export async function deleteCategoryRule(escopo: Escopo, id: number) {
 }
 
 /** Quantas vezes cada conta recebeu importação, e a data da última. */
-export async function getAccountImportSummary(userId: number) {
+export async function getAccountImportSummary(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
@@ -1353,7 +1353,7 @@ export async function getAccountImportSummary(userId: number) {
       format: sql<string>`MAX(${transactionImportBatches.format})`,
     })
     .from(transactionImportBatches)
-    .where(eq(transactionImportBatches.userId, userId))
+    .where(and(eq(transactionImportBatches.userId, escopo.userId), eq(transactionImportBatches.companyId, escopo.companyId)))
     .groupBy(transactionImportBatches.accountId);
 
   return new Map(rows.map(row => [Number(row.accountId), {
@@ -2116,10 +2116,10 @@ export async function createImportBatch(escopo: Escopo, input: {
   });
 }
 
-export async function listImportBatches(userId: number) {
+export async function listImportBatches(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select().from(transactionImportBatches).where(eq(transactionImportBatches.userId, userId)).orderBy(desc(transactionImportBatches.createdAt)).limit(12);
+  return db.select().from(transactionImportBatches).where(and(eq(transactionImportBatches.userId, escopo.userId), eq(transactionImportBatches.companyId, escopo.companyId))).orderBy(desc(transactionImportBatches.createdAt)).limit(12);
 }
 
 export async function listPatrimonialItems(escopo: Escopo) {
