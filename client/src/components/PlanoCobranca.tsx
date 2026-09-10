@@ -43,7 +43,7 @@ const PLANOS: Plano[] = [
     id: "controle",
     nome: "Controle",
     chamada: "o plano de quem fecha o mês",
-    precoMensal: 29,
+    precoMensal: 27,
     destaques: [
       "Conciliação com sugestões e regras",
       "DRE, balanço e patrimônio",
@@ -55,7 +55,7 @@ const PLANOS: Plano[] = [
     id: "grupo",
     nome: "Grupo",
     chamada: "para holdings e múltiplos CNPJ",
-    precoMensal: 49,
+    precoMensal: 47,
     destaques: [
       "Até 5 empresas no mesmo login",
       "Relatórios consolidados do grupo",
@@ -413,14 +413,12 @@ export function PlanosPanel() {
   );
 }
 
-/** "01/09 a 30/09" — o mês corrido, que é o período que os lançamentos contam. */
-function periodoLegivel(inicio: string, fim: string) {
-  const dia = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
-  return `${dia(inicio)} a ${dia(fim)}`;
-}
-
 /*
  * O único cartão desta tela que não é mockup.
+ *
+ * A linha "Lançamentos no mês" saiu por decisão: era a única por período, e
+ * medir volume de lançamento não ajuda a decidir plano nenhum enquanto nenhum
+ * plano limita lançamento. Com ela, a contagem no servidor saiu também.
  *
  * Ele era: números fixos com barra de progresso e alerta laranja de estouro.
  * No dia em que a segunda empresa passou a existir, o cartão anunciava
@@ -442,7 +440,6 @@ function CartaoDeUso() {
   const linhas = [
     { rotulo: "Empresas", valor: dados?.empresas, nota: dados && dados.empresas !== dados.empresasAtivas ? `${dados.empresasAtivas} ativas` : null },
     { rotulo: "Contas cadastradas", valor: dados?.contas, nota: dados && dados.contas !== dados.contasAtivas ? `${dados.contasAtivas} ativas` : null },
-    { rotulo: "Lançamentos no mês", valor: dados?.lancamentosNoMes, nota: null },
     { rotulo: "Usuários com acesso", valor: dados?.usuarios, nota: "só você" },
   ];
 
@@ -450,9 +447,12 @@ function CartaoDeUso() {
     <div className={`${CARD} flex flex-col gap-3.5`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <strong className="text-[14px] font-bold">Uso</strong>
-        <span className="ml-auto text-[12px] text-[#8A968D]">
-          {dados ? periodoLegivel(dados.inicioDoMes, dados.fimDoMes) : "carregando"}
-        </span>
+        {/*
+          Sem a linha de lançamentos do mês, nada aqui é por período — empresas,
+          contas e acessos são o estado de agora. Um "01/09 a 30/09" no canto
+          passaria a rotular um recorte que o cartão não usa mais.
+        */}
+        <span className="ml-auto text-[12px] text-[#8A968D]">{dados ? "agora" : "carregando"}</span>
       </div>
 
       <div className="flex flex-col">

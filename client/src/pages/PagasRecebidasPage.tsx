@@ -7,6 +7,7 @@ import {
   ArrowDownIcon,
   ArrowsUpDownIcon,
   ArrowUpIcon,
+  CheckIcon,
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
@@ -15,6 +16,7 @@ import {
   SwapIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PageIcon } from "@/components/PageIcon";
 import { KpiRowSkeleton } from "@/components/PageSkeleton";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -140,6 +142,37 @@ function RowActions({ open, onOpen, onClose, onEstornar }: {
 }
 
 /**
+ * O check que DESMARCA, no cartão.
+ *
+ * É o mesmo desenho do check de "marcar como pago" da tela de A pagar e
+ * receber, e de propósito: quem aprendeu que o check daquela tela liquida
+ * encontra aqui o mesmo botão fazendo o caminho de volta.
+ *
+ * Ele abre a confirmação em vez de agir no clique. O check da outra tela não
+ * confirma nada, e está certo — marcar um título como pago se desfaz. Aqui o
+ * clique tira dinheiro do caixa realizado do mês e muda dois totais e duas
+ * telas, então a confirmação que o `⋮` já usava continua no caminho.
+ */
+function DesmarcarButton({ item, onEstornar }: { item: Settled; onEstornar: (item: Settled) => void }) {
+  const label = item.amount > 0 ? "Desmarcar recebimento" : "Desmarcar pagamento";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          onClick={() => onEstornar(item)}
+          className="flex h-8 w-8 items-center justify-center justify-self-end rounded-[10px] text-[#0A7A42] transition hover:bg-[#FDECEA] hover:text-[#8E1F16]"
+        >
+          <CheckIcon size={16} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left" sideOffset={6} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
  * A confirmação do estorno.
  *
  * Mostra título e valor antes de agir porque estornar tira dinheiro do caixa
@@ -202,7 +235,13 @@ function ConfirmarEstorno({ item, pending, onCancel, onConfirm }: {
 }
 
 const ROW_GRID = "grid grid-cols-[76px_minmax(0,1.5fr)_minmax(0,1fr)_132px_112px_120px_28px] items-center gap-3";
-const COLUMN_GRID = "grid grid-cols-[52px_minmax(0,1fr)_100px] items-center gap-3";
+/*
+ * Ganhou a quarta coluna do botão de desmarcar. Ela existe porque marcar como
+ * pago sem querer é fácil e não tinha volta VISÍVEL aqui: o estorno morava só
+ * no `⋮` da lista grande, e quem estava olhando os cartões não tinha como
+ * adivinhar que precisava trocar de arranjo para desfazer.
+ */
+const COLUMN_GRID = "grid grid-cols-[52px_minmax(0,1fr)_100px_36px] items-center gap-3";
 
 /*
  * O cabeçalho que ordena, igual ao de Lançamentos.
@@ -523,8 +562,8 @@ export default function PagasRecebidasPage() {
 
               {arrangement === "colunas" ? (
                 <div className="grid gap-5 lg:grid-cols-2">
-                  <ColunaDeTitulos titulo="Recebidas" itens={recebidas} incoming />
-                  <ColunaDeTitulos titulo="Pagas" itens={pagas} incoming={false} />
+                  <ColunaDeTitulos titulo="Recebidas" itens={recebidas} incoming onEstornar={setEstornando} />
+                  <ColunaDeTitulos titulo="Pagas" itens={pagas} incoming={false} onEstornar={setEstornando} />
                 </div>
               ) : (
                 <section className="flex flex-col gap-0.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
@@ -685,7 +724,12 @@ export default function PagasRecebidasPage() {
 }
 
 /** Uma das duas colunas do modo "duas colunas". */
-function ColunaDeTitulos({ titulo, itens, incoming }: { titulo: string; itens: Settled[]; incoming: boolean }) {
+function ColunaDeTitulos({ titulo, itens, incoming, onEstornar }: {
+  titulo: string;
+  itens: Settled[];
+  incoming: boolean;
+  onEstornar: (item: Settled) => void;
+}) {
   const total = roundCurrency(itens.reduce((soma, item) => soma + Math.abs(item.amount), 0));
   /*
    * Cada cartão ordena o seu.
@@ -714,6 +758,7 @@ function ColunaDeTitulos({ titulo, itens, incoming }: { titulo: string; itens: S
         <ColunaOrdenavel label="Data" sortKey="settledAt" sort={sort} onSort={ordenar} />
         <ColunaOrdenavel label="Título" sortKey="description" sort={sort} onSort={ordenar} />
         <ColunaOrdenavel label="Valor" sortKey="amount" sort={sort} onSort={ordenar} className="justify-end" />
+        <span />
       </div>
 
       {itens.length === 0 && (
@@ -734,6 +779,7 @@ function ColunaDeTitulos({ titulo, itens, incoming }: { titulo: string; itens: S
           <span className={`whitespace-nowrap text-right text-[14px] font-bold ${incoming ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>
             {incoming ? "+ " : "− "}{formatMoney(Math.abs(item.amount))}
           </span>
+          <DesmarcarButton item={item} onEstornar={onEstornar} />
         </div>
       ))}
     </section>

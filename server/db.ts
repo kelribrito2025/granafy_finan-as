@@ -1698,15 +1698,16 @@ export async function getUserPreferences(userId: number) {
  * conta com duas. Número inventado numa tela de cobrança é pior que número
  * nenhum.
  *
- * COUNT no banco, e não lista carregada e medida: a tela de Planos não tem
- * motivo para trazer trezentos lançamentos do mês só para saber que são 318.
+ * A contagem de lançamentos do mês SAIU junto com a linha dela na tela. Número
+ * que ninguém mostra não se calcula — e ele era o único aqui que precisava de
+ * recorte de data, então o `uso` deixou de precisar do fuso da conta.
  *
  * O total de EMPRESAS não sai daqui — é por login, não por empresa, e uma
  * contagem por dono dentro de uma função de escopo é exatamente o desequilíbrio
  * que a invariante de `guardas.test.ts` reprova. Quem conta empresa é o
  * `listCompanies`, no router.
  */
-export async function contarUsoDaEmpresa(escopo: Escopo, inicioDoMes: string, fimDoMes: string) {
+export async function contarUsoDaEmpresa(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -1718,20 +1719,9 @@ export async function contarUsoDaEmpresa(escopo: Escopo, inicioDoMes: string, fi
     .from(financialAccounts)
     .where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId)));
 
-  const [lancamentos] = await db
-    .select({ total: sql<number>`COUNT(*)` })
-    .from(financialTransactions)
-    .where(and(
-      eq(financialTransactions.userId, escopo.userId),
-      eq(financialTransactions.companyId, escopo.companyId),
-      gte(financialTransactions.transactionDate, inicioDoMes),
-      lte(financialTransactions.transactionDate, fimDoMes),
-    ));
-
   return {
     contas: Number(contas?.total ?? 0),
     contasAtivas: Number(contas?.ativas ?? 0),
-    lancamentosNoMes: Number(lancamentos?.total ?? 0),
   };
 }
 
