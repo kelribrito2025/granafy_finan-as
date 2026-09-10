@@ -28,6 +28,34 @@ import { describe, expect, it } from "vitest";
 const CAMINHO = path.resolve(import.meta.dirname, "db.ts");
 const FONTE = readFileSync(CAMINHO, "utf8");
 
+const SCHEMA = readFileSync(path.resolve(import.meta.dirname, "../drizzle/schema.ts"), "utf8");
+
+/**
+ * `InsertFinancialAccount` → a tabela tem `companyId`? E qual é a chave dela.
+ *
+ * Sai do schema em vez de lista escrita à mão: tabela nova entra na rede sozinha.
+ */
+function chaveDaEmpresaPorTipo() {
+  const mapa = new Map<string, "companyId" | "id" | null>();
+  for (const [, tipo, tabela] of SCHEMA.matchAll(/export type Insert(\w+) = typeof (\w+)\.\$inferInsert/g)) {
+    /*
+     * O corpo termina no PRÓXIMO `export const`, não num `\n});`.
+     * Tabela com índices fecha em `}, table => [ … ]);`, então procurar `\n});`
+     * engolia as tabelas seguintes — e `userPreferences`, que não tem empresa,
+     * herdava o `companyId` do `categoryRules` logo abaixo. Foi o teste de
+     * baixo que pegou, e é para isso que ele existe.
+     */
+    const bloco = SCHEMA.slice(SCHEMA.indexOf(`export const ${tabela} = mysqlTable`) + 1);
+    const fim = bloco.indexOf("\nexport const ");
+    const corpo = fim === -1 ? bloco : bloco.slice(0, fim);
+    /* Em `companyProfiles` não existe coluna `companyId`: a empresa é a linha, e a chave é o `id`. */
+    mapa.set(`Insert${tipo}`, tabela === "companyProfiles" ? "id" : /\bcompanyId:/.test(corpo) ? "companyId" : null);
+  }
+  return mapa;
+}
+
+const chaveDaEmpresa = chaveDaEmpresaPorTipo();
+
 /**
  * Cada função do `db.ts`, com o corpo até a próxima.
  *
@@ -122,5 +150,51 @@ describe("invariante das guardas de isolamento em db.ts", () => {
       .filter(m => /\bOR\b/i.test(m[0]))
       .map(m => `db.ts:${FONTE.slice(0, m.index!).split("\n").length}`);
     expect(cruas).toEqual([]);
+  });
+
+  it("nenhum tipo aceito de fora admite a chave da empresa — é a leva 3 da Fase 6", () => {
+    /*
+     * A decisão da Fase 6 é que nada muda de empresa: quem errou apaga e
+     * relança. Não existe botão de mover, mas a leva 3 achou duas funções cujo
+     * TIPO deixava mover — `updatePatrimonialItem` aceitava `companyId` e o
+     * `.set()` recebia o objeto do chamador inteiro, sem conferir.
+     *
+     * Não havia chamador abusando. O problema é que só o chamador impedia:
+     * trocar o schema zod de um endpoint bastava para abrir o caminho, sem uma
+     * linha de erro do compilador. Esta invariante move a tranca para o tipo.
+     *
+     * `Omit` é lista de proibição: a chave da empresa TEM que estar nela.
+     * `Pick` é lista de permissão: a chave da empresa NÃO pode estar nela.
+     * Tabela sem empresa (preferências do login, que é por login mesmo) fica
+     * fora da exigência — e é o schema que diz qual é qual.
+     */
+    const frouxos: string[] = [];
+
+    for (const f of funcoes) {
+      for (const [, molde, tipo, lista] of f.assinatura.matchAll(/(Omit|Pick)<Insert(\w+),([^>]*)>/g)) {
+        const chave = chaveDaEmpresa.get(`Insert${tipo}`);
+        if (!chave) continue;
+        const listada = new RegExp(`"${chave}"`).test(lista!);
+        if (molde === "Omit" ? !listada : listada) {
+          frouxos.push(`${f.nome}: ${molde}<Insert${tipo}> ${molde === "Omit" ? "não exclui" : "admite"} "${chave}"`);
+        }
+      }
+    }
+
+    expect(frouxos).toEqual([]);
+  });
+
+  it("os tipos derivados de Insert que a rede acima cobre não passam de zero por acidente", () => {
+    /*
+     * A mesma armadilha do primeiro teste deste arquivo: se a extração do
+     * `Omit<Insert…>` parar de casar, a invariante acima vira decoração e
+     * fecha verde sobre lista vazia.
+     */
+    const cobertos = funcoes.filter(f => /(Omit|Pick)<Insert\w+,/.test(f.assinatura)).length;
+    expect(cobertos).toBeGreaterThanOrEqual(12);
+    expect(chaveDaEmpresa.get("InsertPatrimonialItem")).toBe("companyId");
+    expect(chaveDaEmpresa.get("InsertCompanyProfile")).toBe("id");
+    /* Preferências são por login: a tabela não tem empresa, e a rede não inventa uma. */
+    expect(chaveDaEmpresa.get("InsertUserPreferences")).toBe(null);
   });
 });

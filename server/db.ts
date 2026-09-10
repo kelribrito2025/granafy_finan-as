@@ -1475,7 +1475,9 @@ export class UltimaEmpresaAtiva extends Error {}
  * Tudo numa transação: uma empresa criada sem as categorias seria pior que
  * empresa nenhuma, porque parece pronta.
  */
-export async function createCompany(userId: number, values: Omit<InsertCompanyProfile, "userId">) {
+/* `id` fora daqui também: quem cria não escolhe o número da empresa. Foi a
+ * invariante nova de `guardas.test.ts` que apontou esta — a terceira porta. */
+export async function createCompany(userId: number, values: Omit<InsertCompanyProfile, "userId" | "id">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
@@ -1559,7 +1561,12 @@ export async function setCompanyArchived(escopo: Escopo, arquivada: boolean) {
   return getCompanyProfile(escopo);
 }
 
-export async function saveCompanyProfile(escopo: Escopo, values: Omit<InsertCompanyProfile, "userId">) {
+/*
+ * `id` fica fora pelo mesmo motivo, e nesta tabela o `id` É a chave da empresa:
+ * reescrevê-lo renumeraria a empresa e orfanaria toda linha filha que aponta
+ * para o id antigo — em treze tabelas.
+ */
+export async function saveCompanyProfile(escopo: Escopo, values: Omit<InsertCompanyProfile, "userId" | "id">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const resultado = await db
@@ -2296,10 +2303,21 @@ export async function createPatrimonialItem(
   return getPatrimonialItem(escopo, Number(result[0].insertId));
 }
 
+/*
+ * `companyId` e `id` ficam FORA do que se aceita, e não é zelo: este `.set()`
+ * recebe o objeto do chamador inteiro. O `WHERE` confere a empresa, o `SET`
+ * não conferia nada — então `{ companyId: outra }` movia o item para qualquer
+ * empresa, inclusive de outro dono, gravando a linha de `userId` seu com
+ * `companyId` alheio. É o "dono cruzado" que a conferência da Fase 5 conta.
+ *
+ * Ninguém chamava assim: o `balanceSheet.ts` passa um schema zod que não tem
+ * essas chaves. Mas isso era segurança do chamador, não do tipo — e a decisão
+ * da Fase 6 é que lançamento não muda de empresa. Agora o compilador recusa.
+ */
 export async function updatePatrimonialItem(
   escopo: Escopo,
   id: number,
-  values: Partial<Omit<InsertPatrimonialItem, "userId">>
+  values: Partial<Omit<InsertPatrimonialItem, "userId" | "companyId" | "id">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
