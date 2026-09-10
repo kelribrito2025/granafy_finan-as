@@ -1450,6 +1450,115 @@ export async function getCompanyProfile(escopo: Escopo) {
  * Zero linha afetada não é sucesso silencioso: significa que a empresa ativa não
  * pertence a quem pediu, e quem chamou precisa saber.
  */
+/**
+ * O teto de empresas por login.
+ *
+ * Não é o limite do plano — esse é assunto da leva dos planos, e vai depender do
+ * que a pessoa paga. Este é o teto técnico: sem nenhum, um laço malfeito no
+ * cliente cria mil empresas antes de alguém perceber, e cada uma nasce com
+ * cinquenta categorias-padrão. Vinte é generoso para o caso real e barato de
+ * levantar quando o limite de verdade existir.
+ */
+export const MAXIMO_DE_EMPRESAS = 20;
+
+export class LimiteDeEmpresas extends Error {}
+export class UltimaEmpresaAtiva extends Error {}
+
+/**
+ * Cria uma empresa para o login, com as categorias-padrão dela.
+ *
+ * As cinquenta categorias vão junto pelo mesmo motivo que vão no cadastro de
+ * conta: empresa sem categoria não deixa lançar nada, e a pessoa que acabou de
+ * criar a segunda empresa não quer descobrir isso na hora de registrar a
+ * primeira venda. É a mesma lista do `createLocalUser` — não há duas versões.
+ *
+ * Tudo numa transação: uma empresa criada sem as categorias seria pior que
+ * empresa nenhuma, porque parece pronta.
+ */
+export async function createCompany(userId: number, values: Omit<InsertCompanyProfile, "userId">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const quantas = await db
+    .select({ n: sql<number>`COUNT(*)` })
+    .from(companyProfiles)
+    .where(eq(companyProfiles.userId, userId));
+  if (Number(quantas[0]?.n ?? 0) >= MAXIMO_DE_EMPRESAS) {
+    throw new LimiteDeEmpresas(`Este acesso já tem ${MAXIMO_DE_EMPRESAS} empresas.`);
+  }
+
+  const id = await db.transaction(async tx => {
+    const criada = await tx.insert(companyProfiles).values({ userId, ...values });
+    const novoId = Number(criada[0].insertId);
+    await tx.insert(transactionCategories).values(defaultCategoryValues(userId, novoId));
+    return novoId;
+  });
+
+  return getCompanyProfile({ userId, companyId: id });
+}
+
+/**
+ * Arquiva ou reativa uma empresa.
+ *
+ * Arquivar não apaga: empresa guarda razão contábil, e o histórico dela continua
+ * existindo para relatório de anos anteriores. O que muda é ela sair da lista de
+ * escolha do dia a dia.
+ *
+ * A última ativa não pode ser arquivada. Não é preciosismo: `protectedProcedure`
+ * exige uma empresa ativa para qualquer procedure rodar, então um login sem
+ * nenhuma empresa ativa fica sem conseguir abrir tela nenhuma — e o conserto
+ * seria pelo banco.
+ */
+export async function setCompanyArchived(escopo: Escopo, arquivada: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  /*
+   * A ordem destas três verificações não é arbitrária, e o arreio flagrou ela
+   * invertida: a contagem de ativas vinha primeiro, então pedir para arquivar a
+   * empresa de OUTRA pessoa era recusado com "não dá para arquivar a única
+   * empresa ativa" — a contagem era a de quem pediu, sobre uma empresa que não
+   * era dele. A recusa acontecia, mas pelo motivo errado, e motivo errado numa
+   * mensagem de erro é o que faz alguém depurar o problema errado.
+   *
+   * Primeiro: a empresa é sua? Depois: sobra alguma ativa? Só então escreve.
+   */
+  const [alvo] = await db
+    .select({ isActive: companyProfiles.isActive })
+    .from(companyProfiles)
+    .where(and(eq(companyProfiles.userId, escopo.userId), eq(companyProfiles.id, escopo.companyId)))
+    .limit(1);
+  if (!alvo) throw new Error("Empresa não encontrada para este login.");
+
+  if (arquivada && alvo.isActive) {
+    /*
+     * A contagem sai de `listCompanies`, não de um COUNT próprio.
+     *
+     * A sentinela estrutural reprovou a primeira versão, e com razão: era uma
+     * terceira consulta filtrando por dono SEM filtrar por empresa, no meio de
+     * uma função que filtra pelas duas. Guarda esquecida tem exatamente essa
+     * aparência, e uma rede que aceita "esta aqui é diferente" para de ser rede.
+     *
+     * Reusar a listagem resolve por construção — ela já tem a guarda de dono
+     * provada desde a Fase 1 — e ainda tira uma ida ao banco. São no máximo
+     * vinte linhas; contar em memória é de graça.
+     */
+    const ativas = (await listCompanies(escopo.userId)).filter(empresa => empresa.isActive).length;
+    if (ativas <= 1) {
+      throw new UltimaEmpresaAtiva("Não dá para arquivar a única empresa ativa deste acesso.");
+    }
+  }
+
+  const resultado = await db
+    .update(companyProfiles)
+    .set({ isActive: !arquivada })
+    .where(and(eq(companyProfiles.userId, escopo.userId), eq(companyProfiles.id, escopo.companyId)));
+  if (Number(resultado[0].affectedRows ?? 0) === 0) {
+    throw new Error("Empresa não encontrada para este login.");
+  }
+  return getCompanyProfile(escopo);
+}
+
 export async function saveCompanyProfile(escopo: Escopo, values: Omit<InsertCompanyProfile, "userId">) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

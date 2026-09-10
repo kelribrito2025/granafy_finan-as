@@ -41,19 +41,103 @@ function ChevronDownIcon({ size = 15, className = "" }: { size?: number; classNa
  * ainda não existe; o que mudou é o caminho do dado, que é o que as próximas
  * fases vão usar.
  */
-function CompanySwitcher({ empresas, carregando, onClose }: {
-  empresas: Array<{ id: number; displayName: string; taxId: string; isActive: boolean }>;
+type Empresa = {
+  id: number;
+  displayName: string;
+  legalName: string;
+  tradeName: string;
+  taxId: string;
+  isActive: boolean;
+  isCurrent: boolean;
+};
+
+/** O formulário de criar e o de renomear são o mesmo — muda o que ele já traz. */
+function FormularioDeEmpresa({ inicial, salvando, erro, onCancelar, onSalvar }: {
+  inicial: Pick<Empresa, "legalName" | "tradeName" | "taxId"> | null;
+  salvando: boolean;
+  erro: string | null;
+  onCancelar: () => void;
+  onSalvar: (valores: { legalName: string; tradeName: string; taxId: string }) => void;
+}) {
+  const [legalName, setLegalName] = useState(inicial?.legalName ?? "");
+  const [tradeName, setTradeName] = useState(inicial?.tradeName ?? "");
+  const [taxId, setTaxId] = useState(inicial?.taxId ?? "");
+  const vazio = !legalName.trim() && !tradeName.trim();
+
+  const campo = "h-11 w-full rounded-xl border border-[#E3EAE5] bg-white px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
+  const rotulo = "mb-1 block text-[12px] font-semibold text-[#4C6355]";
+
+  return (
+    <form
+      className="mt-5 flex flex-col gap-3"
+      onSubmit={event => { event.preventDefault(); if (!vazio) onSalvar({ legalName: legalName.trim(), tradeName: tradeName.trim(), taxId: taxId.trim() }); }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className={rotulo} htmlFor="empresa-razao">Razão social</label>
+          <input id="empresa-razao" className={campo} value={legalName} onChange={e => setLegalName(e.target.value)} maxLength={180} autoFocus />
+        </div>
+        <div>
+          <label className={rotulo} htmlFor="empresa-fantasia">Nome fantasia</label>
+          <input id="empresa-fantasia" className={campo} value={tradeName} onChange={e => setTradeName(e.target.value)} maxLength={180} />
+        </div>
+      </div>
+      <div>
+        <label className={rotulo} htmlFor="empresa-cnpj">CNPJ <span className="font-normal text-[#8A968D]">(opcional)</span></label>
+        <input id="empresa-cnpj" className={campo} value={taxId} onChange={e => setTaxId(e.target.value)} maxLength={20} />
+      </div>
+
+      {/* Um dos dois nomes basta: quem ainda não tem razão social usa o fantasia,
+          e a lista sabe resolver o rótulo a partir do que existir. */}
+      {vazio && <p className="text-[12px] text-[#8A968D]">Informe a razão social ou o nome fantasia.</p>}
+      {erro && <p className="rounded-xl bg-[#FBEBE9] px-3.5 py-2.5 text-[12.5px] text-[#A5231A]">{erro}</p>}
+
+      <div className="mt-1 flex gap-2.5">
+        <button type="button" onClick={onCancelar} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Cancelar</button>
+        <button type="submit" disabled={vazio || salvando} className="h-12 flex-[1.4] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-50">
+          {salvando ? "Salvando…" : inicial ? "Salvar" : "Criar empresa"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * A lista de empresas do login.
+ *
+ * Criar, renomear e arquivar. TROCAR ainda não: a troca exige levar o cache do
+ * cliente junto, e cache que fica para trás mostra o número de uma empresa
+ * embaixo do nome de outra — foi o que já aconteceu uma vez entre contas. Por
+ * isso o botão de trocar não existe aqui em vez de existir sem funcionar.
+ */
+function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
+  empresas: Empresa[];
   carregando: boolean;
   onClose: () => void;
+  onMudou: () => void;
 }) {
   const [, setLocation] = useLocation();
+  const [form, setForm] = useState<{ modo: "criar" } | { modo: "renomear"; empresa: Empresa } | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const aoFalhar = (e: { message: string }) => setErro(e.message);
+  const aoConcluir = () => { setErro(null); setForm(null); onMudou(); };
+
+  const criar = trpc.companies.create.useMutation({ onSuccess: aoConcluir, onError: aoFalhar });
+  const renomear = trpc.companies.rename.useMutation({ onSuccess: aoConcluir, onError: aoFalhar });
+  const arquivar = trpc.companies.setArchived.useMutation({ onSuccess: () => { setErro(null); onMudou(); }, onError: aoFalhar });
+
+  const ativas = empresas.filter(e => e.isActive).length;
+
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="company-switcher-title" className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#0B1F14]/42 p-4 backdrop-blur-[2px] sm:p-10" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <div className="modal-enter w-full max-w-[452px] rounded-[20px] bg-white p-6 text-[#0B1F14]">
         <div className="flex items-start gap-3">
           <ModalIcon icon={SwapIcon} />
           <div>
-            <h2 id="company-switcher-title" className="text-[18px] font-bold tracking-[-.01em]">Trocar de empresa</h2>
+            <h2 id="company-switcher-title" className="text-[18px] font-bold tracking-[-.01em]">
+              {form?.modo === "criar" ? "Nova empresa" : form?.modo === "renomear" ? "Editar empresa" : "Suas empresas"}
+            </h2>
             <p className="mt-1 text-[12.5px] text-[#8A968D]">
               {carregando
                 ? "carregando…"
@@ -63,50 +147,87 @@ function CompanySwitcher({ empresas, carregando, onClose }: {
           <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]"><CloseIcon size={16} /></button>
         </div>
 
-        {/* Uma linha por empresa. A marca "Atual" é da primeira porque é a única
-            que existe; quando a troca chegar, ela passa a ser da empresa ativa. */}
-        <div className="mt-5 flex flex-col gap-2">
-          {empresas.length === 0 && !carregando && (
-            <p className="rounded-[14px] bg-[#F8FAF9] px-3.5 py-4 text-center text-[12.5px] text-[#8A968D]">
-              Nenhuma empresa cadastrada ainda.
-            </p>
-          )}
-          {empresas.map((empresa, indice) => (
-            <div
-              key={empresa.id}
-              className={`flex items-center gap-3 rounded-[14px] p-3.5 ${
-                indice === 0 ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
-              }`}
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C] text-[13px] font-bold text-white">
-                {companyInitials(empresa.displayName)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-semibold">{empresa.displayName}</span>
-                <span className="block truncate text-[12.5px] text-[#8A968D]">{empresa.taxId || "CNPJ não informado"}</span>
-              </div>
-              {indice === 0 && (
-                <span className="shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10.5px] font-bold uppercase tracking-[.06em] text-white">Atual</span>
+        {form ? (
+          <FormularioDeEmpresa
+            inicial={form.modo === "renomear" ? form.empresa : null}
+            salvando={criar.isPending || renomear.isPending}
+            erro={erro}
+            onCancelar={() => { setErro(null); setForm(null); }}
+            onSalvar={valores => {
+              if (form.modo === "criar") criar.mutate(valores);
+              else renomear.mutate({ companyId: form.empresa.id, ...valores });
+            }}
+          />
+        ) : (
+          <>
+            <div className="mt-5 flex flex-col gap-2">
+              {empresas.length === 0 && !carregando && (
+                <p className="rounded-[14px] bg-[#F8FAF9] px-3.5 py-4 text-center text-[12.5px] text-[#8A968D]">
+                  Nenhuma empresa cadastrada ainda.
+                </p>
               )}
+              {empresas.map(empresa => (
+                <div
+                  key={empresa.id}
+                  className={`flex items-center gap-3 rounded-[14px] p-3.5 ${
+                    empresa.isCurrent ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
+                  } ${empresa.isActive ? "" : "opacity-60"}`}
+                >
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold text-white ${empresa.isActive ? "bg-[#12B85C]" : "bg-[#8A968D]"}`}>
+                    {companyInitials(empresa.displayName)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold">{empresa.displayName}</span>
+                    <span className="block truncate text-[12.5px] text-[#8A968D]">
+                      {empresa.isActive ? (empresa.taxId || "CNPJ não informado") : "arquivada"}
+                    </span>
+                  </div>
+                  {empresa.isCurrent && (
+                    <span className="shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10.5px] font-bold uppercase tracking-[.06em] text-white">Atual</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setErro(null); setForm({ modo: "renomear", empresa }); }}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-semibold text-[#0A7A42] hover:bg-[#DFF6EA]"
+                  >
+                    Editar
+                  </button>
+                  {/* A última ativa não some da lista de escolha: sem nenhuma ativa,
+                      o login não abriria tela nenhuma. O servidor recusa; aqui o
+                      botão nem aparece, para a recusa não ser surpresa. */}
+                  {(!empresa.isActive || ativas > 1) && (
+                    <button
+                      type="button"
+                      disabled={arquivar.isPending}
+                      onClick={() => { setErro(null); arquivar.mutate({ companyId: empresa.id, archived: empresa.isActive }); }}
+                      className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-semibold text-[#4C6355] hover:bg-[#F1F4F2] disabled:opacity-50"
+                    >
+                      {empresa.isActive ? "Arquivar" : "Reativar"}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <p className="mt-4 rounded-[14px] bg-[#FFF8E8] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#725517]">
-          Este acesso tem uma empresa só. Ter mais de uma exigiria que os dados fossem
-          organizados por empresa, e não por conta de usuário como hoje.
-        </p>
+            {erro && <p className="mt-3 rounded-[14px] bg-[#FBEBE9] px-3.5 py-2.5 text-[12.5px] text-[#A5231A]">{erro}</p>}
 
-        <div className="mt-5 flex gap-2.5">
-          <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Fechar</button>
-          <button
-            type="button"
-            onClick={() => { onClose(); setLocation("/configuracoes"); }}
-            className="h-12 flex-[1.4] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E]"
-          >
-            Editar dados da empresa
-          </button>
-        </div>
+            <p className="mt-4 rounded-[14px] bg-[#FFF8E8] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#725517]">
+              Trocar de empresa ainda não está disponível — as telas continuam mostrando a empresa
+              atual. Criar, editar e arquivar já valem.
+            </p>
+
+            <div className="mt-5 flex gap-2.5">
+              <button type="button" onClick={() => { setErro(null); setForm({ modo: "criar" }); }} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Nova empresa</button>
+              <button
+                type="button"
+                onClick={() => { onClose(); setLocation("/configuracoes"); }}
+                className="h-12 flex-[1.4] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E]"
+              >
+                Editar dados da empresa
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -223,6 +344,7 @@ export function ProfileMenu() {
           empresas={companiesQuery.data ?? []}
           carregando={companiesQuery.isPending}
           onClose={() => setSwitcher(false)}
+          onMudou={() => { void companiesQuery.refetch(); void companyQuery.refetch(); }}
         />
       )}
     </>
