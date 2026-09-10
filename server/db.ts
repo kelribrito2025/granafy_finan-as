@@ -2122,50 +2122,50 @@ export async function listImportBatches(userId: number) {
   return db.select().from(transactionImportBatches).where(eq(transactionImportBatches.userId, userId)).orderBy(desc(transactionImportBatches.createdAt)).limit(12);
 }
 
-export async function listPatrimonialItems(userId: number) {
+export async function listPatrimonialItems(escopo: Escopo) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(patrimonialItems)
-    .where(eq(patrimonialItems.userId, userId))
+    .where(and(eq(patrimonialItems.userId, escopo.userId), eq(patrimonialItems.companyId, escopo.companyId)))
     .orderBy(desc(patrimonialItems.isActive), patrimonialItems.balanceGroup, patrimonialItems.name);
 }
 
-export async function getPatrimonialItem(userId: number, id: number) {
+export async function getPatrimonialItem(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
     .select()
     .from(patrimonialItems)
-    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)))
+    .where(and(eq(patrimonialItems.userId, escopo.userId), eq(patrimonialItems.companyId, escopo.companyId), eq(patrimonialItems.id, id)))
     .limit(1);
   return rows[0];
 }
 
-export async function getPatrimonialItemByName(userId: number, name: string) {
+export async function getPatrimonialItemByName(escopo: Escopo, name: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const rows = await db
     .select()
     .from(patrimonialItems)
-    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.name, name)))
+    .where(and(eq(patrimonialItems.userId, escopo.userId), eq(patrimonialItems.companyId, escopo.companyId), eq(patrimonialItems.name, name)))
     .limit(1);
   return rows[0];
 }
 
 export async function createPatrimonialItem(
-  userId: number,
+  escopo: Escopo,
   values: Omit<InsertPatrimonialItem, "userId">
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const result = await db.insert(patrimonialItems).values({ userId, ...values });
-  return getPatrimonialItem(userId, Number(result[0].insertId));
+  const result = await db.insert(patrimonialItems).values({ userId: escopo.userId, companyId: escopo.companyId, ...values });
+  return getPatrimonialItem(escopo, Number(result[0].insertId));
 }
 
 export async function updatePatrimonialItem(
-  userId: number,
+  escopo: Escopo,
   id: number,
   values: Partial<Omit<InsertPatrimonialItem, "userId">>
 ) {
@@ -2174,38 +2174,38 @@ export async function updatePatrimonialItem(
   await db
     .update(patrimonialItems)
     .set(values)
-    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)));
-  return getPatrimonialItem(userId, id);
+    .where(and(eq(patrimonialItems.userId, escopo.userId), eq(patrimonialItems.companyId, escopo.companyId), eq(patrimonialItems.id, id)));
+  return getPatrimonialItem(escopo, id);
 }
 
-export async function deletePatrimonialItem(userId: number, id: number) {
+export async function deletePatrimonialItem(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .delete(patrimonialItems)
-    .where(and(eq(patrimonialItems.userId, userId), eq(patrimonialItems.id, id)));
+    .where(and(eq(patrimonialItems.userId, escopo.userId), eq(patrimonialItems.companyId, escopo.companyId), eq(patrimonialItems.id, id)));
 }
 
-export async function listBalanceSheetSnapshots(userId: number, limit = 24) {
+export async function listBalanceSheetSnapshots(escopo: Escopo, limit = 24) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .select()
     .from(balanceSheetSnapshots)
-    .where(eq(balanceSheetSnapshots.userId, userId))
+    .where(and(eq(balanceSheetSnapshots.userId, escopo.userId), eq(balanceSheetSnapshots.companyId, escopo.companyId)))
     .orderBy(desc(balanceSheetSnapshots.referenceDate))
     .limit(limit);
 }
 
 export async function upsertBalanceSheetSnapshot(
-  userId: number,
+  escopo: Escopo,
   values: Omit<InsertBalanceSheetSnapshot, "userId">
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   await db
     .insert(balanceSheetSnapshots)
-    .values({ userId, ...values })
+    .values({ userId: escopo.userId, companyId: escopo.companyId, ...values })
     .onDuplicateKeyUpdate({
       set: {
         cashAndEquivalents: values.cashAndEquivalents,
@@ -2225,17 +2225,31 @@ export async function upsertBalanceSheetSnapshot(
     .select()
     .from(balanceSheetSnapshots)
     .where(and(
-      eq(balanceSheetSnapshots.userId, userId),
+      eq(balanceSheetSnapshots.userId, escopo.userId),
+      /*
+       * Inverificável, e é o terceiro caso do mesmo padrão desta fase:
+       * `balance_sheet_snapshots_user_date_uidx` é único em (userId,
+       * referenceDate), sem `companyId`. O banco garante uma linha por dono e
+       * data, então esta guarda não tem como mudar o resultado da leitura —
+       * apagá-la não deixa teste nenhum vermelho.
+       *
+       * Fica de pé porque este é o pior dos três: o gravação logo acima usa
+       * `onDuplicateKeyUpdate` na mesma única, então fechar o mês na empresa B
+       * SOBRESCREVE o fechamento da A. O dia em que o índice ganhar
+       * `companyId`, esta guarda passa a ser a única coisa entre a leitura e a
+       * linha da outra empresa.
+       */
+      eq(balanceSheetSnapshots.companyId, escopo.companyId), // inverificável-por-índice-único
       eq(balanceSheetSnapshots.referenceDate, values.referenceDate)
     ))
     .limit(1);
   return rows[0];
 }
 
-export async function deleteBalanceSheetSnapshot(userId: number, id: number) {
+export async function deleteBalanceSheetSnapshot(escopo: Escopo, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db
     .delete(balanceSheetSnapshots)
-    .where(and(eq(balanceSheetSnapshots.userId, userId), eq(balanceSheetSnapshots.id, id)));
+    .where(and(eq(balanceSheetSnapshots.userId, escopo.userId), eq(balanceSheetSnapshots.companyId, escopo.companyId), eq(balanceSheetSnapshots.id, id)));
 }

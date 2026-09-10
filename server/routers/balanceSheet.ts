@@ -146,7 +146,7 @@ async function resolveItemValues(
 
 async function calculatePosition(escopo: Escopo, referenceDate: string) {
   const [items, accounts, balances] = await Promise.all([
-    db.listPatrimonialItems(escopo.userId),
+    db.listPatrimonialItems(escopo),
     db.listFinancialAccounts(escopo),
     // O saldo por conta vem somado do banco. Trazer o razão inteiro para fazer
     // a mesma soma em memória custava quase meio segundo por abertura da tela.
@@ -202,7 +202,7 @@ export const balanceSheetRouter = router({
       const referenceDate = input?.referenceDate ?? todayUtc();
       const [{ items, summary, accountCount }, snapshots] = await Promise.all([
         calculatePosition(escopoDe(ctx), referenceDate),
-        db.listBalanceSheetSnapshots(ctx.user.id, 24),
+        db.listBalanceSheetSnapshots(escopoDe(ctx), 24),
       ]);
       return {
         referenceDate,
@@ -217,14 +217,14 @@ export const balanceSheetRouter = router({
   createItem: protectedProcedure
     .input(patrimonialItemValuesSchema)
     .mutation(async ({ ctx, input }) => {
-      if (await db.getPatrimonialItemByName(ctx.user.id, input.name)) {
+      if (await db.getPatrimonialItemByName(escopoDe(ctx), input.name)) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Já existe um item patrimonial com esse nome.",
         });
       }
       try {
-        return await db.createPatrimonialItem(ctx.user.id, {
+        return await db.createPatrimonialItem(escopoDe(ctx), {
           ...await resolveItemValues(escopoDe(ctx), input),
           isActive: true,
         });
@@ -237,10 +237,10 @@ export const balanceSheetRouter = router({
     .input(patrimonialItemValuesSchema.and(z.object({ id: z.number().int().positive() })))
     .mutation(async ({ ctx, input }) => {
       const { id, ...values } = input;
-      if (!await db.getPatrimonialItem(ctx.user.id, id)) {
+      if (!await db.getPatrimonialItem(escopoDe(ctx), id)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Item patrimonial não encontrado" });
       }
-      const conflicting = await db.getPatrimonialItemByName(ctx.user.id, values.name);
+      const conflicting = await db.getPatrimonialItemByName(escopoDe(ctx), values.name);
       if (conflicting && conflicting.id !== id) {
         throw new TRPCError({
           code: "CONFLICT",
@@ -248,7 +248,7 @@ export const balanceSheetRouter = router({
         });
       }
       try {
-        return await db.updatePatrimonialItem(ctx.user.id, id, await resolveItemValues(escopoDe(ctx), values));
+        return await db.updatePatrimonialItem(escopoDe(ctx), id, await resolveItemValues(escopoDe(ctx), values));
       } catch (error) {
         return persistenceError(error);
       }
@@ -257,20 +257,20 @@ export const balanceSheetRouter = router({
   toggleItem: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      const item = await db.getPatrimonialItem(ctx.user.id, input.id);
+      const item = await db.getPatrimonialItem(escopoDe(ctx), input.id);
       if (!item) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Item patrimonial não encontrado" });
       }
-      return db.updatePatrimonialItem(ctx.user.id, input.id, { isActive: !item.isActive });
+      return db.updatePatrimonialItem(escopoDe(ctx), input.id, { isActive: !item.isActive });
     }),
 
   deleteItem: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      if (!await db.getPatrimonialItem(ctx.user.id, input.id)) {
+      if (!await db.getPatrimonialItem(escopoDe(ctx), input.id)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Item patrimonial não encontrado" });
       }
-      await db.deletePatrimonialItem(ctx.user.id, input.id);
+      await db.deletePatrimonialItem(escopoDe(ctx), input.id);
       return { success: true } as const;
     }),
 
@@ -284,7 +284,7 @@ export const balanceSheetRouter = router({
         });
       }
       const { items, summary } = await calculatePosition(escopoDe(ctx), input.referenceDate);
-      return db.upsertBalanceSheetSnapshot(ctx.user.id, {
+      return db.upsertBalanceSheetSnapshot(escopoDe(ctx), {
         referenceDate: input.referenceDate,
         cashAndEquivalents: summary.cashAndEquivalents.toFixed(2),
         currentAssets: summary.currentAssets.toFixed(2),
@@ -302,7 +302,7 @@ export const balanceSheetRouter = router({
   deleteSnapshot: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      await db.deleteBalanceSheetSnapshot(ctx.user.id, input.id);
+      await db.deleteBalanceSheetSnapshot(escopoDe(ctx), input.id);
       return { success: true } as const;
     }),
 });

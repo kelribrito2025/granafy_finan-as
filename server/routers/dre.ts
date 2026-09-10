@@ -112,8 +112,8 @@ export const dreRouter = router({
         monthStart(previous.year, previous.month),
         monthEnd(input.year, input.month)
       ),
-      db.listPatrimonialItems(ctx.user.id),
-      db.listBalanceSheetSnapshots(ctx.user.id, 24),
+      db.listPatrimonialItems(escopoDe(ctx)),
+      db.listBalanceSheetSnapshots(escopoDe(ctx), 24),
     ]);
 
     const start = monthStart(input.year, input.month);
@@ -166,7 +166,7 @@ export const dreRouter = router({
           monthStart(first.year, first.month),
           monthEnd(input.year, input.month)
         ),
-        db.listPatrimonialItems(ctx.user.id),
+        db.listPatrimonialItems(escopoDe(ctx)),
       ]);
 
       const months = Array.from({ length: input.span }, (_, index) => shiftMonth(first.year, first.month, index));
