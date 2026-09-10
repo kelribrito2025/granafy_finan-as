@@ -14,6 +14,16 @@ import { useCallback, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { useLocation } from "wouter";
 
+/** Lucide `plus`: o "adicionar empresa" do modelo. */
+function PlusIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true" className={className}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 /** Lucide `user`: uma pessoa, como o modelo do avatar pede. */
 function PersonIcon({ size = 20, className = "" }: { size?: number; className?: string }) {
   return (
@@ -105,10 +115,15 @@ function FormularioDeEmpresa({ inicial, salvando, erro, onCancelar, onSalvar }: 
 /**
  * A lista de empresas do login.
  *
- * Criar, renomear e arquivar. TROCAR ainda não: a troca exige levar o cache do
- * cliente junto, e cache que fica para trás mostra o número de uma empresa
- * embaixo do nome de outra — foi o que já aconteceu uma vez entre contas. Por
- * isso o botão de trocar não existe aqui em vez de existir sem funcionar.
+ * Trocar, criar, editar e arquivar. A troca grava um cookie no servidor e o
+ * cliente LIMPA O CACHE e recarrega — não é preguiça de invalidar consulta por
+ * consulta: cada tela guarda o seu recorte, e uma que ficasse para trás
+ * mostraria o número de uma empresa embaixo do nome de outra. Foi o que já
+ * aconteceu entre contas no `f8a808f`, e a lição de lá vale igual aqui.
+ *
+ * Criar leva ao mesmo lugar: a empresa nova já nasce aberta pelo servidor, e
+ * recarregar cai nas boas-vindas dela — que é onde a primeira conta e o
+ * primeiro extrato precisam ser cadastrados.
  */
 function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
   empresas: Empresa[];
@@ -116,35 +131,40 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
   onClose: () => void;
   onMudou: () => void;
 }) {
-  const [, setLocation] = useLocation();
   const [form, setForm] = useState<{ modo: "criar" } | { modo: "renomear"; empresa: Empresa } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [trocando, setTrocando] = useState<number | null>(null);
 
-  const aoFalhar = (e: { message: string }) => setErro(e.message);
-  const aoConcluir = () => { setErro(null); setForm(null); onMudou(); };
+  const aoFalhar = (e: { message: string }) => { setTrocando(null); setErro(e.message); };
+  /* Recarrega da raiz: o cache inteiro sai de cena junto com a página. */
+  const recomecar = () => { window.location.assign("/"); };
 
-  const criar = trpc.companies.create.useMutation({ onSuccess: aoConcluir, onError: aoFalhar });
-  const renomear = trpc.companies.rename.useMutation({ onSuccess: aoConcluir, onError: aoFalhar });
+  const criar = trpc.companies.create.useMutation({ onSuccess: recomecar, onError: aoFalhar });
+  const abrir = trpc.companies.open.useMutation({ onSuccess: recomecar, onError: aoFalhar });
+  const renomear = trpc.companies.rename.useMutation({ onSuccess: () => { setErro(null); setForm(null); onMudou(); }, onError: aoFalhar });
   const arquivar = trpc.companies.setArchived.useMutation({ onSuccess: () => { setErro(null); onMudou(); }, onError: aoFalhar });
 
   const ativas = empresas.filter(e => e.isActive).length;
+  const ocupado = criar.isPending || abrir.isPending;
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="company-switcher-title" className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#0B1F14]/42 p-4 backdrop-blur-[2px] sm:p-10" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby="company-switcher-title" className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#0B1F14]/42 p-4 backdrop-blur-[2px] sm:p-10" onMouseDown={event => event.target === event.currentTarget && !ocupado && onClose()}>
       <div className="modal-enter w-full max-w-[452px] rounded-[20px] bg-white p-6 text-[#0B1F14]">
         <div className="flex items-start gap-3">
           <ModalIcon icon={SwapIcon} />
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 id="company-switcher-title" className="text-[18px] font-bold tracking-[-.01em]">
-              {form?.modo === "criar" ? "Nova empresa" : form?.modo === "renomear" ? "Editar empresa" : "Suas empresas"}
+              {form?.modo === "criar" ? "Nova empresa" : form?.modo === "renomear" ? "Editar empresa" : "Trocar de empresa"}
             </h2>
             <p className="mt-1 text-[12.5px] text-[#8A968D]">
-              {carregando
-                ? "carregando…"
-                : `${empresas.length} ${empresas.length === 1 ? "empresa" : "empresas"} neste acesso`}
+              {form?.modo === "criar"
+                ? "Ela nasce vazia, e você cai nas boas-vindas dela"
+                : carregando
+                  ? "carregando…"
+                  : `${empresas.length} ${empresas.length === 1 ? "empresa" : "empresas"} neste acesso`}
             </p>
           </div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]"><CloseIcon size={16} /></button>
+          <button type="button" aria-label="Fechar" disabled={ocupado} onClick={onClose} className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9] disabled:opacity-50"><CloseIcon size={16} /></button>
         </div>
 
         {form ? (
@@ -160,72 +180,87 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
           />
         ) : (
           <>
-            <div className="mt-5 flex flex-col gap-2">
+            <div className="mt-5 flex flex-col gap-2.5">
               {empresas.length === 0 && !carregando && (
                 <p className="rounded-[14px] bg-[#F8FAF9] px-3.5 py-4 text-center text-[12.5px] text-[#8A968D]">
                   Nenhuma empresa cadastrada ainda.
                 </p>
               )}
-              {empresas.map(empresa => (
-                <div
-                  key={empresa.id}
-                  className={`flex items-center gap-3 rounded-[14px] p-3.5 ${
-                    empresa.isCurrent ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
-                  } ${empresa.isActive ? "" : "opacity-60"}`}
-                >
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold text-white ${empresa.isActive ? "bg-[#12B85C]" : "bg-[#8A968D]"}`}>
-                    {companyInitials(empresa.displayName)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-semibold">{empresa.displayName}</span>
-                    <span className="block truncate text-[12.5px] text-[#8A968D]">
-                      {empresa.isActive ? (empresa.taxId || "CNPJ não informado") : "arquivada"}
-                    </span>
-                  </div>
-                  {empresa.isCurrent && (
-                    <span className="shrink-0 rounded-md bg-[#12B85C] px-2 py-1 text-[10.5px] font-bold uppercase tracking-[.06em] text-white">Atual</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { setErro(null); setForm({ modo: "renomear", empresa }); }}
-                    className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-semibold text-[#0A7A42] hover:bg-[#DFF6EA]"
+              {empresas.map(empresa => {
+                const abrindo = trocando === empresa.id && abrir.isPending;
+                return (
+                  <div
+                    key={empresa.id}
+                    className={`rounded-[14px] p-3.5 ${
+                      empresa.isCurrent ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
+                    } ${empresa.isActive ? "" : "opacity-60"}`}
                   >
-                    Editar
-                  </button>
-                  {/* A última ativa não some da lista de escolha: sem nenhuma ativa,
-                      o login não abriria tela nenhuma. O servidor recusa; aqui o
-                      botão nem aparece, para a recusa não ser surpresa. */}
-                  {(!empresa.isActive || ativas > 1) && (
-                    <button
-                      type="button"
-                      disabled={arquivar.isPending}
-                      onClick={() => { setErro(null); arquivar.mutate({ companyId: empresa.id, archived: empresa.isActive }); }}
-                      className="shrink-0 rounded-lg px-2 py-1 text-[12px] font-semibold text-[#4C6355] hover:bg-[#F1F4F2] disabled:opacity-50"
-                    >
-                      {empresa.isActive ? "Arquivar" : "Reativar"}
-                    </button>
-                  )}
-                </div>
-              ))}
+                    <div className="flex items-center gap-3">
+                      {/* A linha inteira abre a empresa, menos a que já está aberta. */}
+                      <button
+                        type="button"
+                        disabled={empresa.isCurrent || !empresa.isActive || ocupado}
+                        onClick={() => { setErro(null); setTrocando(empresa.id); abrir.mutate({ companyId: empresa.id }); }}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
+                      >
+                        <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${
+                          empresa.isCurrent ? "bg-[#12B85C] text-white" : empresa.isActive ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#F1F4F2] text-[#4C6355]"
+                        }`}>
+                          {companyInitials(empresa.displayName)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate text-[14px] ${empresa.isCurrent ? "font-bold text-[#0A7A42]" : "font-semibold"}`}>
+                            {empresa.displayName}
+                          </span>
+                          <span className="block truncate text-[12px] text-[#8A968D]">
+                            {abrindo ? "abrindo…" : empresa.isActive ? (empresa.taxId || "CNPJ não informado") : "arquivada"}
+                          </span>
+                        </span>
+                        {empresa.isCurrent
+                          ? <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[.06em] text-[#0A7A42]">Atual</span>
+                          : empresa.isActive && <ChevronRightIcon size={18} className="shrink-0 text-[#8A968D]" />}
+                      </button>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center gap-1 border-t border-[#F1F4F2] pt-2.5">
+                      <button
+                        type="button"
+                        disabled={ocupado}
+                        onClick={() => { setErro(null); setForm({ modo: "renomear", empresa }); }}
+                        className="rounded-lg px-2 py-1 text-[12px] font-semibold text-[#0A7A42] hover:bg-[#DFF6EA] disabled:opacity-50"
+                      >
+                        Editar
+                      </button>
+                      {/* A última ativa não sai da lista de escolha: sem nenhuma ativa,
+                          o login não abriria tela nenhuma. O servidor recusa; aqui o
+                          botão nem aparece, para a recusa não ser surpresa. */}
+                      {(!empresa.isActive || ativas > 1) && (
+                        <button
+                          type="button"
+                          disabled={arquivar.isPending || ocupado}
+                          onClick={() => { setErro(null); arquivar.mutate({ companyId: empresa.id, archived: empresa.isActive }); }}
+                          className="rounded-lg px-2 py-1 text-[12px] font-semibold text-[#4C6355] hover:bg-[#F1F4F2] disabled:opacity-50"
+                        >
+                          {empresa.isActive ? "Arquivar" : "Reativar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => { setErro(null); setForm({ modo: "criar" }); }}
+                className="flex h-[46px] items-center justify-center gap-2.5 rounded-[14px] border border-dashed border-[#B9C7BE] text-[13.5px] font-semibold text-[#4C6355] hover:bg-[#F8FAF9] disabled:opacity-50"
+              >
+                <PlusIcon size={16} />
+                Adicionar empresa
+              </button>
             </div>
 
             {erro && <p className="mt-3 rounded-[14px] bg-[#FBEBE9] px-3.5 py-2.5 text-[12.5px] text-[#A5231A]">{erro}</p>}
-
-            <p className="mt-4 rounded-[14px] bg-[#FFF8E8] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#725517]">
-              Trocar de empresa ainda não está disponível — as telas continuam mostrando a empresa
-              atual. Criar, editar e arquivar já valem.
-            </p>
-
-            <div className="mt-5 flex gap-2.5">
-              <button type="button" onClick={() => { setErro(null); setForm({ modo: "criar" }); }} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Nova empresa</button>
-              <button
-                type="button"
-                onClick={() => { onClose(); setLocation("/configuracoes"); }}
-                className="h-12 flex-[1.4] rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E]"
-              >
-                Editar dados da empresa
-              </button>
-            </div>
           </>
         )}
       </div>

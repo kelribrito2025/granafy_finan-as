@@ -17,9 +17,13 @@ export const onboardingRouter = router({
       db.getUserRecordById(ctx.user.id),
       db.getOnboardingCounts(escopoDe(ctx)),
     ]);
+    /* A empresa ativa sai do contexto — já veio no mesmo lote que o usuário. */
+    const empresaAtiva = ctx.companies.find(empresa => empresa.id === ctx.activeCompanyId);
+
     return {
       show: shouldShowOnboarding({
         completedAt: record?.onboardingCompletedAt ?? null,
+        companyCreatedAt: empresaAtiva?.createdAt ?? null,
         ...counts,
       }),
       name: record?.name ?? "",

@@ -11,6 +11,9 @@ import {
   usarBancoDeTesteEm,
 } from "./db";
 import { DEFAULT_TRANSACTION_CATEGORIES } from "./defaultCategories";
+import { appRouter } from "./routers";
+import type { TrpcContext } from "./_core/context";
+import { COMPANY_COOKIE_NAME } from "@shared/const";
 import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
@@ -183,6 +186,80 @@ describe.runIf(temBancoDeTeste())("as empresas de um login", () => {
     await setCompanyArchived({ userId: ANA, companyId: unica!.id }, true);
     await expect(setCompanyArchived({ userId: ANA, companyId: outra!.id }, true))
       .rejects.toThrow(/única empresa ativa/);
+  });
+
+  // ── a troca: o cookie, e o que ele NÃO consegue pedir ────────────────────
+
+  /** Um contexto de request, com o cookie gravado onde o teste possa ler. */
+  function contexto(userId: number, empresas: Array<{ id: number; isActive: boolean }>, ativa: number) {
+    const gravados: Array<[string, string]> = [];
+    const ctx = {
+      user: { id: userId, name: "Ana" },
+      companies: empresas,
+      activeCompanyId: ativa,
+      companyRequestHonored: true,
+      req: { protocol: "https", headers: {} },
+      res: { cookie: (nome: string, valor: string) => { gravados.push([nome, valor]); }, clearCookie: () => {} },
+    } as unknown as TrpcContext;
+    return { ctx, gravados };
+  }
+
+  it("abrir uma empresa própria grava o cookie com o id dela", async () => {
+    const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "", taxId: "" });
+    const segunda = await createCompany(ANA, { legalName: "Segunda", tradeName: "", taxId: "" });
+
+    const { ctx, gravados } = contexto(ANA, await listCompanies(ANA), primeira!.id);
+    await appRouter.createCaller(ctx).companies.open({ companyId: segunda!.id });
+
+    expect(gravados).toEqual([[COMPANY_COOKIE_NAME, String(segunda!.id)]]);
+  });
+
+  it("abrir a empresa de OUTRO dono não grava cookie nenhum", async () => {
+    /*
+     * A guarda aqui é a lista do request: `ctx.companies` só tem as empresas de
+     * quem pediu, então a empresa do Bruno simplesmente não está lá. E mesmo se
+     * o cookie fosse gravado à força, `pickActiveCompany` o recusaria a cada
+     * request — são duas redes, e esta prova a primeira.
+     */
+    const dela = await createCompany(ANA, { legalName: "Da Ana", tradeName: "", taxId: "" });
+    const dele = await createCompany(BRUNO, { legalName: "Do Bruno", tradeName: "", taxId: "" });
+
+    const { ctx, gravados } = contexto(ANA, await listCompanies(ANA), dela!.id);
+    await expect(appRouter.createCaller(ctx).companies.open({ companyId: dele!.id }))
+      .rejects.toThrow(/não encontrada/);
+    expect(gravados).toEqual([]);
+  });
+
+  it("abrir uma empresa arquivada é recusado — reativar vem primeiro", async () => {
+    /*
+     * `pickActiveCompany` aceita empresa arquivada de propósito, para quem já
+     * estava dentro de uma não ser expulso no meio do trabalho. ESCOLHER uma
+     * arquivada é outra coisa, e a recusa é aqui.
+     */
+    const fica = await createCompany(ANA, { legalName: "Fica", tradeName: "", taxId: "" });
+    const guardada = await createCompany(ANA, { legalName: "Guardada", tradeName: "", taxId: "" });
+    await setCompanyArchived({ userId: ANA, companyId: guardada!.id }, true);
+
+    const { ctx, gravados } = contexto(ANA, await listCompanies(ANA), fica!.id);
+    await expect(appRouter.createCaller(ctx).companies.open({ companyId: guardada!.id }))
+      .rejects.toThrow(/Reative a empresa/);
+    expect(gravados).toEqual([]);
+  });
+
+  it("criar já abre a empresa nova — é isso que impede o onboarding de gravar na errada", async () => {
+    /*
+     * O defeito que este teste existe para impedir: quem cria uma empresa cai
+     * nas boas-vindas dela, e as boas-vindas cadastram a primeira conta e
+     * importam o primeiro extrato. Se a empresa aberta continuasse sendo a
+     * anterior, esse cadastro e essa importação iriam para A EMPRESA ERRADA.
+     */
+    const antiga = await createCompany(ANA, { legalName: "Antiga", tradeName: "", taxId: "" });
+
+    const { ctx, gravados } = contexto(ANA, await listCompanies(ANA), antiga!.id);
+    const criada = await appRouter.createCaller(ctx).companies.create({ legalName: "Nova", tradeName: "", taxId: "" });
+
+    expect(gravados).toEqual([[COMPANY_COOKIE_NAME, String(criada.id)]]);
+    expect(criada.id).not.toBe(antiga!.id);
   });
 
   it("a lista mostra as ativas primeiro, e cada dono vê só as suas", async () => {
