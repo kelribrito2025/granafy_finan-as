@@ -1,55 +1,47 @@
-# Fase 5 · os quatro índices únicos que ignoram a empresa
+# Fase 5 · aplicada em produção
 
-Decisão tomada no fechamento da sub-leva 4 da Fase 4. Os quatro entram **na
-mesma migration**, com o do fechamento em primeiro lugar por ser o único
-destrutivo.
+Foram **dez** índices, não quatro. Os arreios da Fase 4 encostaram em quatro; o
+censo do schema achou dez únicos por dono que ignoravam a empresa — e os seis
+que faltavam eram os que mais doíam na prática: nome de conta, de categoria e de
+centro de custo. Duas empresas do mesmo dono não podiam ter uma conta "Itaú" nem
+uma categoria "Vendas".
 
-Não há urgência: hoje nenhum login tem duas empresas, então nenhum dos quatro
-pode disparar. O que garante que isso não seja esquecido são os testes de
-isolamento que travam a definição atual de cada índice — eles ficam vermelhos no
-dia em que a definição mudar, e a Fase 6 (mover coisa entre empresas) não sobe
-sem isso resolvido.
+## O que a sentada fez
 
-## 1. O destrutivo
+Trinta e dois comandos, em quatro blocos, com contagem antes e depois de cada um.
 
-`balance_sheet_snapshots_user_date_uidx` — hoje `(userId, referenceDate)`.
-
-O fechamento é gravado com `onDuplicateKeyUpdate` nessa chave. Para um dono com
-duas empresas, **fechar setembro na empresa B sobrescreve o fechamento de
-setembro da empresa A**: sem erro, sem aviso, e a foto do mês da primeira some.
-E 30/09 é 30/09 para toda empresa — não existe o caso em que as datas não
-colidem.
-
-Precisa virar `(userId, companyId, referenceDate)`.
-
-Foi descoberto porque o arreio do patrimônio não aceitou semear as duas empresas
-da Ana com fechamento na mesma data. O índice mandou, e a semeadura usa 30/09 e
-31/08 por causa dele. Travado por
-`server/patrimonio.isolation.test.ts`.
-
-## 2, 3 e 4. Os chatos
-
-Nenhum destrói dado: o `INSERT` é recusado e a pessoa vê o erro. O que eles
-fazem é proibir o que deveria ser permitido.
-
-| índice | hoje | proíbe |
+| bloco | comandos | efeito |
 | --- | --- | --- |
-| `patrimonial_items_user_name_uidx` | `(userId, name)` | duas empresas do mesmo dono terem um bem chamado "Notebook" |
-| `transactions_user_fingerprint_uidx` | `(userId, fingerprint)` | o mesmo lançamento existir em duas empresas do mesmo dono |
-| `statement_balances_account_date_uidx` | `(userId, accountId, asOf)` | (inócuo hoje: a conta já pertence a uma empresa só) |
+| `backfill` | 13 UPDATE + 1 INSERT | 5 órfãs adotadas → 0 |
+| `indices` | 9 ADD CONSTRAINT | os novos, por dono **e** empresa |
+| `limpar` | 10 DROP INDEX | os antigos, incluindo `company_profiles_user_uidx` |
+| `apertar` | 13 MODIFY COLUMN | `companyId` NOT NULL nas treze tabelas |
 
-Os três precisam ganhar `companyId`. Travados por
-`server/patrimonio.isolation.test.ts` e
-`server/conciliacao.isolation.test.ts`.
+Estado final, medido no `information_schema`: 13 de 13 colunas NOT NULL, 9
+índices únicos por empresa, 0 antigos, 29.378 linhas, 0 órfã, 0 dono cruzado.
 
-## O efeito colateral bom
+`scripts/sentada-fase5.mjs` roda os blocos e, sem `--bloco`, apenas conta. Ele
+LÊ os comandos de `drizzle/0023_cuddly_sage.sql` em vez de redigitá-los — o que
+foi para produção é exatamente o que o ensaio aplicou no `granafy_test`.
 
-Enquanto esses índices não incluírem `companyId`, **três guardas de empresa são
-inverificáveis por mutação** — o banco já garante uma linha por dono no recorte,
-então apagar a guarda não muda resultado nenhum. As três estão marcadas no
-código com `// inverificável-por-índice-único` e ficam fora do padrão da
-varredura.
+## As duas ordens que não eram preferência
 
-Quando a migration rodar, as três passam a valer sozinhas, saem da exceção e
-precisam de teste. É a mesma migration: não dá para consertar o índice e
-esquecer as guardas.
+**No arquivo da migration.** O drizzle-kit põe todos os `DROP` primeiro, o que
+abriria uma janela de 23 comandos sem unicidade nenhuma enquanto o app segue
+aceitando escrita. Foi invertido à mão: cada índice novo nasce antes de o antigo
+morrer, e o `NOT NULL` fica por último por ser o único que pode falhar por causa
+dos dados.
+
+**Entre deploy e migration.** Apertar com produção ainda rodando código que não
+carimba não corrompe dado: faz o banco recusar a inserção, e quem descobre é o
+usuário. A contagem do primeiro bloco pegou isso — cinco órfãs onde o plano
+previa quatro, e a nova era de um caminho que o código novo já carimbava.
+
+## O que ficou aberto
+
+`user_preferences_user_uidx` continua único em `(userId)`, e está certo:
+preferência é do login, não da empresa — a tabela nem tem a coluna.
+
+O `backfillCompanies.ts` usa `JOIN companyProfiles ON c.userId = x.userId`, que
+só é determinístico com uma empresa por dono. Rodou antes de o único cair, então
+estava garantido. **Não serve para ser reusado a partir de agora.**
