@@ -1587,6 +1587,51 @@ export async function getUserPreferences(userId: number) {
 }
 
 /**
+ * Os números que o cartão "Uso" da tela de Planos mostra.
+ *
+ * Existe porque o cartão era mockup e passou a mentir no dia em que o dono
+ * criou a segunda empresa: dizia "Empresas 1 de 1" com alerta de estouro, numa
+ * conta com duas. Número inventado numa tela de cobrança é pior que número
+ * nenhum.
+ *
+ * COUNT no banco, e não lista carregada e medida: a tela de Planos não tem
+ * motivo para trazer trezentos lançamentos do mês só para saber que são 318.
+ *
+ * O total de EMPRESAS não sai daqui — é por login, não por empresa, e uma
+ * contagem por dono dentro de uma função de escopo é exatamente o desequilíbrio
+ * que a invariante de `guardas.test.ts` reprova. Quem conta empresa é o
+ * `listCompanies`, no router.
+ */
+export async function contarUsoDaEmpresa(escopo: Escopo, inicioDoMes: string, fimDoMes: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [contas] = await db
+    .select({
+      total: sql<number>`COUNT(*)`,
+      ativas: sql<number>`SUM(CASE WHEN ${financialAccounts.isActive} THEN 1 ELSE 0 END)`,
+    })
+    .from(financialAccounts)
+    .where(and(eq(financialAccounts.userId, escopo.userId), eq(financialAccounts.companyId, escopo.companyId)));
+
+  const [lancamentos] = await db
+    .select({ total: sql<number>`COUNT(*)` })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      gte(financialTransactions.transactionDate, inicioDoMes),
+      lte(financialTransactions.transactionDate, fimDoMes),
+    ));
+
+  return {
+    contas: Number(contas?.total ?? 0),
+    contasAtivas: Number(contas?.ativas ?? 0),
+    lancamentosNoMes: Number(lancamentos?.total ?? 0),
+  };
+}
+
+/**
  * Só as contagens que a barra lateral recolhida mostra na bolinha.
  *
  * A tela de títulos carrega todos os lançamentos para montar a lista; a barra

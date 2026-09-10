@@ -1,6 +1,7 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { CardIcon, CheckIcon, CloseIcon, DownloadIcon } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
+import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -83,15 +84,7 @@ const ASSINATURA = {
   proximaCobranca: "05/10/2026",
   valor: dinheiro(planoAtual.precoMensal),
   assinanteDesde: "março de 2026",
-  cicloAtual: "05/09 a 05/10",
 };
-
-const USO = [
-  { rotulo: "Empresas", usado: 1, limite: "de 1", proporcao: 1, estourado: true },
-  { rotulo: "Usuários", usado: 4, limite: "de 5", proporcao: 0.8, estourado: false },
-  { rotulo: "Contas cadastradas", usado: 5, limite: "de ilimitadas", proporcao: 0.35, estourado: false },
-  { rotulo: "Lançamentos no mês", usado: 318, limite: "de ilimitados", proporcao: 0.55, estourado: false },
-];
 
 const PRECO = Object.fromEntries(PLANOS.map(plano => [plano.id, plano.precoMensal])) as Record<Plano["id"], number>;
 
@@ -420,6 +413,71 @@ export function PlanosPanel() {
   );
 }
 
+/** "01/09 a 30/09" — o mês corrido, que é o período que os lançamentos contam. */
+function periodoLegivel(inicio: string, fim: string) {
+  const dia = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+  return `${dia(inicio)} a ${dia(fim)}`;
+}
+
+/*
+ * O único cartão desta tela que não é mockup.
+ *
+ * Ele era: números fixos com barra de progresso e alerta laranja de estouro.
+ * No dia em que a segunda empresa passou a existir, o cartão anunciava
+ * "Empresas 1 de 1 · você está no limite" para uma conta com duas — mentindo
+ * na tela onde se decide pagar mais.
+ *
+ * Agora conta de verdade, e SEM limite: não existe coluna de plano no banco,
+ * então "de N" seria a mesma invenção com outro número. Foi essa a decisão —
+ * o teto por plano entra junto da cobrança, com os números decididos lá.
+ *
+ * Sem teto não há proporção, e sem proporção a barra de progresso não mede
+ * nada. Por isso o cartão virou lista de contagens: uma barra sem denominador
+ * é enfeite fingindo informação.
+ */
+function CartaoDeUso() {
+  const uso = trpc.settings.uso.useQuery(undefined, { staleTime: 60_000 });
+  const dados = uso.data;
+
+  const linhas = [
+    { rotulo: "Empresas", valor: dados?.empresas, nota: dados && dados.empresas !== dados.empresasAtivas ? `${dados.empresasAtivas} ativas` : null },
+    { rotulo: "Contas cadastradas", valor: dados?.contas, nota: dados && dados.contas !== dados.contasAtivas ? `${dados.contasAtivas} ativas` : null },
+    { rotulo: "Lançamentos no mês", valor: dados?.lancamentosNoMes, nota: null },
+    { rotulo: "Usuários com acesso", valor: dados?.usuarios, nota: "só você" },
+  ];
+
+  return (
+    <div className={`${CARD} flex flex-col gap-3.5`}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <strong className="text-[14px] font-bold">Uso</strong>
+        <span className="ml-auto text-[12px] text-[#8A968D]">
+          {dados ? periodoLegivel(dados.inicioDoMes, dados.fimDoMes) : "carregando"}
+        </span>
+      </div>
+
+      <div className="flex flex-col">
+        {linhas.map(linha => (
+          <div
+            key={linha.rotulo}
+            className="flex items-baseline gap-2 border-b border-[#F1F4F2] py-2.5 text-[12.5px] first:pt-0 last:border-b-0"
+          >
+            <span className="min-w-0 flex-1 truncate text-[#4C6355]">{linha.rotulo}</span>
+            {linha.nota && <span className="shrink-0 text-[11.5px] text-[#8A968D]">{linha.nota}</span>}
+            <strong className="shrink-0 text-[15px] font-bold tabular-nums">
+              {linha.valor === undefined ? "—" : linha.valor.toLocaleString("pt-BR")}
+            </strong>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-auto rounded-[14px] bg-[#F8FAF9] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#4C6355]">
+        Ainda não há limite por plano: a cobrança não está conectada. Quando estiver, este cartão
+        passa a mostrar quanto falta para o teto do seu plano.
+      </p>
+    </div>
+  );
+}
+
 /**
  * A assinatura em vigor: plano, uso do ciclo, faturas e forma de pagamento.
  *
@@ -493,32 +551,7 @@ export function AssinaturaPanel({ onVerPlanos }: { onVerPlanos: () => void }) {
           </div>
         </AuroraSurface>
 
-        <div className={`${CARD} flex flex-col gap-3.5`}>
-          <div className="flex items-center gap-2">
-            <strong className="text-[14px] font-bold">Uso no ciclo</strong>
-            <span className="ml-auto text-[12px] text-[#8A968D]">{ASSINATURA.cicloAtual}</span>
-          </div>
-          {USO.map(item => (
-            <div key={item.rotulo} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline gap-2 text-[12.5px]">
-                <span className="flex-1 min-w-0 truncate text-[#4C6355]">{item.rotulo}</span>
-                <strong className={`font-bold ${item.estourado ? "text-[#8A4B00]" : ""}`}>
-                  {item.usado.toLocaleString("pt-BR")}
-                </strong>
-                <span className="text-[11.5px] text-[#8A968D]">{item.limite}</span>
-              </div>
-              <div className="h-[6px] overflow-hidden rounded-full bg-[#EDF2EE]">
-                <div
-                  className={`h-full rounded-full ${item.estourado ? "bg-[#E0A44A]" : "bg-[#12B85C]"}`}
-                  style={{ width: `${Math.round(item.proporcao * 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-          <p className="mt-auto rounded-[14px] bg-[#FFF3E6] px-3.5 py-3 text-[11.5px] leading-relaxed text-[#8A4B00]">
-            Você está no limite de 1 empresa. O plano Grupo permite até 5 CNPJ no mesmo login.
-          </p>
-        </div>
+        <CartaoDeUso />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_392px]">

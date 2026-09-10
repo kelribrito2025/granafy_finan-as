@@ -8,6 +8,7 @@ import {
   SIDEBAR_MODES,
 } from "@shared/preferences";
 import { escopoDe } from "../escopo";
+import { userToday } from "../userToday";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
@@ -51,6 +52,38 @@ export const settingsRouter = router({
     if (!profile) return { ...EMPTY_COMPANY, logoKey: null, logoName: null };
     const { id: _id, userId: _userId, createdAt: _createdAt, updatedAt: _updatedAt, ...values } = profile;
     return values;
+  }),
+
+  /**
+   * O uso de verdade: o que o cartão da tela de Planos mostra.
+   *
+   * Sem limite nenhum no retorno, e é de propósito. Não existe coluna de plano
+   * no banco, então qualquer "de N" aqui seria invenção — e era justamente a
+   * invenção que fazia o cartão dizer "Empresas 1 de 1" para quem tem duas. Os
+   * tetos entram quando a cobrança entrar, com os números decididos lá.
+   */
+  uso: protectedProcedure.query(async ({ ctx }) => {
+    const hoje = await userToday(ctx.user.id);
+    const [ano, mes] = hoje.split("-").map(Number);
+    /* Dia 0 do mês seguinte é o último deste — resolve fevereiro e ano bissexto sem tabela. */
+    const ultimo = new Date(Date.UTC(ano!, mes!, 0)).getUTCDate();
+    const inicioDoMes = `${hoje.slice(0, 7)}-01`;
+    const fimDoMes = `${hoje.slice(0, 7)}-${String(ultimo).padStart(2, "0")}`;
+
+    const [empresas, contagens] = await Promise.all([
+      db.listCompanies(ctx.user.id),
+      db.contarUsoDaEmpresa(escopoDe(ctx), inicioDoMes, fimDoMes),
+    ]);
+
+    return {
+      empresas: empresas.length,
+      empresasAtivas: empresas.filter(empresa => empresa.isActive).length,
+      /* Um login, um acesso: compartilhar empresa com outra pessoa não existe ainda. */
+      usuarios: 1,
+      ...contagens,
+      inicioDoMes,
+      fimDoMes,
+    };
   }),
 
   saveCompany: protectedProcedure.input(companyValuesSchema).mutation(async ({ ctx, input }) => {
