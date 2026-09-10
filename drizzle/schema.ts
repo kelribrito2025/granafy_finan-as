@@ -196,6 +196,39 @@ export const companyProfiles = mysqlTable("companyProfiles", {
   isActive: boolean("isActive").default(true).notNull(),
   /** A ordem escolhida na lista. Empate resolve pelo id. */
   sortOrder: int("sortOrder").default(0).notNull(),
+  /*
+   * FASE 7 — as duas colunas que faltavam para a empresa ser a unidade de
+   * verdade. Ambas nasceram por ADD COLUMN, sem reescrever linha nenhuma.
+   */
+  /**
+   * Quando alguém concluiu ou pulou as boas-vindas DESTA empresa.
+   *
+   * A Fase 6 decidiu isso por comparação de datas contra o `completedAt` do
+   * login, para não pedir migration no meio da fase. O preço estava escrito em
+   * `onboarding.ts`: concluir o fluxo numa empresa apagava a oferta em todas as
+   * criadas antes daquele instante. Quem criasse três de uma vez perdia duas.
+   *
+   * Nula para as empresas que já existem, e a comparação de datas continua
+   * valendo como resposta para elas — a coluna é a resposta de quem nasce
+   * depois.
+   */
+  onboardingCompletedAt: timestamp("onboardingCompletedAt"),
+  /**
+   * A versão do catálogo de categorias-padrão que ESTA empresa já recebeu.
+   *
+   * Era só em `users`, e com isso o upgrade de catálogo entrava numa empresa
+   * por login: `ensureDefaultTransactionCategories` pedia a empresa padrão e
+   * carimbava a versão no usuário. Com duas empresas, a segunda ficava sem as
+   * categorias novas para sempre, porque o login já constava atualizado.
+   *
+   * Nasce 0 de propósito, inclusive para empresa que já tem tudo. O upgrade é
+   * idempotente — `transaction_categories_company_name_uidx` é (userId,
+   * companyId, name) e a inserção resolve conflito sem tocar em `isActive` —
+   * então a primeira passada por empresa antiga não insere nada e não
+   * ressuscita categoria que alguém desativou. Começar em 0 é o que faz a
+   * coluna consertar quem ficou atrás em vez de só registrar o presente.
+   */
+  categoryDefaultsVersion: int("categoryDefaultsVersion").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [

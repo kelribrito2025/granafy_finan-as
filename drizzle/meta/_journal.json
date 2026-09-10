@@ -169,6 +169,13 @@
       "when": 1789000076907,
       "tag": "0023_cuddly_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1789014333850,
+      "tag": "0024_condemned_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }
