@@ -1,11 +1,15 @@
 import { trpc } from "@/lib/trpc";
-import { Link, useParams } from "wouter";
+import { useState } from "react";
+import { Link, useLocation, useParams } from "wouter";
+import { ModalDeExclusao } from "./ModalDeExclusao";
 import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, SEM_ASSINATURA, Traco, cnpj, dataCurta, dataHora, haQuanto } from "./comum";
 
 const REGIME: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real", mei: "MEI", outro: "Outro" };
 
 export default function AdminContaDetalhe() {
   const { id } = useParams<{ id: string }>();
+  const [, setLocation] = useLocation();
+  const [apagando, setApagando] = useState(false);
   const numero = Number(id);
   const consulta = trpc.admin.contas.detalhe.useQuery({ id: numero }, { enabled: Number.isInteger(numero) && numero > 0 });
   const d = consulta.data;
@@ -102,8 +106,40 @@ export default function AdminContaDetalhe() {
           <Cartao titulo="Notas internas">
             <p className="text-[13px] text-[#8A968D]"><Traco razao="sem fonte" /> Chegam na próxima sentada, com tabela própria.</p>
           </Cartao>
+
+          {/*
+            A saída fica no fim da página de dentro, nunca na lista: para
+            apagar uma empresa é preciso ter aberto a empresa e rolado até
+            aqui. A lista do que some e o nome digitado vêm depois, no modal.
+          */}
+          <section className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#F3D6D2]">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-[15px] font-bold text-[#8E1F16]">Apagar esta empresa</h2>
+              <p className="text-[12.5px] leading-relaxed text-[#4C6355]">
+                Some o cadastro e tudo que pertence a ela: lançamentos, contas bancárias, categorias,
+                conciliações e fechamentos. O login do titular continua existindo. Não há desfazer.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setApagando(true)}
+              disabled={!d}
+              className="h-10 self-start rounded-[12px] bg-white px-4 text-[13px] font-bold text-[#B3261E] ring-1 ring-[#F3D6D2] transition hover:bg-[#FDECEA] disabled:pointer-events-none disabled:opacity-40"
+            >
+              Apagar empresa…
+            </button>
+          </section>
         </div>
       </div>
+
+      {apagando && (
+        <ModalDeExclusao
+          alvo="conta"
+          id={numero}
+          aoFechar={() => setApagando(false)}
+          aoApagar={() => { setApagando(false); setLocation("/admin/contas"); }}
+        />
+      )}
     </AdminShell>
   );
 }
