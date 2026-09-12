@@ -119,7 +119,21 @@ export function registerGoogleAuthRoutes(app: Express) {
         db.ensureDefaultCompany(user.id),
       ]);
       await setLocalSession(req, res, user.id);
-      return res.redirect("/");
+
+      /*
+       * Quem tem mais de uma empresa escolhe antes de entrar, igual ao login
+       * por senha.
+       *
+       * Lá a pergunta é feita pelo cliente depois da mutação; aqui o retorno
+       * do Google é um redirect do servidor, então o desvio tem de acontecer
+       * neste ponto. Sem ele, entrar pelo Google pularia a escolha e abriria
+       * a última empresa do cookie sem perguntar — dois caminhos de entrada
+       * com regras diferentes é como uma pessoa acaba lançando na empresa
+       * errada.
+       */
+      const empresas = await db.listCompanies(user.id);
+      const ativas = empresas.filter(empresa => empresa.isActive).length;
+      return res.redirect(ativas > 1 ? "/escolher-empresa" : "/");
     } catch (error) {
       console.error("[GoogleAuth] Falhou", { message: error instanceof Error ? error.message : "desconhecido" });
       return falha("Não foi possível concluir a entrada com o Google.");
