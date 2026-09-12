@@ -4,13 +4,15 @@ import {
   CheckIcon,
   CloseIcon,
   DocumentIcon,
+  PlusIcon,
   UploadIcon,
 } from "@/components/IconlyIcons";
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory";
 import { trpc } from "@/lib/trpc";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 type TransactionType = "entrada" | "saida";
 const MAX_IMPORT_FILE_BYTES = 25_000_000;
@@ -99,6 +101,19 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   const confirmMutation = trpc.imports.confirm.useMutation();
   const [file, setFile] = useState<File | null>(null);
   const [format, setFormat] = useState<"csv" | "ofx">("ofx");
+  /*
+   * O texto do arquivo, lido uma vez na escolha.
+   *
+   * A prévia roda sozinha assim que arquivo, conta e categorias estão
+   * escolhidos — e roda de novo se qualquer um deles mudar, porque duplicata
+   * depende da conta e a categoria inicial depende das duas categorias. Ler o
+   * arquivo em cada rodada seria decodificar 25 MB a cada troca de select.
+   */
+  const [conteudo, setConteudo] = useState<string | null>(null);
+  /** A combinação que a última prévia analisou — evita rodar duas vezes o mesmo. */
+  const [analisado, setAnalisado] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+  const inputArquivo = useRef<HTMLInputElement>(null);
   const [accountId, setAccountId] = useState("");
   const [incomeCategoryId, setIncomeCategoryId] = useState("");
   const [expenseCategoryId, setExpenseCategoryId] = useState("");
@@ -161,24 +176,37 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
     if (!expenseCategoryId) setExpenseCategoryId(defaultCategoryId(expenseCategories));
   }, [accountId, expenseCategories, expenseCategoryId, incomeCategories, incomeCategoryId, options.accounts]);
 
-  const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
+  const aceitarArquivo = async (selected: File) => {
     const extension = selected.name.split(".").pop()?.toLowerCase();
     if (extension !== "csv" && extension !== "ofx") {
       toast.error("Selecione um arquivo .OFX ou .CSV");
-      event.target.value = "";
-      return;
+      return false;
     }
     if (selected.size > MAX_IMPORT_FILE_BYTES) {
       toast.error("O arquivo deve ter no máximo 25 MB");
-      event.target.value = "";
-      return;
+      return false;
     }
     setFile(selected);
     setFormat(extension);
     setRows([]);
     setStatementBalance(null);
+    setAnalisado(null);
+    setConteudo(decodeFile(await selected.arrayBuffer()));
+    return true;
+  };
+
+  const chooseFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    if (!(await aceitarArquivo(selected))) event.target.value = "";
+  };
+
+  const [arrastando, setArrastando] = useState(false);
+  const soltarArquivo = async (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setArrastando(false);
+    const selected = event.dataTransfer.files?.[0];
+    if (selected) await aceitarArquivo(selected);
   };
 
   /*
@@ -191,28 +219,58 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
    */
   const [saldoDigitado, setSaldoDigitado] = useState("");
 
-  const preview = async () => {
-    if (!file || !accountId || !incomeCategoryId || !expenseCategoryId) return toast.error("Selecione arquivo, conta e as categorias de receita e despesa");
-    try {
-      const content = decodeFile(await file.arrayBuffer());
-      const response = await previewMutation.mutateAsync({
-        fileName: file.name,
-        format,
-        content,
-        accountId: Number(accountId),
-        incomeCategoryId: Number(incomeCategoryId),
-        expenseCategoryId: Number(expenseCategoryId),
-        classification: "auto",
-      });
+  const chaveDaAnalise = file && conteudo !== null && accountId && incomeCategoryId && expenseCategoryId
+    ? `${file.name}:${file.size}:${accountId}:${incomeCategoryId}:${expenseCategoryId}`
+    : null;
+
+  useEffect(() => {
+    if (!chaveDaAnalise || chaveDaAnalise === analisado || previewMutation.isPending || !file || conteudo === null) return;
+    setAnalisado(chaveDaAnalise);
+    previewMutation.mutateAsync({
+      fileName: file.name,
+      format,
+      content: conteudo,
+      accountId: Number(accountId),
+      incomeCategoryId: Number(incomeCategoryId),
+      expenseCategoryId: Number(expenseCategoryId),
+      classification: "auto",
+    }).then(response => {
+      if (response.rows.length === 0) {
+        setAnalisado(null);
+        setFile(null);
+        setConteudo(null);
+        toast.error("O arquivo não tem nenhum lançamento");
+        return;
+      }
       setRows(response.rows.map(row => ({ ...row, selected: !row.duplicate })));
       setStatementBalance(response.statementBalance);
       setSaldoDigitado("");
       setPreviewPage(0);
-      setStep("preview");
-    } catch (error) {
+    }).catch(error => {
+      setRows([]);
+      setAnalisado(null);
+      setFile(null);
+      setConteudo(null);
       toast.error(error instanceof Error ? error.message : "Não foi possível ler o arquivo");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveDaAnalise, analisado, previewMutation.isPending]);
+
+  const analisada = Boolean(chaveDaAnalise) && chaveDaAnalise === analisado && !previewMutation.isPending && rows.length > 0;
+  const duplicadas = rows.filter(row => row.duplicate).length;
+  const creditos = rows.filter(row => row.type === "entrada").length;
+  const debitos = rows.length - creditos;
+  const periodo = useMemo(() => {
+    if (rows.length === 0) return null;
+    let menor = rows[0].transactionDate;
+    let maior = rows[0].transactionDate;
+    for (const row of rows) {
+      if (row.transactionDate < menor) menor = row.transactionDate;
+      if (row.transactionDate > maior) maior = row.transactionDate;
     }
-  };
+    const curta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+    return `${curta(menor)} e ${curta(maior)}`;
+  }, [rows]);
 
   const categoryForType = (type: TransactionType, preferredId?: number) => {
     const preferred = options.categories.find(category => category.id === preferredId);
@@ -281,17 +339,53 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
     }
   };
 
+  /*
+   * Os pré-requisitos: sem conta ou sem categoria de cada lado, não há como
+   * importar — o servidor exige os três ids. Em vez de um aviso vermelho ao
+   * lado de um formulário que não vai funcionar, o modal vira a lista do que
+   * falta, com o botão que resolve cada item.
+   */
+  const carregandoOpcoes = optionsQuery.isLoading;
+  const temConta = options.accounts.length > 0;
+  const temCategorias = incomeCategories.length > 0 && expenseCategories.length > 0;
+  const faltaPreRequisito = !carregandoOpcoes && (!temConta || !temCategorias);
+  const pendentes = Number(!temConta) + Number(!temCategorias);
+
+  const subtitulo = result
+    ? "Os dados já estão disponíveis no seu extrato."
+    : step === "preview"
+      ? "Confira natureza e categoria antes de gravar."
+      : faltaPreRequisito
+        ? "falta um passo antes de enviar o arquivo"
+        : previewMutation.isPending
+          ? "Lendo o arquivo…"
+          : analisada
+            ? `${format.toUpperCase()} reconhecido · ${rows.length} ${rows.length === 1 ? "lançamento" : "lançamentos"}${periodo ? ` entre ${periodo}` : ""}`
+            : "OFX ou CSV · o GranaFy reconhece créditos e débitos sozinho";
+
+  const passo = step === "preview" ? 3 : analisada ? 2 : 1;
+  const Pontos = () => (
+    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+      {[1, 2, 3].map(n => <span key={n} className={`h-[7px] w-[7px] rounded-full ${n <= passo ? "bg-[#12B85C]" : "bg-[#C9D4CD]"}`} />)}
+      <span className="truncate text-[12px] text-[#8A968D]">Passo {passo} de 3</span>
+    </div>
+  );
+
+  const selectClass = "h-[46px] w-full min-w-0 appearance-none rounded-[12px] border border-[#E3EBE6] bg-white bg-[position:right_13px_center] bg-no-repeat pl-3.5 pr-9 text-[13.5px] text-[#0B1F14] outline-none focus-visible:ring-2 focus-visible:ring-[#12B85C]";
+  /* O chevron do select: um url() com espaços não vira classe utilitária, vai inline. */
+  const chevron = { backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234C6355' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>\")" };
+  const rotulo = "text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]";
+
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="import-title" className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/50 p-3 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <section className={`modal-enter flex max-h-[calc(100dvh-24px)] w-full max-w-[980px] flex-col overflow-hidden rounded-[22px] bg-white text-[#0B1F14] ${!result && step === "preview" ? "h-[calc(100dvh-24px)]" : ""}`}>
-        <header className="flex shrink-0 items-start gap-4 border-b border-[#E8EEEA] px-5 py-4 sm:px-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#DFF6EA] text-[#0A7A42]"><UploadIcon size={20} /></span>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#12B85C]">Importação bancária</p>
-            <h2 id="import-title" className="mt-0.5 text-xl font-bold">{result ? "Importação concluída" : step === "setup" ? "Importar OFX ou CSV" : "Revise os lançamentos"}</h2>
-            <p className="mt-0.5 text-[11.5px] text-[#8A968D]">{result ? "Os dados já estão disponíveis no seu extrato." : step === "setup" ? "Créditos e débitos do OFX são reconhecidos automaticamente." : "Confira natureza e categoria antes de gravar."}</p>
+      <section className={`modal-enter flex max-h-[calc(100dvh-24px)] w-full flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.24)] ${!result && step === "preview" ? "h-[calc(100dvh-24px)] max-w-[980px]" : "max-w-[520px]"}`}>
+        <header className="flex shrink-0 items-start gap-3 border-b border-[#F1F4F2] px-[22px] pb-[18px] pt-[22px]">
+          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[12px] bg-[#DFF6EA] text-[#0A7A42]"><UploadIcon size={18} /></span>
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+            <h2 id="import-title" className="text-[17px] font-bold tracking-[-.01em]">{result ? "Importação concluída" : step === "preview" ? "Revise os lançamentos" : "Importar extrato"}</h2>
+            <p className="text-[12.5px] leading-snug text-[#8A968D]">{subtitulo}</p>
           </div>
-          <button type="button" aria-label="Fechar" onClick={onClose} className="ml-auto rounded-xl bg-[#F1F4F2] p-2 text-[#4C6355] hover:bg-[#E8EEEA]"><CloseIcon size={17} /></button>
+          <button type="button" aria-label="Fechar" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#F1F4F2] text-[#28382E] transition hover:bg-[#E3EBE6]"><CloseIcon size={15} /></button>
         </header>
 
         {result ? (
@@ -302,42 +396,133 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             <button type="button" onClick={onClose} className="mt-6 rounded-xl bg-[#12B85C] px-6 py-3 text-[13px] font-bold text-white">Ver lançamentos</button>
           </div>
         ) : step === "setup" ? (
-          <div className="overflow-y-auto p-5 sm:p-6">
-            <div className="grid gap-5 lg:grid-cols-[1.05fr_.95fr]">
-              <div>
-                <label className={`flex min-h-[210px] w-full cursor-pointer flex-col items-center justify-center rounded-[18px] border border-dashed p-6 text-center transition ${file ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#C9D5CD] bg-[#F8FAF9] hover:border-[#12B85C]"}`}>
-                  <input aria-label="Selecionar arquivo OFX ou CSV" type="file" accept=".ofx,.csv,text/csv,application/x-ofx" onChange={chooseFile} className="sr-only" />
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#0A7A42] ring-1 ring-[#DDE8E1]"><DocumentIcon size={23} /></span>
-                  <strong className="mt-4 text-[14px]">{file?.name ?? "Selecione seu arquivo bancário"}</strong>
-                  <span className="mt-1 text-[11.5px] text-[#8A968D]">{file ? `${(file.size / 1024).toFixed(1)} KB · ${format.toUpperCase()}` : "OFX ou CSV · máximo de 25 MB · sem limite de lançamentos"}</span>
-                  <span className="mt-4 rounded-[10px] bg-[#0B1F14] px-4 py-2 text-[11.5px] font-bold text-white">{file ? "Trocar arquivo" : "Escolher arquivo"}</span>
-                </label>
-                <div className="mt-3 rounded-xl bg-[#FFF8E8] p-3 text-[11px] leading-5 text-[#7A5A14]"><strong>Classificação automática:</strong> crédito usa a categoria de receita; débito usa a categoria de despesa. Na revisão você poderá ajustar cada lançamento.</div>
-              </div>
+          <>
+            <div className="flex flex-col gap-[18px] overflow-y-auto px-[22px] py-5">
+              <input ref={inputArquivo} aria-label="Selecionar arquivo OFX ou CSV" type="file" accept=".ofx,.csv,text/csv,application/x-ofx" onChange={chooseFile} className="sr-only" />
 
-              <div className="space-y-4">
-                <div>
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Formato</span>
-                  <div className="grid grid-cols-2 rounded-xl bg-[#F1F4F2] p-1">{(["ofx", "csv"] as const).map(value => <button key={value} type="button" onClick={() => setFormat(value)} className={`rounded-[9px] py-2.5 text-[11.5px] font-bold uppercase ${format === value ? "bg-white text-[#0A7A42]" : "text-[#718077]"}`}>{value}</button>)}</div>
-                </div>
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Conta de destino</span>
-                  <select value={accountId} onChange={event => setAccountId(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[12.5px] outline-none ring-1 ring-[#E1E8E3] focus:ring-2 focus:ring-[#12B85C]"><option value="">Selecione a conta</option>{options.accounts.map(account => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ""}</option>)}</select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#0A7A42]">Categoria para entradas · Receitas</span>
-                  <select value={incomeCategoryId} onChange={event => setIncomeCategoryId(event.target.value)} className="h-11 w-full rounded-xl bg-[#F1FBF6] px-3.5 text-[12.5px] outline-none ring-1 ring-[#BDE8CF] focus:ring-2 focus:ring-[#12B85C]"><option value="">Selecione a categoria de receita</option>{incomeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#B3261E]">Categoria para saídas · Despesas</span>
-                  <select value={expenseCategoryId} onChange={event => setExpenseCategoryId(event.target.value)} className="h-11 w-full rounded-xl bg-[#FFF8F7] px-3.5 text-[12.5px] outline-none ring-1 ring-[#F1C7C2] focus:ring-2 focus:ring-[#E5533D]"><option value="">Selecione a categoria de despesa</option>{expenseCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-                </label>
-                {optionsQuery.isLoading && <p className="text-[11px] text-[#8A968D]">Carregando suas contas e categorias...</p>}
-                {!optionsQuery.isLoading && (options.accounts.length === 0 || incomeCategories.length === 0 || expenseCategories.length === 0) && <div className="rounded-xl bg-[#FDECEA] p-3"><strong className="block text-[11.5px] text-[#8E1F16]">Cadastre antes de importar</strong><p className="mt-1 text-[10.5px] leading-4 text-[#9D5A54]">Você precisa de uma conta e categorias ativas de receita e despesa.</p><button type="button" onClick={onManageOrganization} className="mt-2 text-[11px] font-bold text-[#8E1F16]">Gerenciar agora</button></div>}
-              </div>
+              {faltaPreRequisito && (
+                <>
+                  <div className="flex flex-col gap-3 rounded-[14px] border border-[#E3EBE6] bg-[#F8FAF9] p-4">
+                    <span className="text-[13.5px] font-bold">Para importar você precisa de:</span>
+                    <div className="flex items-center gap-[11px] text-[13px]">
+                      {temConta
+                        ? <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#12B85C] text-white"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg></span>
+                        : <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-[#C9D4CD] bg-white" />}
+                      <span className={`min-w-0 flex-1 leading-snug ${temConta ? "text-[#4C6355]" : "font-semibold text-[#28382E]"}`}>
+                        Uma conta bancária cadastrada
+                        {temConta && <strong className="font-bold text-[#0A7A42]"> · {options.accounts.length === 1 ? "1 pronta" : `${options.accounts.length} prontas`}</strong>}
+                      </span>
+                      {!temConta && <button type="button" onClick={() => setLocation("/organizacao?nova=conta")} className="h-[34px] shrink-0 whitespace-nowrap rounded-[10px] border-[1.5px] border-[#12B85C] bg-white px-[13px] text-[12.5px] font-bold text-[#0A7A42] transition hover:bg-[#DFF6EA]">Cadastrar</button>}
+                    </div>
+                    <div className="flex items-center gap-[11px] text-[13px]">
+                      {temCategorias
+                        ? <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#12B85C] text-white"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg></span>
+                        : <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-[#C9D4CD] bg-white" />}
+                      <span className={`min-w-0 flex-1 leading-snug ${temCategorias ? "text-[#4C6355]" : "font-semibold text-[#28382E]"}`}>
+                        Categorias de receita e despesa ativas
+                        {temCategorias && <strong className="font-bold text-[#0A7A42]"> · {options.categories.length} prontas</strong>}
+                      </span>
+                      {!temCategorias && <button type="button" onClick={onManageOrganization} className="h-[34px] shrink-0 whitespace-nowrap rounded-[10px] border-[1.5px] border-[#12B85C] bg-white px-[13px] text-[12.5px] font-bold text-[#0A7A42] transition hover:bg-[#DFF6EA]">Cadastrar</button>}
+                    </div>
+                  </div>
+                  <div className="pointer-events-none flex flex-col items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-[#B9C7BE] bg-[#F8FAF9] px-5 py-[26px] text-center opacity-45">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-[#E3EBE6] bg-white text-[#4C6355]"><DocumentIcon size={20} /></span>
+                    <div className="flex flex-col gap-[3px]">
+                      <span className="text-[14.5px] font-bold">Arraste o extrato aqui</span>
+                      <span className="text-[12px] text-[#8A968D]">liberado depois de cadastrar {temConta ? "as categorias" : "a conta"}</span>
+                    </div>
+                  </div>
+                  <span className="text-[12px] leading-relaxed text-[#8A968D]">
+                    {temConta
+                      ? "Categorias de receita e de despesa são o palpite inicial de cada lançamento. Depois você volta direto para esta importação."
+                      : "Leva menos de um minuto: banco, tipo de conta e saldo inicial. Depois você volta direto para esta importação."}
+                  </span>
+                </>
+              )}
+
+              {!faltaPreRequisito && (
+                <>
+                  {file ? (
+                    <div className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-[#12B85C] bg-[#F1FBF6] px-3.5 py-[13px]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#12B85C] text-[9.5px] font-bold tracking-[.04em] text-white">{format.toUpperCase()}</span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-[13.5px] font-bold text-[#0A7A42]">{file.name}</span>
+                        <span className="text-[12px] text-[#4C6355]">
+                          {(file.size / 1024).toFixed(0)} KB
+                          {analisada && ` · ${rows.length} ${rows.length === 1 ? "lançamento" : "lançamentos"} · ${debitos} ${debitos === 1 ? "débito" : "débitos"} e ${creditos} ${creditos === 1 ? "crédito" : "créditos"}`}
+                          {previewMutation.isPending && " · lendo…"}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => inputArquivo.current?.click()} className="shrink-0 text-[12.5px] font-bold text-[#0A7A42] hover:underline">Trocar</button>
+                    </div>
+                  ) : (
+                    <div
+                      onDragOver={event => { event.preventDefault(); setArrastando(true); }}
+                      onDragLeave={() => setArrastando(false)}
+                      onDrop={soltarArquivo}
+                      className={`flex flex-col items-center gap-3 rounded-[16px] border-[1.5px] border-dashed px-5 py-[26px] text-center transition ${arrastando ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#B9C7BE] bg-[#F8FAF9] hover:border-[#12B85C] hover:bg-[#F1FBF6]"}`}
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-[#E3EBE6] bg-white text-[#4C6355]"><DocumentIcon size={20} /></span>
+                      <div className="flex flex-col gap-[3px]">
+                        <span className="text-[14.5px] font-bold">Arraste o extrato aqui</span>
+                        <span className="text-[12px] text-[#8A968D]">OFX ou CSV · até 25 MB</span>
+                      </div>
+                      <button type="button" onClick={() => inputArquivo.current?.click()} className="h-10 whitespace-nowrap rounded-[11px] border-[1.5px] border-[#12B85C] bg-white px-[18px] text-[13.5px] font-bold text-[#0A7A42] transition hover:bg-[#DFF6EA]">Escolher arquivo</button>
+                    </div>
+                  )}
+
+                  <label className="flex min-w-0 flex-col gap-[7px]">
+                    <span className={rotulo}>Conta de destino</span>
+                    <select value={accountId} onChange={event => setAccountId(event.target.value)} className={selectClass} style={chevron}>
+                      <option value="">Selecione a conta</option>
+                      {options.accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+                    </select>
+                  </label>
+
+                  <div className="flex min-w-0 flex-col gap-[7px]">
+                    <span className={rotulo}>Categoria inicial · entradas e saídas</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <select aria-label="Categoria para entradas" value={incomeCategoryId} onChange={event => setIncomeCategoryId(event.target.value)} className={selectClass} style={chevron}>
+                        <option value="">Receita</option>
+                        {incomeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      </select>
+                      <select aria-label="Categoria para saídas" value={expenseCategoryId} onChange={event => setExpenseCategoryId(event.target.value)} className={selectClass} style={chevron}>
+                        <option value="">Despesa</option>
+                        {expenseCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      </select>
+                    </div>
+                    {!(analisada && duplicadas > 0) && (
+                      <span className="text-[12px] leading-relaxed text-[#8A968D]">Um palpite para começar: crédito vira receita, débito vira despesa. Você ajusta lançamento por lançamento na revisão.</span>
+                    )}
+                  </div>
+
+                  {analisada && duplicadas > 0 && (
+                    <div className="flex gap-2.5 rounded-[12px] bg-[#F8FAF9] px-3.5 py-3 text-[12.5px] leading-relaxed text-[#4C6355]">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="mt-0.5 shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 16v-5" /><path d="M12 8h.01" /></svg>
+                      <span><strong className="text-[#28382E]">{duplicadas} {duplicadas === 1 ? "lançamento parece" : "lançamentos parecem"}</strong> já existir no GranaFy e {duplicadas === 1 ? "virá marcado como duplicado" : "virão marcados como duplicados"} na revisão.</span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            <div className="mt-6 flex justify-end gap-2.5"><button type="button" onClick={onClose} className="rounded-xl bg-[#F1F4F2] px-5 py-3 text-[12.5px] font-bold text-[#4C6355]">Cancelar</button><button type="button" disabled={previewMutation.isPending || !file || !accountId || !incomeCategoryId || !expenseCategoryId} onClick={preview} className="rounded-xl bg-[#12B85C] px-5 py-3 text-[12.5px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{previewMutation.isPending ? "Analisando..." : "Revisar lançamentos"}</button></div>
-          </div>
+
+            <footer className="flex shrink-0 items-center gap-2.5 border-t border-[#F1F4F2] bg-[#F8FAF9] px-[22px] py-4">
+              {faltaPreRequisito
+                ? <span className="min-w-0 flex-1 truncate text-[12px] text-[#8A968D]">{pendentes} de 2 pré-requisitos {pendentes === 1 ? "pendente" : "pendentes"}</span>
+                : <Pontos />}
+              <button type="button" onClick={onClose} className="h-11 shrink-0 rounded-[12px] border border-[#E3EBE6] bg-white px-[18px] text-[13.5px] font-semibold text-[#28382E] transition hover:bg-[#F1F4F2]">Cancelar</button>
+              {faltaPreRequisito ? (
+                <button type="button" onClick={() => (temConta ? onManageOrganization() : setLocation("/organizacao?nova=conta"))} className="flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E]">
+                  <PlusIcon size={15} />
+                  {temConta ? "Cadastrar categorias" : "Cadastrar conta"}
+                </button>
+              ) : (
+                <button type="button" disabled={!analisada} onClick={() => setStep("preview")} className="h-11 shrink-0 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:cursor-not-allowed disabled:bg-[#E3EBE6] disabled:text-[#8A968D]">
+                  {previewMutation.isPending ? "Lendo…" : analisada ? `Revisar ${rows.length} ${rows.length === 1 ? "lançamento" : "lançamentos"}` : "Revisar lançamentos"}
+                </button>
+              )}
+            </footer>
+          </>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-[#E8EEEA] bg-[#F8FAF9] px-5 py-3 sm:grid-cols-4 sm:px-6">
@@ -377,6 +562,10 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
             </div>
             <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-[#E8EEEA] bg-white px-5 py-3 sm:px-6">
               <button type="button" onClick={() => setStep("setup")} className="rounded-xl bg-[#F1F4F2] px-4 py-2.5 text-[12px] font-bold text-[#4C6355]">Voltar</button>
+              <div className="flex items-center gap-2" aria-label="Passo 3 de 3">
+                {[1, 2, 3].map(n => <span key={n} className="h-[7px] w-[7px] rounded-full bg-[#12B85C]" />)}
+                <span className="text-[11px] text-[#8A968D]">Passo 3 de 3</span>
+              </div>
               {rows.length > PREVIEW_PAGE_SIZE && <div className="flex items-center gap-1.5 rounded-xl bg-[#F1F4F2] p-1"><button type="button" aria-label="Página anterior" disabled={previewPage === 0} onClick={() => setPreviewPage(page => Math.max(0, page - 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">←</button><span className="min-w-[150px] text-center text-[10.5px] font-semibold text-[#607067]">Página {previewPage + 1} de {previewPageCount} · {previewPage * PREVIEW_PAGE_SIZE + 1}–{Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, rows.length)}</span><button type="button" aria-label="Próxima página" disabled={previewPage >= previewPageCount - 1} onClick={() => setPreviewPage(page => Math.min(previewPageCount - 1, page + 1))} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-[#4C6355] disabled:opacity-35">→</button></div>}
               {statementBalance ? (
                 <p className="mr-auto text-[10.5px] text-[#8A968D]">
