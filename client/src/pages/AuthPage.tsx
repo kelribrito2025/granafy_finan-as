@@ -127,6 +127,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const { user, loading, refresh } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const utils = trpc.useUtils();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -192,7 +193,20 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
        */
       queryClient.clear();
       await refresh();
-      setLocation("/", { replace: true });
+      /*
+       * Quem tem mais de uma empresa escolhe antes de entrar.
+       *
+       * A pergunta é do servidor, não do cliente: ele conta as empresas ATIVAS
+       * do login e confere se a pessoa já pediu para ser lembrada neste
+       * navegador. Com uma empresa só — todo cadastro novo, e a maioria das
+       * contas — a resposta é "não" e nada muda.
+       *
+       * Falha de rede aqui não pode trancar a entrada: se a pergunta não for
+       * respondida, entra pelo caminho de sempre e a escolha continua
+       * disponível no menu do perfil.
+       */
+      const portao = await utils.companies.portao.fetch().catch(() => null);
+      setLocation(portao?.precisaEscolher ? "/escolher-empresa" : "/", { replace: true });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Não foi possível continuar");
     }

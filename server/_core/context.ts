@@ -17,14 +17,26 @@ export type TrpcContext = {
   companyRequestHonored: boolean;
 };
 
-/** O que o cookie da empresa escolhida diz, se disser algo válido. */
-function empresaPedida(req: CreateExpressContextOptions["req"]) {
+/**
+ * O valor cru de um cookie, ou nulo.
+ *
+ * Um lugar só porque o formato do cabeçalho tem duas armadilhas — o separador
+ * é "; " e o valor NÃO pode ser aparado — e duas cópias dessa leitura acabam
+ * concordando só até alguém corrigir uma delas.
+ */
+export function valorDoCookie(req: CreateExpressContextOptions["req"], nome: string) {
   const cabecalho = req.headers.cookie ?? "";
   const par = cabecalho
     .split(";")
     .map(valor => valor.trim())
-    .find(valor => valor.startsWith(`${COMPANY_COOKIE_NAME}=`));
-  if (!par) return null;
+    .find(valor => valor.startsWith(`${nome}=`));
+  return par === undefined ? null : par.slice(nome.length + 1);
+}
+
+/** O que o cookie da empresa escolhida diz, se disser algo válido. */
+function empresaPedida(req: CreateExpressContextOptions["req"]) {
+  const cru = valorDoCookie(req, COMPANY_COOKIE_NAME);
+  if (cru === null) return null;
 
   /*
    * Vem do cliente, então vem sujo até prova em contrário. Aqui só se decide
@@ -39,7 +51,6 @@ function empresaPedida(req: CreateExpressContextOptions["req"]) {
    * a lista do dono, mas aceitar o que não devia ser aceito é como um furo
    * começa. Um valor legítimo nunca tem espaço.
    */
-  const cru = par.slice(COMPANY_COOKIE_NAME.length + 1);
   if (!/^\d+$/.test(cru)) return null;
   const numero = Number(cru);
   return Number.isSafeInteger(numero) && numero > 0 ? numero : null;

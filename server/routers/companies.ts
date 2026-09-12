@@ -1,10 +1,10 @@
 import { companyDisplayName } from "@shared/companies";
-import { COMPANY_COOKIE_NAME } from "@shared/const";
+import { COMPANY_COOKIE_NAME, COMPANY_REMEMBER_COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
-import type { TrpcContext } from "../_core/context";
+import { valorDoCookie, type TrpcContext } from "../_core/context";
 import * as db from "../db";
 import { userToday } from "../userToday";
 
@@ -45,6 +45,36 @@ const VALIDADE_DA_ESCOLHA = 30 * 24 * 60 * 60 * 1000;
  * estava dentro de uma não ser expulso no meio do trabalho, mas ESCOLHER uma
  * arquivada é outra coisa.
  */
+/** O id que o cookie da empresa carrega agora, sem julgar se é do dono. */
+function escolhaNoCookie(ctx: TrpcContext) {
+  const cru = valorDoCookie(ctx.req, COMPANY_COOKIE_NAME);
+  return cru !== null && /^\d+$/.test(cru) ? Number(cru) : null;
+}
+
+/** A pessoa já disse que não quer mais ser perguntada neste navegador. */
+function lembrancaLigada(ctx: TrpcContext) {
+  return valorDoCookie(ctx.req, COMPANY_REMEMBER_COOKIE_NAME) === "1";
+}
+
+/**
+ * Liga ou desliga o "lembrar minha escolha".
+ *
+ * `undefined` não mexe: quem troca de empresa pelo menu do perfil não está
+ * respondendo a essa pergunta, e mudar a preferência dela de lambuja seria
+ * decidir no lugar da pessoa.
+ */
+function gravarLembranca(ctx: TrpcContext, lembrar: boolean | undefined) {
+  if (lembrar === undefined) return;
+  if (lembrar) {
+    ctx.res.cookie(COMPANY_REMEMBER_COOKIE_NAME, "1", {
+      ...getSessionCookieOptions(ctx.req),
+      maxAge: VALIDADE_DA_ESCOLHA,
+    });
+  } else {
+    ctx.res.clearCookie(COMPANY_REMEMBER_COOKIE_NAME, getSessionCookieOptions(ctx.req));
+  }
+}
+
 function gravarEscolha(ctx: TrpcContext, companyId: number) {
   const alvo = ctx.companies.find(empresa => empresa.id === companyId);
   if (!alvo) throw new TRPCError({ code: "NOT_FOUND", message: "Empresa não encontrada neste acesso." });
@@ -87,6 +117,7 @@ export const companiesRouter = router({
       db.listCompanies(ctx.user.id),
       db.saldosDeCaixaPorEmpresa(ctx.user.id, diaSeguinte(hoje)),
     ]);
+    const noCookie = escolhaNoCookie(ctx);
     return empresas.map(empresa => ({
       id: empresa.id,
       displayName: companyDisplayName(empresa, ctx.user.name ?? ""),
@@ -111,12 +142,21 @@ export const companiesRouter = router({
        * convite e papel, ele passa a sair do banco — e este comentário é o
        * marcador de onde.
        *
-       * O ÚLTIMO ACESSO não entrou. Nenhuma coluna sabe quando alguém abriu uma
-       * empresa, e data inventada em tela é o que acabou de sair do cartão de
-       * uso dos Planos. A linha mostra a criação, que é verdade. Ter o último
-       * acesso de verdade custa uma coluna e uma escrita no `gravarEscolha`.
+       * O ÚLTIMO ACESSO com data ainda não entrou: nenhuma coluna sabe quando
+       * alguém abriu uma empresa, e data inventada em tela é o que saiu do
+       * cartão de uso dos Planos. O que existe de verdade é `ultimaEscolhida`,
+       * logo abaixo — o cookie diz qual foi a última que a pessoa escolheu, e
+       * isso não é estimativa. Ter a DATA custa uma coluna e uma escrita no
+       * `gravarEscolha`.
        */
       papel: "Administradora" as const,
+      /*
+       * A última que esta pessoa escolheu NESTE navegador — o cookie, não a
+       * padrão. Falso para todas quando ainda não houve escolha, que é
+       * exatamente o primeiro login: ali não há "última", e marcar a primeira
+       * da lista seria inventar uma memória que não existe.
+       */
+      ultimaEscolhida: noCookie !== null && empresa.id === noCookie,
     }));
   }),
 
@@ -146,11 +186,38 @@ export const companiesRouter = router({
     }
   }),
 
-  /** Troca a empresa aberta. O cliente limpa o cache e recarrega em seguida. */
-  open: protectedProcedure.input(alvoSchema).mutation(async ({ ctx, input }) => {
-    gravarEscolha(ctx, input.companyId);
-    return { success: true } as const;
+  /**
+   * O portão do login: esta pessoa precisa escolher antes de entrar?
+   *
+   * Só com mais de uma empresa ATIVA, e só enquanto ela não tiver pedido para
+   * ser lembrada neste navegador. Quem tem uma empresa só nunca vê a tela —
+   * perguntar entre uma opção não é escolha, é um clique a mais.
+   *
+   * Responde da lista que o contexto já montou para o request: nenhuma
+   * consulta nova no caminho mais quente do produto, que é entrar.
+   */
+  portao: protectedProcedure.query(({ ctx }) => {
+    const ativas = ctx.companies.filter(empresa => empresa.isActive);
+    return {
+      ativas: ativas.length,
+      precisaEscolher: ativas.length > 1 && !lembrancaLigada(ctx),
+    };
   }),
+
+  /**
+   * Troca a empresa aberta. O cliente limpa o cache e recarrega em seguida.
+   *
+   * `lembrar` só chega da tela de escolha do login, que é onde a pergunta é
+   * feita. Pelo menu do perfil ele vem indefinido e a preferência fica como
+   * estava.
+   */
+  open: protectedProcedure
+    .input(alvoSchema.extend({ lembrar: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      gravarEscolha(ctx, input.companyId);
+      gravarLembranca(ctx, input.lembrar);
+      return { success: true } as const;
+    }),
 
   rename: protectedProcedure
     .input(alvoSchema.merge(valoresSchema))

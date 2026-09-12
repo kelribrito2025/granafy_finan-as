@@ -22,6 +22,7 @@ import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { PrivacyProvider } from "./contexts/PrivacyContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import EscolherEmpresaPage from "@/pages/EscolherEmpresaPage";
 import AdminVisaoGeral from "@/admin/VisaoGeral";
 import AdminContas from "@/admin/Contas";
 import AdminContaDetalhe from "@/admin/ContaDetalhe";
@@ -38,7 +39,14 @@ function AuthLoading() {
   );
 }
 
-function ProtectedPage({ children }: { children: ReactNode }) {
+/*
+ * Só o portão da sessão, sem o do primeiro acesso.
+ *
+ * A escolha de empresa acontece ANTES do onboarding: o primeiro acesso é de
+ * uma empresa, e perguntar "cadastre sua primeira conta" antes de a pessoa
+ * dizer em qual empresa está entrando é perguntar sobre a empresa errada.
+ */
+function ApenasAutenticado({ children }: { children: ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -59,17 +67,23 @@ function ProtectedPage({ children }: { children: ReactNode }) {
     return <AuthLoading />;
   }
 
+  return <>{children}</>;
+}
+
+function ProtectedPage({ children }: { children: ReactNode }) {
   /*
-   * O portão fica dentro dos provedores e fora do painel: o primeiro acesso
-   * usa formato de moeda e fuso como qualquer outra tela, mas não pode deixar
-   * o painel aparecer antes dele.
+   * O portão do primeiro acesso fica dentro dos provedores e fora do painel: o
+   * primeiro acesso usa formato de moeda e fuso como qualquer outra tela, mas
+   * não pode deixar o painel aparecer antes dele.
    */
   return (
-    <PreferencesProvider>
-      <PrivacyProvider>
-        <OnboardingGate>{children}</OnboardingGate>
-      </PrivacyProvider>
-    </PreferencesProvider>
+    <ApenasAutenticado>
+      <PreferencesProvider>
+        <PrivacyProvider>
+          <OnboardingGate>{children}</OnboardingGate>
+        </PrivacyProvider>
+      </PreferencesProvider>
+    </ApenasAutenticado>
   );
 }
 
@@ -78,6 +92,7 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      <Route path="/escolher-empresa"><ApenasAutenticado><EscolherEmpresaPage /></ApenasAutenticado></Route>
       <Route path="/termos"><LegalPage document="termos" /></Route>
       <Route path="/privacidade"><LegalPage document="privacidade" /></Route>
       <Route path="/conciliacao"><ProtectedPage><ConciliacaoPage /></ProtectedPage></Route>
