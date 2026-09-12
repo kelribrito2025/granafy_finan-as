@@ -29,6 +29,7 @@ import { ChartDot } from "@/components/ChartDot";
 import { TransactionModal } from "@/components/TransactionModal";
 import type { TransactionInput } from "@/lib/transactionTypes";
 import { HideValuesButton } from "@/components/HideValuesButton";
+import { VisaoGeralVazia } from "@/pages/VisaoGeralVazia";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 
@@ -82,7 +83,21 @@ export default function Home() {
   const dashboardQuery = trpc.transactions.dashboard.useQuery({ range: dashboardRange });
   const dashboard = dashboardQuery.data;
   // Mesma consulta da sidebar; o react-query aproveita o cache.
-  const accountCount = trpc.organization.accountBalances.useQuery().data?.length ?? 0;
+  const accountsQuery = trpc.organization.accountBalances.useQuery();
+  const accountCount = accountsQuery.data?.length ?? 0;
+  /*
+   * O primeiro acesso: nenhuma conta e nenhum lançamento.
+   *
+   * O panorama da organização (que sabe quantos lançamentos cada conta tem e
+   * quantas categorias existem) só é buscado quando a lista de contas voltou
+   * vazia — é a única situação em que ele decide alguma coisa aqui, e quem já
+   * usa o sistema não paga essa consulta a cada abertura do painel.
+   */
+  const semContas = accountsQuery.isSuccess && accountCount === 0;
+  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: semContas });
+  const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: semContas });
+  const lancamentos = overviewQuery.data?.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) ?? 0;
+  const primeiroAcesso = semContas && lancamentos === 0;
   // Calculado no render: a página é recarregada muitas vezes ao dia e não
   // vale um timer só para virar a saudação com o relógio na tela.
   const greeting = greetingFor(new Date());
@@ -196,10 +211,12 @@ export default function Home() {
             </button>
             <div className="mr-auto flex min-w-[190px] flex-col gap-0.5">
               <h1 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">{greeting}, {firstName}</h1>
-              <p className="text-xs text-[#8A968D] sm:text-[13px]">{currentMonthLabel} · dados sincronizados</p>
+              <p className="text-xs text-[#8A968D] sm:text-[13px]">
+                {currentMonthLabel} · {primeiroAcesso ? "sua empresa ainda não tem movimentações" : "dados sincronizados"}
+              </p>
             </div>
 
-            <div className="order-3 flex w-full items-center gap-1.5 rounded-xl bg-white p-1.5 sm:order-none sm:w-auto">
+            <div className={`order-3 flex w-full items-center gap-1.5 rounded-xl bg-white p-1.5 sm:order-none sm:w-auto ${primeiroAcesso ? "pointer-events-none opacity-50" : ""}`}>
               {["Mês", "Trimestre", "Ano"].map((item) => (
                 <button
                   key={item}
@@ -255,6 +272,19 @@ export default function Home() {
             <ProfileMenu />
           </header>
 
+          {primeiroAcesso && (
+            <VisaoGeralVazia
+              empresa={companyQuery.data?.legalName || null}
+              categorias={overviewQuery.data ? overviewQuery.data.categories.length : null}
+              contas={accountCount}
+              lancamentos={lancamentos}
+              onCadastrarConta={() => setLocation("/organizacao?nova=conta")}
+              onNovoLancamento={() => setNovoLancamento(true)}
+              onImportar={() => setLocation("/lancamentos?importar=extrato")}
+            />
+          )}
+
+          {!primeiroAcesso && (<>
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
             <AuroraSurface className="min-h-[326px] rounded-[20px] p-5 sm:p-6">
               <div className="flex flex-1 flex-col gap-[18px]">
@@ -444,6 +474,7 @@ export default function Home() {
               </section>
             </aside>
           </div>
+          </>)}
         </section>
       </div>
 

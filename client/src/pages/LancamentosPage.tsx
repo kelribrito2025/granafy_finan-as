@@ -517,7 +517,19 @@ export default function LancamentosPage() {
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const fecharMenuDeAcoes = useCallback(() => setActionOpen(null), []);
   const [modalOpen, setModalOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  /*
+   * `?importar=extrato` abre a importação já na chegada — o mesmo padrão do
+   * `?nova=conta` de Contas e categorias. Quem vem do painel vazio clicou em
+   * "Importar extrato"; cair aqui e ter de achar o botão é um clique virando
+   * dois. A URL é limpa com `replace` para recarregar não reabrir o modal.
+   */
+  const [importOpen, setImportOpen] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("importar") === "extrato",
+  );
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("importar")) return;
+    window.history.replaceState(null, "", "/lancamentos");
+  }, []);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set());

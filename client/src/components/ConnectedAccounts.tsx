@@ -1,5 +1,6 @@
 import { formatMoney as money, valuesHidden } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import { useLocation } from "wouter";
 
 
 
@@ -22,6 +23,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
   className?: string;
   variant?: "card" | "rail";
 }) {
+  const [, setLocation] = useLocation();
   const accountsQuery = trpc.organization.accountBalances.useQuery();
   const accounts = accountsQuery.data ?? [];
 
@@ -45,9 +47,14 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
       {accountsQuery.isLoading ? (
         <span className="mt-2 block text-[11.5px] text-[#4C6355]">Carregando saldos...</span>
       ) : accounts.length === 0 ? (
-        <span className="mt-2 block text-[11.5px] leading-relaxed text-[#4C6355]">
-          Nenhuma conta cadastrada ainda.
-        </span>
+        <>
+          <span className="mt-2 block text-[11.5px] leading-relaxed text-[#4C6355]">
+            Nenhuma ainda. Cadastre a primeira para ver o caixa aqui.
+          </span>
+          <button type="button" onClick={() => setLocation("/organizacao?nova=conta")} className="mt-1.5 text-left text-[12.5px] font-bold text-[#0A7A42] hover:underline">
+            Cadastrar conta →
+          </button>
+        </>
       ) : (
         <div className="mt-2.5 flex flex-col gap-1.5">
           {accounts.map(account => (
