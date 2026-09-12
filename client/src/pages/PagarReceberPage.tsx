@@ -94,8 +94,9 @@ function KpiCard({ label, value, hint, valueClass, hintClass, icon, highlight = 
  * O mês sem nenhum título aberto.
  *
  * Os cartões ficam no lugar, apagados: "—" nos três claros, porque não há
- * valor; "R$ 0,00" apagado no escuro, como no desenho. As duas colunas viram
- * um convite cada — o que registrar, e o botão que registra.
+ * valor; "R$ 0,00" apagado no escuro, como no desenho. No lugar das colunas,
+ * a mesma família de tela vazia da conciliação: o que é um título, os dois
+ * botões que criam um, e os três passos da vida dele.
  */
 function KpisDoMesVazio({ projectedCashDate }: { projectedCashDate: string }) {
   const apagado = "text-[#B9C7BE]";
@@ -115,34 +116,102 @@ function KpisDoMesVazio({ projectedCashDate }: { projectedCashDate: string }) {
   );
 }
 
-function ColunaVazia({ side, onNew }: { side: "receber" | "pagar"; onNew: () => void }) {
-  const receiving = side === "receber";
+function MesVazio({ onNovaCobranca, onNovaDespesa }: { onNovaCobranca: () => void; onNovaDespesa: () => void }) {
+  const [explicando, setExplicando] = useState(false);
+  const sobe = <path d="M12 19V5M5 12l7-7 7 7" />;
+  const desce = <path d="M12 5v14M19 12l-7 7-7-7" />;
+  const passos = [
+    { titulo: "Cadastre o título", texto: "Valor, vencimento, categoria e cliente ou fornecedor.", icone: sobe },
+    { titulo: "Acompanhe o vencimento", texto: "Atrasos e vencimentos do dia aparecem destacados nesta tela.", icone: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> },
+    { titulo: "Marque como liquidado", texto: "Ao receber ou pagar, o título passa para Pagas e recebidas.", icone: <path d="M20 6L9 17l-5-5" /> },
+  ];
+  const traco = (conteudo: React.ReactNode, tamanho = 20, espessura = 2) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={espessura} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
-      <div className="flex items-center gap-3">
-        <SideMark side={side} size={40} />
-        <div className="flex min-w-0 flex-col">
-          <span className="text-[15px] font-bold">{receiving ? "A receber" : "A pagar"}</span>
-          <span className="text-[12.5px] text-[#8A968D]">nenhum título</span>
-        </div>
-        <span className="ml-auto text-[20px] font-bold text-[#B9C7BE]">—</span>
+    <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+      {/* Uma despesa ainda em rascunho, uma cobrança viva, e o sinal de somar. */}
+      <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+        <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+        <span className="absolute left-[14px] top-[22px] flex h-[38px] w-[56px] -rotate-[8deg] items-center justify-center rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white text-[#B9C7BE]">
+          {traco(desce, 18)}
+        </span>
+        <span className="absolute right-[14px] top-[30px] flex h-[38px] w-[56px] rotate-[6deg] items-center justify-center rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] text-[#0A7A42]">
+          {traco(sobe, 18)}
+        </span>
+        <span className="absolute bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+          <PlusIcon size={16} />
+        </span>
       </div>
-      <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center gap-3 rounded-[14px] bg-[#F8FAF9] p-7 text-center">
-        <p className="max-w-[300px] text-[13px] leading-[1.55] text-[#4C6355]">
-          {receiving
-            ? "Registre o que seus clientes ainda vão pagar: vendas a prazo, boletos emitidos, mensalidades."
-            : "Registre fornecedores, aluguel, impostos e tudo que tem data para sair do caixa."}
+
+      <div className="flex max-w-[520px] flex-col gap-2">
+        <h2 className="text-[22px] font-bold tracking-[-.02em]">Nenhum título em aberto</h2>
+        <p className="text-[14px] leading-relaxed text-[#4C6355]">
+          Títulos são os lançamentos com data de vencimento: o que seus clientes ainda vão pagar e o que
+          você tem para pagar. Cadastre o primeiro para o GranaFy projetar o caixa.
         </p>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-3">
         <button
           type="button"
-          onClick={onNew}
-          className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+          onClick={onNovaCobranca}
+          className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
         >
-          <PlusIcon size={15} />
-          {receiving ? "Nova cobrança" : "Nova despesa"}
+          {traco(sobe, 16, 2.4)}
+          Nova cobrança
+        </button>
+        <button
+          type="button"
+          onClick={onNovaDespesa}
+          className="flex h-12 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[22px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]"
+        >
+          <span className="text-[#B3261E]">{traco(desce, 16, 2.2)}</span>
+          Nova despesa
         </button>
       </div>
-    </div>
+
+      <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
+        {passos.map((passo, indice) => (
+          <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">{traco(passo.icone)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+            <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+            <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+      <button
+        type="button"
+        onClick={() => setExplicando(atual => !atual)}
+        aria-expanded={explicando}
+        className="text-[13px] font-semibold text-[#0A7A42] hover:underline"
+      >
+        Como funcionam os títulos no GranaFy {explicando ? "↑" : "→"}
+      </button>
+      {explicando && (
+        <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+          <p>
+            Todo lançamento com situação <strong>pendente</strong> é um título, e a data dele é o
+            vencimento. Uma venda a prazo é um título a receber; uma conta de luz que vence dia 20 é um
+            título a pagar. Os dois moram aqui até serem liquidados.
+          </p>
+          <p>
+            É com eles que o GranaFy <strong>projeta o caixa</strong>: o saldo de hoje mais tudo o que
+            está para entrar, menos tudo o que está para sair, na data em que cada um vence. Vencidos e
+            não pagos ficam marcados como atrasados — e continuam nesta tela mesmo quando o mês
+            selecionado é outro.
+          </p>
+          <p>
+            Ao marcar como pago ou recebido, o título sai daqui e passa para <strong>Pagas e
+            recebidas</strong>, na data em que o dinheiro de fato entrou ou saiu.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -662,10 +731,7 @@ export default function PagarReceberPage() {
           {data && mesVazio && (
             <>
               <KpisDoMesVazio projectedCashDate={data.projectedCashDate} />
-              <section className="flex flex-col items-stretch gap-5 lg:flex-row">
-                <ColunaVazia side="receber" onNew={() => setNovoLancamento("entrada")} />
-                <ColunaVazia side="pagar" onNew={() => setNovoLancamento("saida")} />
-              </section>
+              <MesVazio onNovaCobranca={() => setNovoLancamento("entrada")} onNovaDespesa={() => setNovoLancamento("saida")} />
               <p className="text-[12px] text-[#4C6355]">
                 Título é lançamento pendente e o vencimento é a data dele. Atrasados de meses anteriores
                 aparecem aqui mesmo quando o mês selecionado é outro.
