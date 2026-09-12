@@ -433,14 +433,21 @@ export default function Home() {
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
-            <section className="min-w-0 rounded-[20px] bg-white p-4 sm:p-5">
+            {/*
+              A seção é coluna flex porque ela ESTICA: na grade ela acompanha a
+              altura da coluna da direita, e sem isso o bloco de vazio parava na
+              altura mínima dele e deixava uma faixa branca embaixo. Com a
+              coluna, o vazio ocupa o cartão inteiro e se centraliza nele — que
+              é como a tela de primeiro acesso já desenhava.
+            */}
+            <section className="flex min-w-0 flex-col rounded-[20px] bg-white p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <h2 className="text-[15px] font-bold">Últimos lançamentos</h2>
                 <button onClick={() => setLocation("/lancamentos")} className="ml-auto flex items-center gap-1 text-[12.5px] font-semibold text-[#0A7A42] hover:text-[#0B1F14]">
                   Ver extrato <ChevronRightIcon size={14} />
                 </button>
               </div>
-              <div className="mt-3.5 flex flex-col gap-1.5">
+              <div className="mt-3.5 flex flex-1 flex-col gap-1.5">
                 {(dashboard?.recent ?? []).map((transaction) => {
                   const isPositive = transaction.amount > 0;
                   const initials = transaction.description.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]?.toUpperCase()).join("");
