@@ -46,7 +46,7 @@ import { todayIso } from "@/lib/period";
 import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
-import { useSemContas } from "@/hooks/useSemContas";
+import { usePanoramaDaConta } from "@/hooks/useSemContas";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "@/lib/toast";
@@ -649,26 +649,16 @@ export default function LancamentosPage() {
   const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
   const transactions = (transactionsQuery.data?.items ?? EMPTY_TRANSACTIONS) as Transaction[];
   /*
-   * A conta inteira sem lançamento — não só o mês.
+   * A conta inteira sem lançamento — não só o mês —, respondida pelo cache.
    *
-   * O panorama da organização (que sabe quantos lançamentos cada conta tem)
-   * só é buscado quando o mês volta vazio: é a única situação em que ele
-   * decide alguma coisa aqui, e quem tem lançamentos não paga a consulta.
+   * `temLancamentos` vem junto dos saldos que a barra lateral busca em toda
+   * página, então ao navegar dentro do produto a decisão entre "tela de
+   * trabalho" e "primeiro acesso" é imediata. Antes era uma segunda consulta,
+   * disparada só depois que o mês voltava vazio, e o intervalo entre as duas
+   * aparecia como KPIs zerados que sumiam meio segundo depois.
    */
-  const semContas = useSemContas();
-  const mesVazio = transactionsQuery.isSuccess && transactions.length === 0;
-  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: mesVazio && !semContas });
-  const contaVazia = semContas || (mesVazio && overviewQuery.isSuccess
-    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
-  /*
-   * Enquanto o panorama não responde, a página continua carregando.
-   *
-   * São duas respostas para uma decisão só: o mês (que já chegou) e a conta
-   * inteira (pedida só quando o mês volta vazio). Sem esta linha, no intervalo
-   * entre as duas a tela desenhava os KPIs zerados e o cartão de mês vazio, e
-   * trocava tudo pela tela vazia logo depois.
-   */
-  const decidindo = !semContas && mesVazio && overviewQuery.isPending;
+  const panorama = usePanoramaDaConta();
+  const contaVazia = panorama.semContas || panorama.semLancamentos;
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {
@@ -977,13 +967,13 @@ export default function LancamentosPage() {
             <LancamentosVazio onNovo={() => { setEditing(null); setModalOpen(true); }} onImportar={() => setImportOpen(true)} />
           )}
 
-          {!contaVazia && decidindo && (
+          {!contaVazia && !panorama.pronto && (
             <div className="flex min-h-[420px] items-center justify-center rounded-[20px] bg-white">
               <GranafyLoader label="Carregando lançamentos..." />
             </div>
           )}
 
-          {!contaVazia && !decidindo && (<>
+          {!contaVazia && panorama.pronto && (<>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Valor e contagem saem os dois do recorte: era aqui que a tela
                 misturava o total do mês com a contagem do filtro. Com filtro de

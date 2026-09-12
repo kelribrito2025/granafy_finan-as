@@ -1733,6 +1733,35 @@ export async function contarUsoDaEmpresa(escopo: Escopo) {
  * aparece em todas as páginas e não pode pagar esse preço, então aqui é COUNT
  * no banco.
  */
+/**
+ * Esta empresa já teve algum lançamento, um que seja?
+ *
+ * É a pergunta que decide entre a tela de trabalho e a tela de primeiro
+ * acesso, e ela mora aqui — junto dos saldos — para a resposta chegar na
+ * MESMA consulta que a barra lateral já faz em toda página. Antes ela era
+ * uma segunda ida ao servidor, disparada só depois que o período voltava
+ * zerado: no intervalo entre as duas a tela desenhava uma parede de zeros e
+ * a trocava pela tela vazia meio segundo depois.
+ *
+ * `LIMIT 1` de propósito: a pergunta é "existe?", não "quantos?". Com
+ * `transactions_company_idx` isso não cresce com o tamanho do razão.
+ */
+export async function temAlgumLancamento(escopo: Escopo) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [linha] = await db
+    .select({ um: sql<number>`1` })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+    ))
+    .limit(1);
+
+  return Boolean(linha);
+}
+
 export async function countOpenTitles(escopo: Escopo, todayIso: string, monthLastDay: string) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

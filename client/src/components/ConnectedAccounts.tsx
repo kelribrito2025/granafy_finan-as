@@ -25,7 +25,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
 }) {
   const [, setLocation] = useLocation();
   const accountsQuery = trpc.organization.accountBalances.useQuery();
-  const accounts = accountsQuery.data ?? [];
+  const accounts = accountsQuery.data?.contas ?? [];
 
   if (variant === "rail") {
     const total = accounts.reduce((sum, account) => sum + account.balance, 0);

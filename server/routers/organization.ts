@@ -162,19 +162,32 @@ export const organizationRouter = router({
   }),
 
   /** Só o necessário para a sidebar: contas ativas com o saldo já somado. */
+  /*
+   * Os saldos da barra lateral, mais a resposta de "esta empresa já lançou
+   * alguma coisa?".
+   *
+   * As duas juntas porque esta consulta roda em TODA página: com a segunda
+   * carona aqui, as telas que precisam escolher entre trabalhar e mostrar o
+   * primeiro acesso decidem na hora, sem uma segunda ida ao servidor e sem
+   * um esqueleto no meio do caminho.
+   */
   accountBalances: protectedProcedure.query(async ({ ctx }) => {
-    const [accounts, balances] = await Promise.all([
+    const [accounts, balances, temLancamentos] = await Promise.all([
       db.listFinancialAccounts(escopoDe(ctx)),
       db.getAccountBalances(escopoDe(ctx)),
+      db.temAlgumLancamento(escopoDe(ctx)),
     ]);
-    return accounts
-      .filter(account => account.isActive)
-      .map(account => ({
-        id: account.id,
-        name: account.name,
-        color: account.color,
-        balance: Number(account.initialBalance) + (balances.get(account.id) ?? 0),
-      }));
+    return {
+      contas: accounts
+        .filter(account => account.isActive)
+        .map(account => ({
+          id: account.id,
+          name: account.name,
+          color: account.color,
+          balance: Number(account.initialBalance) + (balances.get(account.id) ?? 0),
+        })),
+      temLancamentos,
+    };
   }),
 
   options: protectedProcedure.query(async ({ ctx }) => {

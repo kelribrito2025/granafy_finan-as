@@ -36,6 +36,7 @@ import {
   sumPaidTransactions,
   sumTransactionsBefore,
   sumWindowTotals,
+  temAlgumLancamento,
   topRevenueCategories,
   updateTransaction,
   updateTransactions,
@@ -75,6 +76,7 @@ const BRUNO = 6_200_002;
 const EMPRESA_A = 6201; // da Ana, com linha em companyProfiles
 const EMPRESA_B = 6202; // da Ana também — sem linha, pelo único da Fase 5
 const EMPRESA_C = 6203; // do Bruno
+const EMPRESA_VAZIA = 6204; // da Ana, sem nenhuma linha — o "ainda não lançou nada"
 
 const anaA = { userId: ANA, companyId: EMPRESA_A };
 const anaB = { userId: ANA, companyId: EMPRESA_B };
@@ -338,6 +340,24 @@ describe.runIf(temBancoDeTeste())("isolamento dos lançamentos entre empresas", 
 
   it("o primeiro acesso conta só a empresa pedida", async () => {
     expect(await getOnboardingCounts(anaA)).toEqual({ accountCount: 1, transactionCount: 9 });
+  });
+
+  it("\"já lançou alguma coisa?\" responde pela empresa pedida, e não pela vizinha", async () => {
+    /*
+     * É esta resposta que decide entre a tela de trabalho e a de primeiro
+     * acesso. Um "sim" vazado da empresa ao lado esconderia o primeiro acesso
+     * de quem ainda não tem nada; um "não" vazado mandaria alguém com razão
+     * cheio para a tela de quem nunca começou.
+     */
+    expect(await temAlgumLancamento(anaA)).toBe(true);
+    expect(await temAlgumLancamento(anaB)).toBe(true);
+
+    /* Empresa sem nenhuma linha: não. */
+    expect(await temAlgumLancamento({ userId: ANA, companyId: EMPRESA_VAZIA })).toBe(false);
+
+    /* O Bruno perguntando pela empresa da Ana não enxerga os nove dela. */
+    expect(await temAlgumLancamento({ userId: BRUNO, companyId: EMPRESA_A })).toBe(false);
+    expect(await temAlgumLancamento({ userId: ANA, companyId: EMPRESA_C })).toBe(false);
   });
 
   // ── defesa em profundidade: a referência cruzada ──────────────────────────

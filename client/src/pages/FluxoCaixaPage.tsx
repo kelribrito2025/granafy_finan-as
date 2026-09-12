@@ -18,7 +18,7 @@ import {
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
-import { useSemContas } from "@/hooks/useSemContas";
+import { usePanoramaDaConta } from "@/hooks/useSemContas";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useState, type ReactNode } from "react";
@@ -428,32 +428,17 @@ export default function FluxoCaixaPage() {
   const [, setLocation] = useLocation();
   /*
    * A tela vazia vale para a conta inteira sem lançamento, não só para quem
-   * ainda não tem conta bancária.
+   * ainda não tem conta bancária — e a resposta chega do cache.
    *
-   * Com uma conta cadastrada e nenhum movimento, a página desenhava a curva
-   * reta no saldo inicial e uma tabela de zeros: a forma antiga, dizendo que
-   * a empresa está parada quando ela ainda não começou. O panorama só é
-   * consultado quando o período volta zerado — quem tem movimento não paga a
-   * consulta.
+   * Antes eram duas idas ao servidor em sequência: o período primeiro, e só
+   * depois, se ele voltasse zerado, o panorama da conta. Entre uma e outra a
+   * página mostrava esqueleto e depois uma parede de zeros, para só então
+   * chegar na tela vazia. Agora `temLancamentos` vem junto dos saldos que a
+   * barra lateral já busca em toda página: ao navegar dentro do produto a
+   * decisão é imediata e a tela abre direto no destino.
    */
-  const semContas = useSemContas();
-  const periodoZerado = view === "mes"
-    ? Boolean(monthly) && monthly!.totals.incoming === 0 && monthly!.totals.outgoing === 0
-    : Boolean(daily) && daily!.totals.incoming === 0 && daily!.totals.outgoing === 0;
-  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: periodoZerado && !semContas });
-  const contaVazia = semContas || (periodoZerado && overviewQuery.isSuccess
-    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
-  /*
-   * O esqueleto cobre as DUAS perguntas, não só a primeira.
-   *
-   * "Esta conta está vazia?" depende de duas respostas: o período (que já
-   * chegou) e o panorama da conta (que só é pedido quando o período volta
-   * zerado). Entre uma e outra a página desenhava a tela cheia de zeros e a
-   * trocava pela tela vazia meio segundo depois — três telas até o destino,
-   * das quais duas eram mentira. Enquanto a segunda resposta não vem, fica o
-   * esqueleto.
-   */
-  const decidindo = !semContas && periodoZerado && overviewQuery.isPending;
+  const panorama = usePanoramaDaConta();
+  const contaVazia = panorama.semContas || panorama.semLancamentos;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;
@@ -527,7 +512,7 @@ export default function FluxoCaixaPage() {
               </button>
             </div>
 
-            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${contaVazia || decidindo ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${contaVazia || !panorama.pronto ? "pointer-events-none opacity-50" : ""}`}>
               {([["dia", "Diário"], ["semana", "Semanal"], ["mes", "Mensal"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -540,7 +525,7 @@ export default function FluxoCaixaPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={contaVazia || decidindo} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={contaVazia || !panorama.pronto} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <ProfileMenu />
           </header>
 
@@ -565,7 +550,7 @@ export default function FluxoCaixaPage() {
             />
           )}
 
-          {!contaVazia && (loading || decidindo) && !error && (view === "mes" ? (
+          {!contaVazia && (loading || !panorama.pronto) && !error && (view === "mes" ? (
             <>
               <KpiRowSkeleton cards={4} />
               <TableSkeleton />
@@ -578,7 +563,7 @@ export default function FluxoCaixaPage() {
             </>
           ))}
 
-          {!contaVazia && !decidindo && view !== "mes" && daily && (
+          {!contaVazia && panorama.pronto && view !== "mes" && daily && (
             <>
               <section className="flex flex-col gap-5 lg:flex-row">
                 <AuroraSurface className="w-full shrink-0 rounded-[20px] p-6 lg:w-[340px]">
@@ -651,7 +636,7 @@ export default function FluxoCaixaPage() {
             </>
           )}
 
-          {!contaVazia && !decidindo && view === "mes" && monthly && (
+          {!contaVazia && panorama.pronto && view === "mes" && monthly && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <AuroraSurface className="rounded-[20px] p-6">

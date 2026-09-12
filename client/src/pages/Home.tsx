@@ -96,7 +96,7 @@ export default function Home() {
   const nadaPendente = Boolean(dashboard) && atrasadas === 0 && pendentes === 0 && recebimentosHoje === 0;
   // Mesma consulta da sidebar; o react-query aproveita o cache.
   const accountsQuery = trpc.organization.accountBalances.useQuery();
-  const accountCount = accountsQuery.data?.length ?? 0;
+  const accountCount = accountsQuery.data?.contas.length ?? 0;
   const semContasRapido = useSemContas();
   /*
    * O primeiro acesso: nenhuma conta e nenhum lançamento.
