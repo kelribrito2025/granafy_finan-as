@@ -80,14 +80,70 @@ function KpiCard({ label, value, hint, valueClass, hintClass, icon, highlight = 
         {icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] ${icon.className}`}>{icon.node}</span>}
         <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#4C6355]"}`}>{label}</span>
       </div>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>{value}</strong>
-      <span className={`text-[12.5px] ${highlight ? "text-[#7EE2A8]" : hintClass ?? "text-[#4C6355]"}`}>{hint}</span>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? (highlight ? "text-white" : "")}`}>{value}</strong>
+      <span className={`text-[12.5px] ${hintClass ?? (highlight ? "text-[#7EE2A8]" : "text-[#4C6355]")}`}>{hint}</span>
     </>
   );
   if (highlight) {
     return <AuroraSurface className="rounded-[20px] p-6"><div className="flex flex-1 flex-col gap-2">{content}</div></AuroraSurface>;
   }
   return <article className="flex flex-col gap-2 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">{content}</article>;
+}
+
+/*
+ * O mês sem nenhum título aberto.
+ *
+ * Os cartões ficam no lugar, apagados: "—" nos três claros, porque não há
+ * valor; "R$ 0,00" apagado no escuro, como no desenho. As duas colunas viram
+ * um convite cada — o que registrar, e o botão que registra.
+ */
+function KpisDoMesVazio({ projectedCashDate }: { projectedCashDate: string }) {
+  const apagado = "text-[#B9C7BE]";
+  return (
+    <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard highlight label="Caixa projetado" value="R$ 0,00" valueClass="text-[#8FB39E]" hintClass="text-[#8FB39E]" hint={`Projeção para ${formatDate(projectedCashDate)} com base nos títulos em aberto.`} />
+      <KpiCard
+        label="A receber" value="—" valueClass={apagado} hint="Cobranças emitidas e ainda não recebidas"
+        icon={{ className: "bg-[#DFF6EA] text-[#0A7A42]", node: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg> }}
+      />
+      <KpiCard
+        label="A pagar" value="—" valueClass={apagado} hint="Despesas com vencimento futuro"
+        icon={{ className: "bg-[#FDECEA] text-[#B3261E]", node: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7" /></svg> }}
+      />
+      <KpiCard label="Saldo do mês" value="—" valueClass={apagado} hint="Se tudo for liquidado no prazo" />
+    </section>
+  );
+}
+
+function ColunaVazia({ side, onNew }: { side: "receber" | "pagar"; onNew: () => void }) {
+  const receiving = side === "receber";
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+      <div className="flex items-center gap-3">
+        <SideMark side={side} size={40} />
+        <div className="flex min-w-0 flex-col">
+          <span className="text-[15px] font-bold">{receiving ? "A receber" : "A pagar"}</span>
+          <span className="text-[12.5px] text-[#8A968D]">nenhum título</span>
+        </div>
+        <span className="ml-auto text-[20px] font-bold text-[#B9C7BE]">—</span>
+      </div>
+      <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center gap-3 rounded-[14px] bg-[#F8FAF9] p-7 text-center">
+        <p className="max-w-[300px] text-[13px] leading-[1.55] text-[#4C6355]">
+          {receiving
+            ? "Registre o que seus clientes ainda vão pagar: vendas a prazo, boletos emitidos, mensalidades."
+            : "Registre fornecedores, aluguel, impostos e tudo que tem data para sair do caixa."}
+        </p>
+        <button
+          type="button"
+          onClick={onNew}
+          className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+        >
+          <PlusIcon size={15} />
+          {receiving ? "Nova cobrança" : "Nova despesa"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /** Quadradinho com a seta do tipo do título. */
@@ -370,6 +426,8 @@ export default function PagarReceberPage() {
 
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.payables.overview.useQuery(period);
+  /* Nenhum título aberto no mês — nem atrasado de mês anterior. */
+  const mesVazio = Boolean(query.data) && query.data!.open.length === 0;
   const organizationQuery = trpc.organization.options.useQuery();
   const utils = trpc.useUtils();
   const settle = trpc.transactions.toggleStatus.useMutation({
@@ -436,14 +494,16 @@ export default function PagarReceberPage() {
    * `?novo=lancamento` abre o modal já na chegada — o mesmo padrão do
    * `?nova=conta` de Contas e categorias. Quem vem do estado vazio de Pagas e
    * recebidas clicou em "Novo lançamento"; cair aqui e ter de achar o botão de
-   * novo é um clique virando dois. Abre em entrada, como o botão do cabeçalho.
-   * A URL é limpa com `replace` para recarregar não reabrir o modal.
+   * novo é um clique virando dois. `despesa` abre em saída; `lancamento` e
+   * `cobranca` abrem em entrada, como o botão do cabeçalho. A URL é limpa com
+   * `replace` para recarregar não reabrir o modal.
    */
-  const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(() =>
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("novo") === "lancamento"
-      ? "entrada"
-      : null,
-  );
+  const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(() => {
+    const pedido = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("novo") : null;
+    if (pedido === "despesa") return "saida";
+    if (pedido === "lancamento" || pedido === "cobranca") return "entrada";
+    return null;
+  });
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has("novo")) return;
     window.history.replaceState(null, "", "/a-pagar-e-receber");
@@ -541,9 +601,11 @@ export default function PagarReceberPage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">A pagar e receber</h1>
               <p className="mt-0.5 text-[12.5px] text-[#4C6355]">
-                {data
-                  ? `${data.open.length} ${data.open.length === 1 ? "título aberto" : "títulos abertos"} em ${monthLabel.toLowerCase()}`
-                  : monthLabel}
+                {!data
+                  ? monthLabel
+                  : mesVazio
+                    ? `nenhum título aberto em ${monthLabel.toLowerCase()}`
+                    : `${data.open.length} ${data.open.length === 1 ? "título aberto" : "títulos abertos"} em ${monthLabel.toLowerCase()}`}
               </p>
             </div>
 
@@ -557,7 +619,7 @@ export default function PagarReceberPage() {
               </button>
             </div>
 
-            <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+            <div className={`flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${mesVazio ? "pointer-events-none opacity-50" : ""}`}>
               {([["lista", "Lista única"], ["colunas", "Duas colunas"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -570,7 +632,7 @@ export default function PagarReceberPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos" onClick={exportCsv} disabled={mesVazio} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <button
               type="button"
               onClick={() => setNovoLancamento("entrada")}
@@ -597,7 +659,21 @@ export default function PagarReceberPage() {
             </>
           )}
 
-          {data && (
+          {data && mesVazio && (
+            <>
+              <KpisDoMesVazio projectedCashDate={data.projectedCashDate} />
+              <section className="flex flex-col items-stretch gap-5 lg:flex-row">
+                <ColunaVazia side="receber" onNew={() => setNovoLancamento("entrada")} />
+                <ColunaVazia side="pagar" onNew={() => setNovoLancamento("saida")} />
+              </section>
+              <p className="text-[12px] text-[#4C6355]">
+                Título é lançamento pendente e o vencimento é a data dele. Atrasados de meses anteriores
+                aparecem aqui mesmo quando o mês selecionado é outro.
+              </p>
+            </>
+          )}
+
+          {data && !mesVazio && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
