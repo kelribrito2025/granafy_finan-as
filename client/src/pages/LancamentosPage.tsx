@@ -1,3 +1,4 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { roundCurrency } from "@shared/currency";
@@ -1111,11 +1112,18 @@ export default function LancamentosPage() {
                   </div>
                 )}
                 {!transactionsQuery.isLoading && !transactionsQuery.isError && filtered.length === 0 && (
-                  <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span>
-                    <strong className="mt-3 text-[14px]">Nenhum lançamento encontrado</strong>
-                    <p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">Ajuste os filtros ou lance o primeiro movimento deste mês.</p>
-                  </div>
+                  <CartaoVazio
+                    icone={<MenuIcon size={20} />}
+                    titulo={filtrosAtivos ? "Nenhum lançamento nesta seleção" : "Nenhum lançamento neste mês"}
+                    texto={filtrosAtivos
+                      ? "Ajuste os filtros ou limpe a busca para ver os lançamentos do mês."
+                      : "Registre o primeiro movimento do mês, ou importe o extrato do banco."}
+                    acoes={filtrosAtivos ? [] : [
+                      { rotulo: "Novo lançamento", onClick: () => { setEditing(null); setModalOpen(true); }, icone: <PlusIcon size={15} /> },
+                      { rotulo: "Importar extrato", onClick: () => setImportOpen(true), icone: <UploadIcon size={15} />, tom: "secundario" },
+                    ]}
+                    alturaMinima={420}
+                  />
                 )}
 
                 <div className="flex flex-col gap-1 pt-1">

@@ -1,4 +1,5 @@
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { BarrasFantasma, CartaoVazio, NadaPendente } from "@/components/CartaoVazio";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { ArrowDownIcon, ArrowUpIcon, CardIcon, ChartIcon, ChevronRightIcon, MenuIcon, PlusIcon, UploadIcon } from "@/components/IconlyIcons";
 
@@ -130,48 +131,26 @@ export function VisaoGeralVazia({ empresa, categorias, contas, lancamentos, onCa
             <h2 className="text-[15px] font-bold">Últimos lançamentos</h2>
             <span className="ml-auto flex items-center gap-1 text-[12.5px] font-semibold text-[#B9C7BE]">Ver extrato <ChevronRightIcon size={14} /></span>
           </div>
-          <div className="flex min-h-[220px] flex-1 flex-col items-center justify-center gap-3.5 rounded-[16px] bg-[#F8FAF9] p-8 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#E3EBE6] bg-white text-[#4C6355]"><MenuIcon size={20} /></span>
-            <div className="flex flex-col gap-1">
-              <strong className="text-[15px] font-bold">Nenhum lançamento ainda</strong>
-              <span className="max-w-[360px] text-[13px] leading-relaxed text-[#4C6355]">Entradas e saídas aparecem aqui conforme forem registradas ou importadas do banco.</span>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2.5">
-              <button type="button" onClick={onNovoLancamento} className="flex h-[42px] items-center gap-2 rounded-[11px] bg-[#12B85C] px-[18px] text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E]">
-                <PlusIcon size={15} />
-                Novo lançamento
-              </button>
-              <button type="button" onClick={onImportar} className="flex h-[42px] items-center gap-2 rounded-[11px] border border-[#E3EBE6] bg-white px-[18px] text-[13.5px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]">
-                <UploadIcon size={15} />
-                Importar extrato
-              </button>
-            </div>
-          </div>
+          <CartaoVazio
+            icone={<MenuIcon size={20} />}
+            titulo="Nenhum lançamento ainda"
+            texto="Entradas e saídas aparecem aqui conforme forem registradas ou importadas do banco."
+            acoes={[
+              { rotulo: "Novo lançamento", onClick: onNovoLancamento, icone: <PlusIcon size={15} /> },
+              { rotulo: "Importar extrato", onClick: onImportar, icone: <UploadIcon size={15} />, tom: "secundario" },
+            ]}
+          />
         </section>
 
         <aside className="grid gap-5 md:grid-cols-2 xl:grid-cols-1">
           <section className="flex flex-col gap-3.5 rounded-[20px] bg-white p-5">
             <h2 className="text-[15px] font-bold">Receita por canal</h2>
-            <div aria-hidden="true" className="flex flex-col gap-3 opacity-45">
-              {[38, 52, 30].map(largura => (
-                <div key={largura} className="flex flex-col gap-1.5">
-                  <span className="h-2.5 rounded-[5px] bg-[#E3EBE6]" style={{ width: `${largura}%` }} />
-                  <span className="block h-2 rounded-[4px] bg-[#EDF2EE]" />
-                </div>
-              ))}
-            </div>
-            <span className="text-[12.5px] leading-relaxed text-[#8A968D]">As categorias de receita aparecem aqui depois das primeiras entradas do mês.</span>
+            <BarrasFantasma texto="As categorias de receita aparecem aqui depois das primeiras entradas do mês." />
           </section>
 
           <section className="flex flex-1 flex-col gap-3 rounded-[20px] bg-white p-5">
             <h2 className="text-[15px] font-bold">Precisa de você</h2>
-            <div className="flex items-center gap-3 rounded-[14px] bg-[#F1FBF6] p-3.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#12B85C] text-white">{check}</span>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-bold text-[#0A7A42]">Nada pendente</span>
-                <span className="text-[12px] text-[#4C6355]">Atrasos, conciliações e recebimentos do dia aparecem aqui.</span>
-              </div>
-            </div>
+            <NadaPendente />
           </section>
         </aside>
       </div>

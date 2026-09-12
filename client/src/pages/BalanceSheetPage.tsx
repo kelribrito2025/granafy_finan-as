@@ -1,6 +1,8 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
+  ArchiveIcon,
   ArrowDownIcon,
   ChartIcon,
   CheckIcon,
@@ -1036,11 +1038,17 @@ export default function BalanceSheetPage() {
   };
   const activeItems = items.filter(item => item.isActive);
   /*
-   * Vazio de verdade: nenhum item, nenhuma conta financeira e nenhum
-   * automático (caixa, contas a pagar) — a posição não existe ainda.
+   * Vazio de verdade: nenhum item cadastrado e nenhum automático (caixa,
+   * contas a pagar) — a posição não existe ainda.
+   *
+   * A contagem de contas financeiras ficou de fora da conta de propósito.
+   * Ela estava aqui antes e fazia a tela voltar à parede de zeros assim que
+   * a primeira conta era cadastrada, mesmo sem saldo e sem um lançamento. O
+   * que decide é o número: uma conta com saldo inicial já é caixa, e aí o
+   * balanço tem o que mostrar; uma conta zerada não é posição nenhuma.
    */
   const semContas = useSemContas();
-  const balancoVazio = semContas || Boolean(data) && items.length === 0 && (data?.accountCount ?? 0) === 0
+  const balancoVazio = semContas || Boolean(data) && items.length === 0
     && totals.totalAssets === 0 && totals.totalLiabilities === 0;
   const rowsOf = (group: BalanceGroup): StatementRow[] =>
     activeItems
@@ -1535,9 +1543,13 @@ export default function BalanceSheetPage() {
                     </div>
 
                     {movementRows.length === 0 ? (
-                      <p className="rounded-[14px] bg-[#F8FAF9] p-4 text-[12px] leading-relaxed text-[#8A968D]">
-                        Nenhum fechamento registrado até o momento. Cada posição salva vira uma linha aqui.
-                      </p>
+                      <CartaoVazio
+                        icone={<ArchiveIcon size={20} />}
+                        titulo="Nenhum fechamento registrado"
+                        texto="Cada posição salva vira uma linha aqui, com o principal movimento do mês."
+                        acoes={[{ rotulo: "Registrar posição", onClick: () => setSnapshotModal(true), icone: <PlusIcon size={15} /> }]}
+                        alturaMinima={180}
+                      />
                     ) : (
                       <div className="overflow-x-auto">
                         <div className="min-w-[680px]">

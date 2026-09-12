@@ -1,6 +1,7 @@
 import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { PageIcon } from "@/components/PageIcon";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { KpiRowSkeleton } from "@/components/PageSkeleton";
@@ -10,9 +11,11 @@ import {
   ChevronRightIcon,
   CloseIcon,
   DownloadIcon,
+  FilterIcon,
   PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
+  UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -1468,9 +1471,27 @@ export default function ConciliacaoPage() {
                   </div>
 
                   {visible.length === 0 ? (
-                    <p className="py-10 text-center text-[13.5px] text-[#4C6355]">
-                      Nenhuma movimentação nesta seleção.
-                    </p>
+                    /*
+                      Nada importado ainda e nada nesta aba são coisas
+                      diferentes: a primeira tem um caminho a oferecer, a
+                      segunda é só o filtro. Antes as duas viravam a mesma
+                      linha cinza no meio da tabela.
+                    */
+                    data.items.length === 0 ? (
+                      <CartaoVazio
+                        icone={<UploadIcon size={20} />}
+                        titulo="Nenhum extrato importado neste mês"
+                        texto="Envie o arquivo OFX ou CSV do banco e as movimentações aparecem aqui para conciliar."
+                        acoes={[{ rotulo: "Importar extrato", onClick: () => setLocation("/lancamentos?importar=extrato"), icone: <UploadIcon size={15} /> }]}
+                      />
+                    ) : (
+                      <CartaoVazio
+                        icone={<FilterIcon size={20} />}
+                        titulo="Nenhuma movimentação nesta seleção"
+                        texto="Troque a aba ou limpe a busca para ver as outras movimentações do mês."
+                        alturaMinima={160}
+                      />
+                    )
                   ) : (
                     visible.map(item => {
                       const style = STATUS_STYLE[item.status];

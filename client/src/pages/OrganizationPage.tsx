@@ -1,3 +1,4 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -869,13 +870,16 @@ export default function OrganizationPage() {
                       <span>Conta</span><span>Tipo</span><span>Sincronização</span><span>Lançamentos</span><span className="text-right">Saldo atual</span><span />
                     </div>
                     {visibleAccounts.length === 0 ? (
-                      <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
-                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span>
-                        <strong className="mt-3 text-[14px]">{accountFilter === "active" ? "Nenhuma conta ativa" : "Nenhuma conta arquivada"}</strong>
-                        <p className="mt-1 max-w-[320px] text-[12px] leading-relaxed text-[#8A968D]">
-                          {accountSearch ? "Nenhuma conta corresponde à busca." : "Cadastre uma conta para importar OFX ou CSV e organizar os saldos."}
-                        </p>
-                      </div>
+                      <CartaoVazio
+                        icone={<WalletIcon size={20} />}
+                        titulo={accountSearch ? "Nenhuma conta nesta busca" : accountFilter === "active" ? "Nenhuma conta ativa" : "Nenhuma conta arquivada"}
+                        texto={accountSearch
+                          ? "Nenhuma conta corresponde ao que você digitou."
+                          : accountFilter === "active"
+                            ? "Cadastre uma conta para importar OFX ou CSV e organizar os saldos."
+                            : "Contas arquivadas somem das telas do dia a dia e ficam guardadas aqui."}
+                        acoes={accountSearch || accountFilter !== "active" ? [] : [{ rotulo: "Cadastrar conta", onClick: () => { setEditingAccount(null); setAccountModal(true); }, icone: <PlusIcon size={15} /> }]}
+                      />
                     ) : visibleAccounts.map(item => (
                       <div key={item.id} className={`${ACCOUNT_GRID} items-center border-b border-[#F1F4F2] px-1 py-3 transition hover:bg-[#F8FAF9]`}>
                         <div className="flex min-w-0 items-center gap-3">

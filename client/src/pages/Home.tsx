@@ -5,14 +5,16 @@ import {
   ArrowUpIcon,
   ChartIcon,
   ChevronRightIcon,
-  DocumentIcon,
+  MenuIcon,
   NotificationIcon,
   PlusIcon,
   SidebarMenuIcon,
+  UploadIcon,
   UsersIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { BarrasFantasma, CartaoVazio, NadaPendente } from "@/components/CartaoVazio";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
 import { activePreferences, maskedMoney, valuesHidden, formatMoney as formatMoneyWithPreferences, formatDate, today } from "@/lib/appFormat";
@@ -83,6 +85,15 @@ export default function Home() {
   const dashboardRange = period === "Ano" ? "year" : period === "Trimestre" ? "quarter" : "month";
   const dashboardQuery = trpc.transactions.dashboard.useQuery({ range: dashboardRange });
   const dashboard = dashboardQuery.data;
+  /*
+   * O que o "Precisa de você" tem para dizer. Enquanto a consulta não volta,
+   * `nadaPendente` fica falso: sem isso o cartão abriria dizendo que está
+   * tudo em paz e trocaria por atrasos meio segundo depois.
+   */
+  const atrasadas = dashboard?.overdue.count ?? 0;
+  const pendentes = (dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0);
+  const recebimentosHoje = dashboard?.dueToday.count ?? 0;
+  const nadaPendente = Boolean(dashboard) && atrasadas === 0 && pendentes === 0 && recebimentosHoje === 0;
   // Mesma consulta da sidebar; o react-query aproveita o cache.
   const accountsQuery = trpc.organization.accountBalances.useQuery();
   const accountCount = accountsQuery.data?.length ?? 0;
@@ -448,7 +459,17 @@ export default function Home() {
                     </button>
                   );
                 })}
-                {!dashboardQuery.isLoading && (dashboard?.recent.length ?? 0) === 0 && <div className="flex flex-col items-center justify-center rounded-[14px] bg-[#F8FAF9] px-5 py-10 text-center"><DocumentIcon size={26} className="text-[#AAB4AD]" /><strong className="mt-2 text-[13px]">Nenhum lançamento salvo</strong><button type="button" onClick={() => setLocation("/lancamentos")} className="mt-3 text-[12px] font-semibold text-[#0A7A42]">Criar primeiro lançamento</button></div>}
+                {!dashboardQuery.isLoading && (dashboard?.recent.length ?? 0) === 0 && (
+                  <CartaoVazio
+                    icone={<MenuIcon size={20} />}
+                    titulo="Nenhum lançamento ainda"
+                    texto="Entradas e saídas aparecem aqui conforme forem registradas ou importadas do banco."
+                    acoes={[
+                      { rotulo: "Novo lançamento", onClick: () => setNovoLancamento(true), icone: <PlusIcon size={15} /> },
+                      { rotulo: "Importar extrato", onClick: () => setLocation("/lancamentos?importar=extrato"), icone: <UploadIcon size={15} />, tom: "secundario" },
+                    ]}
+                  />
+                )}
               </div>
             </section>
 
@@ -462,16 +483,23 @@ export default function Home() {
                       <div className="mt-1.5 h-2 overflow-hidden rounded bg-[#EDF2EE]"><div className="h-full rounded bg-[#12B85C] transition-all duration-300" style={{ width: `${dashboard?.current.incoming ? (channel.amount / dashboard.current.incoming) * 100 : 0}%` }} /></div>
                     </div>
                   ))}
-                  {!dashboardQuery.isLoading && (dashboard?.revenueByCategory.length ?? 0) === 0 && <p className="rounded-xl bg-[#F8FAF9] p-4 text-center text-[12px] text-[#8A968D]">As categorias aparecerão após registrar entradas neste mês.</p>}
+                  {!dashboardQuery.isLoading && (dashboard?.revenueByCategory.length ?? 0) === 0 && <BarrasFantasma texto="As categorias de receita aparecem aqui depois das primeiras entradas do mês." />}
                 </div>
               </section>
 
               <section className="rounded-[20px] bg-white p-5">
                 <h2 className="text-[15px] font-bold">Precisa de você</h2>
                 <div className="mt-3 space-y-2">
-                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#8E1F16]">{dashboard?.overdue.count ?? 0} conta{dashboard?.overdue.count === 1 ? "" : "s"} em atraso</span><strong className="text-[13px] text-[#8E1F16]">{formatMoney(dashboard?.overdue.amount ?? 0)}</strong></button>
-                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1F4F2] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold">{(dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0)} lançamentos pendentes</span><strong className="text-[12.5px] text-[#0A7A42]">Revisar</strong></button>
-                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1FBF6] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#0A7A42]">{dashboard?.dueToday.count ?? 0} recebimento{dashboard?.dueToday.count === 1 ? "" : "s"} hoje</span><strong className="text-[13px] text-[#0A7A42]">{formatMoney(dashboard?.dueToday.amount ?? 0)}</strong></button>
+                  {/*
+                    Três linhas de zero não são uma lista de pendências: são o
+                    aviso de que não há nenhuma, dito da forma mais cansativa
+                    possível. Com tudo zerado o cartão diz isso em uma linha.
+                  */}
+                  {nadaPendente ? <NadaPendente /> : (<>
+                  {atrasadas > 0 && <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#8E1F16]">{atrasadas} conta{atrasadas === 1 ? "" : "s"} em atraso</span><strong className="text-[13px] text-[#8E1F16]">{formatMoney(dashboard?.overdue.amount ?? 0)}</strong></button>}
+                  {pendentes > 0 && <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1F4F2] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold">{pendentes} lançamento{pendentes === 1 ? "" : "s"} pendente{pendentes === 1 ? "" : "s"}</span><strong className="text-[12.5px] text-[#0A7A42]">Revisar</strong></button>}
+                  {recebimentosHoje > 0 && <button onClick={() => setLocation("/lancamentos")} className="flex w-full items-center gap-3 rounded-[14px] bg-[#F1FBF6] p-3 text-left transition hover:brightness-[.98] active:scale-[.99]"><span className="flex-1 text-[12.5px] font-semibold text-[#0A7A42]">{recebimentosHoje} recebimento{recebimentosHoje === 1 ? "" : "s"} hoje</span><strong className="text-[13px] text-[#0A7A42]">{formatMoney(dashboard?.dueToday.amount ?? 0)}</strong></button>}
+                  </>)}
                 </div>
               </section>
             </aside>

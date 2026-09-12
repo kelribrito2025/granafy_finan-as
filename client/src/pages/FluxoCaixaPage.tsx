@@ -1,3 +1,4 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
@@ -6,6 +7,7 @@ import { ChartDot } from "@/components/ChartDot";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { AppSidebar } from "@/components/AppSidebar";
 import {
+  ChartIcon,
   ChevronRightIcon,
   DownloadIcon,
   PlusIcon,
@@ -144,7 +146,12 @@ function DailyTable({ data }: { data: DailyData }) {
       </div>
 
       {data.buckets.length === 0 ? (
-        <p className="py-10 text-center text-[13.5px] text-[#4C6355]">Nenhum movimento em {data.label.toLowerCase()}.</p>
+        <CartaoVazio
+          icone={<ChartIcon size={20} />}
+          titulo={`Nenhum movimento em ${data.label.toLowerCase()}`}
+          texto="Os dias com entrada ou saída aparecem nesta lista, com o saldo de cada um."
+          alturaMinima={180}
+        />
       ) : (
         data.buckets.map(bucket => (
           <div key={bucket.date} className={`${FLOW_GRID} items-center border-b border-[#F1F4F2] px-1 py-[11px] transition hover:bg-[#F8FAF9]`}>
@@ -419,7 +426,23 @@ export default function FluxoCaixaPage() {
   const daily = dailyQuery.data;
   const monthly = monthlyQuery.data;
   const [, setLocation] = useLocation();
+  /*
+   * A tela vazia vale para a conta inteira sem lançamento, não só para quem
+   * ainda não tem conta bancária.
+   *
+   * Com uma conta cadastrada e nenhum movimento, a página desenhava a curva
+   * reta no saldo inicial e uma tabela de zeros: a forma antiga, dizendo que
+   * a empresa está parada quando ela ainda não começou. O panorama só é
+   * consultado quando o período volta zerado — quem tem movimento não paga a
+   * consulta.
+   */
   const semContas = useSemContas();
+  const periodoZerado = view === "mes"
+    ? Boolean(monthly) && monthly!.totals.incoming === 0 && monthly!.totals.outgoing === 0
+    : Boolean(daily) && daily!.totals.incoming === 0 && daily!.totals.outgoing === 0;
+  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: periodoZerado && !semContas });
+  const contaVazia = semContas || (periodoZerado && overviewQuery.isSuccess
+    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;
@@ -493,7 +516,7 @@ export default function FluxoCaixaPage() {
               </button>
             </div>
 
-            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${semContas ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${contaVazia ? "pointer-events-none opacity-50" : ""}`}>
               {([["dia", "Diário"], ["semana", "Semanal"], ["mes", "Mensal"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -506,7 +529,7 @@ export default function FluxoCaixaPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={semContas} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={contaVazia} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <ProfileMenu />
           </header>
 
@@ -524,14 +547,14 @@ export default function FluxoCaixaPage() {
             O de antes era três KPIs e um gráfico largo, que é a forma de
             nenhuma das duas.
           */}
-          {semContas && (
+          {contaVazia && (
             <FluxoVazio
               onCadastrarConta={() => setLocation("/organizacao?nova=conta")}
               onNovoLancamento={() => setLocation("/lancamentos?novo=lancamento")}
             />
           )}
 
-          {!semContas && loading && !error && (view === "mes" ? (
+          {!contaVazia && loading && !error && (view === "mes" ? (
             <>
               <KpiRowSkeleton cards={4} />
               <TableSkeleton />
@@ -544,7 +567,7 @@ export default function FluxoCaixaPage() {
             </>
           ))}
 
-          {!semContas && view !== "mes" && daily && (
+          {!contaVazia && view !== "mes" && daily && (
             <>
               <section className="flex flex-col gap-5 lg:flex-row">
                 <AuroraSurface className="w-full shrink-0 rounded-[20px] p-6 lg:w-[340px]">
@@ -617,7 +640,7 @@ export default function FluxoCaixaPage() {
             </>
           )}
 
-          {!semContas && view === "mes" && monthly && (
+          {!contaVazia && view === "mes" && monthly && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <AuroraSurface className="rounded-[20px] p-6">

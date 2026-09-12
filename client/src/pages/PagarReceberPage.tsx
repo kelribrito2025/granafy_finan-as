@@ -1,3 +1,4 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { TransactionModal } from "@/components/TransactionModal";
 import { AuroraSurface } from "@/components/AuroraSurface";
@@ -13,6 +14,7 @@ import {
   DeleteIcon,
   DownloadIcon,
   EditIcon,
+  FilterIcon,
   PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
@@ -321,7 +323,14 @@ function SingleList({ data, titles, onSettle, pending, onEditar, onExcluir }: {
     .filter(group => group.titles.length > 0);
 
   if (groups.length === 0) {
-    return <p className="py-10 text-center text-[13.5px] text-[#4C6355]">Nenhum título nesta seleção.</p>;
+    return (
+      <CartaoVazio
+        icone={<FilterIcon size={20} />}
+        titulo="Nenhum título nesta seleção"
+        texto="Troque a aba ou limpe a busca para ver os outros títulos do mês."
+        alturaMinima={160}
+      />
+    );
   }
 
   return (

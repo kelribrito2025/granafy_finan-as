@@ -1,15 +1,17 @@
+import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import {
   ArrowDownIcon,
-  ArrowsUpDownIcon,
   ArrowUpIcon,
+  ArrowsUpDownIcon,
   CheckIcon,
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
+  FilterIcon,
   PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
@@ -773,9 +775,14 @@ export default function PagasRecebidasPage() {
                   </div>
 
                   {filtered.length === 0 && (
-                    <p className="py-14 text-center text-[13px] text-[#8A968D]">
-                      {filtrosAtivos ? "Nenhum título liquidado corresponde aos filtros." : "Nenhum título foi liquidado neste mês."}
-                    </p>
+                    <CartaoVazio
+                      icone={filtrosAtivos ? <FilterIcon size={20} /> : <CheckIcon size={20} />}
+                      titulo={filtrosAtivos ? "Nenhum título nesta seleção" : "Nenhum título liquidado neste mês"}
+                      texto={filtrosAtivos
+                        ? "Limpe os filtros para ver tudo o que foi pago e recebido no mês."
+                        : "Cada conta paga e cada cobrança recebida aparece aqui, no dia em que foi liquidada."}
+                      alturaMinima={200}
+                    />
                   )}
 
                   {porDia.map(grupo => (
