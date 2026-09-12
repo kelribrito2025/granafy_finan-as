@@ -22,6 +22,12 @@ import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { PrivacyProvider } from "./contexts/PrivacyContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import AdminVisaoGeral from "@/admin/VisaoGeral";
+import AdminContas from "@/admin/Contas";
+import AdminContaDetalhe from "@/admin/ContaDetalhe";
+import AdminUsuarios from "@/admin/Usuarios";
+import AdminAssinaturas from "@/admin/Assinaturas";
+import { AdminConfiguracoes, AdminReceita, AdminRetencao } from "@/admin/Exemplos";
 
 function AuthLoading() {
   return (
@@ -82,6 +88,15 @@ function Router() {
       <Route path="/configuracoes"><ProtectedPage><SettingsPage /></ProtectedPage></Route>
       <Route path="/pagas-e-recebidas"><ProtectedPage><PagasRecebidasPage /></ProtectedPage></Route>
       <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
+      {/* O admin do sistema tem o próprio portão (papel), dentro do AdminShell. */}
+      <Route path="/admin"><AdminVisaoGeral /></Route>
+      <Route path="/admin/contas"><AdminContas /></Route>
+      <Route path="/admin/contas/:id"><AdminContaDetalhe /></Route>
+      <Route path="/admin/usuarios"><AdminUsuarios /></Route>
+      <Route path="/admin/assinaturas"><AdminAssinaturas /></Route>
+      <Route path="/admin/receita"><AdminReceita /></Route>
+      <Route path="/admin/retencao"><AdminRetencao /></Route>
+      <Route path="/admin/configuracoes"><AdminConfiguracoes /></Route>
       <Route path="/"><ProtectedPage><Home /></ProtectedPage></Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

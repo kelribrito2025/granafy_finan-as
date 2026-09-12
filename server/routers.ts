@@ -29,6 +29,7 @@ import {
 import { isGoogleLoginEnabled } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { adminRouter } from "./routers/admin";
 import { balanceSheetRouter } from "./routers/balanceSheet";
 import { cashflowRouter, payablesRouter } from "./routers/cashflow";
 import { companiesRouter } from "./routers/companies";
@@ -61,6 +62,7 @@ const strongPasswordSchema = credentialsSchema.shape.password.refine(
 
 export const appRouter = router({
   system: systemRouter,
+  admin: adminRouter,
   balanceSheet: balanceSheetRouter,
   cashflow: cashflowRouter,
   companies: companiesRouter,

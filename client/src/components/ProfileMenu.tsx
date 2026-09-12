@@ -724,6 +724,18 @@ export function ProfileMenu() {
               <ChevronRightIcon size={15} className="text-[#8A968D]" />
             </button>
 
+            {user?.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setLocation("/admin"); }}
+                className="mt-0.5 flex w-full items-center gap-3 rounded-[12px] bg-[#0B1F14] px-3 py-2.5 text-left text-[14px] text-white hover:bg-[#153021]"
+              >
+                <SettingsIcon size={16} className="text-[#7EE2A8]" />
+                <span className="flex-1">Admin do sistema</span>
+                <ChevronRightIcon size={15} className="text-[#7EE2A8]" />
+              </button>
+            )}
+
             <div className="my-1.5 h-px bg-[#F1F4F2]" />
 
             <div className="flex items-center gap-3 px-3 py-1.5">
