@@ -19,6 +19,7 @@ import * as db from "./db";
 import {
   isPasswordResetEmailConfigured,
   sendPasswordResetCode,
+  sendWelcomeEmail,
 } from "./email";
 import {
   LOGIN_FAILURE_WINDOW_MS,
@@ -108,6 +109,9 @@ export const appRouter = router({
             passwordHash,
           });
           await setLocalSession(ctx.req, ctx.res, user.id);
+          // Sem await: a resposta do cadastro não espera o Resend, e a falha
+          // do envio fica no log, nunca na tela de quem acabou de entrar.
+          void sendWelcomeEmail({ to: email, name: input.name.trim() });
           return user;
         } catch (error) {
           if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
@@ -231,7 +235,7 @@ export const appRouter = router({
         });
 
         try {
-          await sendPasswordResetCode({ to: email, code });
+          await sendPasswordResetCode({ to: email, code, name: record.name ?? null });
         } catch {
           // Keep the response indistinguishable to prevent account enumeration.
         }
