@@ -660,6 +660,15 @@ export default function LancamentosPage() {
   const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: mesVazio && !semContas });
   const contaVazia = semContas || (mesVazio && overviewQuery.isSuccess
     && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
+  /*
+   * Enquanto o panorama não responde, a página continua carregando.
+   *
+   * São duas respostas para uma decisão só: o mês (que já chegou) e a conta
+   * inteira (pedida só quando o mês volta vazio). Sem esta linha, no intervalo
+   * entre as duas a tela desenhava os KPIs zerados e o cartão de mês vazio, e
+   * trocava tudo pela tela vazia logo depois.
+   */
+  const decidindo = !semContas && mesVazio && overviewQuery.isPending;
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {
@@ -968,7 +977,13 @@ export default function LancamentosPage() {
             <LancamentosVazio onNovo={() => { setEditing(null); setModalOpen(true); }} onImportar={() => setImportOpen(true)} />
           )}
 
-          {!contaVazia && (<>
+          {!contaVazia && decidindo && (
+            <div className="flex min-h-[420px] items-center justify-center rounded-[20px] bg-white">
+              <GranafyLoader label="Carregando lançamentos..." />
+            </div>
+          )}
+
+          {!contaVazia && !decidindo && (<>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Valor e contagem saem os dois do recorte: era aqui que a tela
                 misturava o total do mês com a contagem do filtro. Com filtro de

@@ -443,6 +443,17 @@ export default function FluxoCaixaPage() {
   const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: periodoZerado && !semContas });
   const contaVazia = semContas || (periodoZerado && overviewQuery.isSuccess
     && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
+  /*
+   * O esqueleto cobre as DUAS perguntas, não só a primeira.
+   *
+   * "Esta conta está vazia?" depende de duas respostas: o período (que já
+   * chegou) e o panorama da conta (que só é pedido quando o período volta
+   * zerado). Entre uma e outra a página desenhava a tela cheia de zeros e a
+   * trocava pela tela vazia meio segundo depois — três telas até o destino,
+   * das quais duas eram mentira. Enquanto a segunda resposta não vem, fica o
+   * esqueleto.
+   */
+  const decidindo = !semContas && periodoZerado && overviewQuery.isPending;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;
@@ -516,7 +527,7 @@ export default function FluxoCaixaPage() {
               </button>
             </div>
 
-            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${contaVazia ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${contaVazia || decidindo ? "pointer-events-none opacity-50" : ""}`}>
               {([["dia", "Diário"], ["semana", "Semanal"], ["mes", "Mensal"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -529,7 +540,7 @@ export default function FluxoCaixaPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={contaVazia} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={contaVazia || decidindo} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <ProfileMenu />
           </header>
 
@@ -554,7 +565,7 @@ export default function FluxoCaixaPage() {
             />
           )}
 
-          {!contaVazia && loading && !error && (view === "mes" ? (
+          {!contaVazia && (loading || decidindo) && !error && (view === "mes" ? (
             <>
               <KpiRowSkeleton cards={4} />
               <TableSkeleton />
@@ -567,7 +578,7 @@ export default function FluxoCaixaPage() {
             </>
           ))}
 
-          {!contaVazia && view !== "mes" && daily && (
+          {!contaVazia && !decidindo && view !== "mes" && daily && (
             <>
               <section className="flex flex-col gap-5 lg:flex-row">
                 <AuroraSurface className="w-full shrink-0 rounded-[20px] p-6 lg:w-[340px]">
@@ -640,7 +651,7 @@ export default function FluxoCaixaPage() {
             </>
           )}
 
-          {!contaVazia && view === "mes" && monthly && (
+          {!contaVazia && !decidindo && view === "mes" && monthly && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <AuroraSurface className="rounded-[20px] p-6">
