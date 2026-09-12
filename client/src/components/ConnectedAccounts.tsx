@@ -49,7 +49,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
       ) : accounts.length === 0 ? (
         <>
           <span className="mt-2 block text-[11.5px] leading-relaxed text-[#4C6355]">
-            Nenhuma ainda. Cadastre a primeira para ver o caixa aqui.
+            Nenhuma ainda.
           </span>
           <button type="button" onClick={() => setLocation("/organizacao?nova=conta")} className="mt-1.5 text-left text-[12.5px] font-bold text-[#0A7A42] hover:underline">
             Cadastrar conta →
