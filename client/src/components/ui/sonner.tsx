@@ -1,20 +1,24 @@
-import { useTheme } from "@/contexts/ThemeContext";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
+/*
+ * O motor das notificações. O desenho de cada toast mora em `lib/toast.tsx`;
+ * aqui só a posição (canto superior direito), a pilha de três com a mais
+ * recente na frente, e `unstyled`, para o sonner não pintar nada por cima.
+ * O toast é escuro nos dois temas, de propósito: é o mesmo cartão em qualquer
+ * fundo.
+ */
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme } = useTheme();
-
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      position="top-right"
+      expand={false}
+      visibleToasts={3}
+      gap={10}
+      offset={16}
+      mobileOffset={12}
+      toastOptions={{ unstyled: true, classNames: { toast: "toast-granafy" } }}
       className="toaster group"
-      style={
-        {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-        } as React.CSSProperties
-      }
+      style={{ "--width": "420px" } as React.CSSProperties}
       {...props}
     />
   );

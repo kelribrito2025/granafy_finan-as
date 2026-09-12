@@ -11,7 +11,7 @@ import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory";
 import { trpc } from "@/lib/trpc";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 
 type TransactionType = "entrada" | "saida";

@@ -26,7 +26,7 @@ import { summarizeBatch } from "@shared/reconciliation";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useLocation } from "wouter";
 

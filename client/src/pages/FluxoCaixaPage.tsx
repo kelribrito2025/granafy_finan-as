@@ -20,7 +20,7 @@ import { useSemContas } from "@/hooks/useSemContas";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 

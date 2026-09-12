@@ -1,7 +1,7 @@
 import { ChevronRightIcon, LockIcon, ReportIcon } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 /*
  * Os cinco regimes, com a frase que distingue um do outro.

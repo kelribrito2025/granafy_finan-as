@@ -30,7 +30,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { buildSettledDayGroups, type SettledSortKey, type SettledSortState } from "@/lib/settledSort";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import type { AppRouter } from "../../../server/routers";
 
@@ -429,13 +429,23 @@ export default function PagasRecebidasPage() {
    * os abertos e continuaria aparecendo aqui com uma liquidação que não
    * aconteceu mais.
    */
+  // As duas telas mudam: o título sai daqui e reaparece nos abertos.
+  const invalidarLiquidados = () => Promise.all([utils.settled.overview.invalidate(), utils.payables.overview.invalidate()]);
+  /* O inverso do estorno é liquidar de novo — o mesmo toggleStatus, noutra instância. */
+  const religar = trpc.transactions.toggleStatus.useMutation({
+    onSuccess: async () => { await invalidarLiquidados(); toast.success("Estorno desfeito: o título voltou a liquidado"); },
+    onError: error => toast.error(error.message),
+  });
   const estorno = trpc.transactions.toggleStatus.useMutation({
     onSuccess: async (_registro, variables) => {
       const item = items.find(linha => linha.id === variables.id);
       setEstornando(null);
-      // As duas telas mudam: o título sai daqui e reaparece nos abertos.
-      await Promise.all([utils.settled.overview.invalidate(), utils.payables.overview.invalidate()]);
-      toast.success(item ? `"${item.description}" voltou para A pagar e receber` : "Liquidação estornada");
+      await invalidarLiquidados();
+      toast.desfazer({
+        titulo: "Liquidação estornada",
+        detalhe: item ? `${item.description} · voltou para A pagar e receber` : undefined,
+        onDesfazer: () => religar.mutate({ id: variables.id }),
+      });
     },
     onError: error => toast.error(error.message),
   });

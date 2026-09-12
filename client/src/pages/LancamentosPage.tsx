@@ -48,7 +48,7 @@ import { trpc } from "@/lib/trpc";
 import { useSemContas } from "@/hooks/useSemContas";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 

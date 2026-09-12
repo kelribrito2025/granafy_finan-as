@@ -17,7 +17,7 @@ import { usePreferences } from "@/contexts/PreferencesContext";
 import { trpc } from "@/lib/trpc";
 import { startsCollapsed, type SidebarMode } from "@shared/preferences";
 import { useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 
 type Item = {

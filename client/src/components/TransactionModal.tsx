@@ -18,7 +18,7 @@ import type {
   TransactionType,
 } from "@/lib/transactionTypes";
 import { FormEvent, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 /*
  * O modal de lançamento.

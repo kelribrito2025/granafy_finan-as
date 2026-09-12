@@ -21,7 +21,7 @@ import { marginOf, variationHelpsProfit, type DreLineKind } from "@shared/dre";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 

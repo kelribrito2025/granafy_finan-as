@@ -62,7 +62,7 @@ import {
   type AssetCategory,
 } from "@shared/assetCategory";
 import { FormEvent, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 

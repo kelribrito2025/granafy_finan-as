@@ -30,7 +30,7 @@ import {
   type SidebarMode,
 } from "@shared/preferences";
 import { FormEvent, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation, useSearch } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 

@@ -24,7 +24,7 @@ import { trpc } from "@/lib/trpc";
 import { useSemContas } from "@/hooks/useSemContas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { ChartDot } from "@/components/ChartDot";
 import { TransactionModal } from "@/components/TransactionModal";

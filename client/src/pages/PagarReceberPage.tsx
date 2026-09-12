@@ -29,7 +29,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
@@ -503,15 +503,30 @@ export default function PagarReceberPage() {
   const fimDoMes = `${period.year}-${String(period.month).padStart(2, "0")}-${String(new Date(period.year, period.month, 0).getDate()).padStart(2, "0")}`;
   const organizationQuery = trpc.organization.options.useQuery();
   const utils = trpc.useUtils();
+  const invalidarTitulos = () => Promise.all([
+    utils.payables.invalidate(),
+    utils.transactions.invalidate(),
+    utils.cashflow.invalidate(),
+    utils.dre.invalidate(),
+  ]);
+  /*
+   * Liquidar e desfazer são o mesmo toggleStatus, em duas instâncias: a de
+   * desfazer não pode disparar o toast de "liquidado" de novo. O título vem
+   * do dado que a tela já tinha antes de invalidar — é só para a legenda.
+   */
+  const reverter = trpc.transactions.toggleStatus.useMutation({
+    onSuccess: async () => { await invalidarTitulos(); toast.success("Liquidação desfeita"); },
+    onError: error => toast.error(error.message),
+  });
   const settle = trpc.transactions.toggleStatus.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.payables.invalidate(),
-        utils.transactions.invalidate(),
-        utils.cashflow.invalidate(),
-        utils.dre.invalidate(),
-      ]);
-      toast.success("Título liquidado.");
+    onSuccess: async (_registro, variables) => {
+      const titulo = query.data?.open.find(item => item.id === variables.id);
+      await invalidarTitulos();
+      toast.desfazer({
+        titulo: "Título liquidado",
+        detalhe: titulo ? `${titulo.description} · ${signedMoney(titulo.amount)}` : undefined,
+        onDesfazer: () => reverter.mutate({ id: variables.id }),
+      });
     },
     onError: error => toast.error(error.message),
   });

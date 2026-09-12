@@ -464,6 +464,11 @@ html.tema-clareando::view-transition-old(root) {
 }
 html.tema-clareando::view-transition-new(root) { z-index: 0; }
 
+/* As notificações (lib/toast.tsx): o li do sonner fica transparente e o
+   cartão escuro desenha tudo; o "+N" da pilha some quando o mouse expande. */
+[data-sonner-toast].toast-granafy { width: var(--width); background: transparent; box-shadow: none; }
+[data-sonner-toast][data-expanded="true"] .toast-pilha { display: none; }
+
 /* A cortina de reserva da troca de tema, para navegador sem View Transitions
    (ver cortinaDeReserva no ThemeContext). Mesmo tempo e curva do recorte. */
 .tema-cortina {

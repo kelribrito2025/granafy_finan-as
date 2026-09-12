@@ -10,7 +10,7 @@ import {
   type OpeningComparison,
 } from "@shared/openingBalance";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const MAX_BYTES = 25_000_000;
 

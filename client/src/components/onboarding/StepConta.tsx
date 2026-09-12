@@ -3,7 +3,7 @@ import { CartaoDeApoio, OnboardingLateral } from "@/components/onboarding/Onboar
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const TIPOS = [
   ["corrente", "Conta corrente"],

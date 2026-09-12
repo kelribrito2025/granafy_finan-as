@@ -3,7 +3,7 @@ import { CardIcon, CheckIcon, CloseIcon, DownloadIcon } from "@/components/Iconl
 import { ModalIcon } from "@/components/ModalIcon";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 /*
  * Plano e cobrança — a tela, ainda sem a cobrança por trás.
