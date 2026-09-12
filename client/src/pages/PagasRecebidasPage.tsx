@@ -120,38 +120,95 @@ function KpisDoMesVazio({ arrangement }: { arrangement: "lista" | "colunas" }) {
 }
 
 function MesVazio({ onIrParaAPagar, onNovoLancamento }: { onIrParaAPagar: () => void; onNovoLancamento: () => void }) {
+  const [explicando, setExplicando] = useState(false);
+  const setas = <><path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" /></>;
+  const passos = [
+    { titulo: "Registre o título", texto: "Uma cobrança a receber ou uma despesa a pagar, com data de vencimento.", icone: <path d="M12 19V5M5 12l7-7 7 7" /> },
+    { titulo: "Marque como liquidado", texto: "Quando o dinheiro entra ou sai, confirme a data e a conta usada.", icone: <path d="M20 6L9 17l-5-5" /> },
+    { titulo: "Acompanhe aqui", texto: "O título sai de A pagar e receber e passa a compor o resultado realizado.", icone: setas },
+  ];
+  const traco = (conteudo: ReactNode, tamanho = 20, espessura = 2) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={espessura} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+
   return (
-    <section className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
-      <div className="flex min-h-[260px] flex-col items-center justify-center gap-3.5 rounded-[16px] bg-[#F8FAF9] px-8 py-10 text-center">
-        <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[16px] border border-[#E3EBE6] bg-white text-[#4C6355]">
-          <ArrowsUpDownIcon size={22} />
+    <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+      {/* Dois títulos, um deles liquidado, e o check: o desenho do que falta acontecer. */}
+      <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+        <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+        <span className="absolute left-[14px] top-[22px] h-[38px] w-[56px] -rotate-[8deg] rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white" />
+        <span className="absolute right-[14px] top-[30px] flex h-[38px] w-[56px] rotate-[6deg] items-center justify-center rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] text-[#0A7A42]">
+          {traco(setas)}
         </span>
-        <div className="flex flex-col gap-1.5">
-          <strong className="text-[16px] font-bold">Nada liquidado ainda</strong>
-          <p className="max-w-[420px] text-[13px] leading-[1.55] text-[#4C6355]">
-            Esta tela mostra apenas títulos já pagos ou recebidos, na data em que o dinheiro entrou ou
-            saiu. Comece registrando o que está em aberto — quando você marcar como pago, ele aparece aqui.
+        <span className="absolute bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+          {traco(<path d="M20 6L9 17l-5-5" />, 16, 2.6)}
+        </span>
+      </div>
+
+      <div className="flex max-w-[520px] flex-col gap-2">
+        <h2 className="text-[22px] font-bold tracking-[-.02em]">Nada liquidado ainda</h2>
+        <p className="text-[14px] leading-relaxed text-[#4C6355]">
+          Esta tela mostra apenas títulos já pagos ou recebidos, na data em que o dinheiro entrou ou
+          saiu. Registre o que está em aberto — ao marcar como pago, ele aparece aqui.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          type="button"
+          onClick={onIrParaAPagar}
+          className="flex h-12 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[22px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]"
+        >
+          {traco(<path d="M5 12h14M12 5l7 7-7 7" />, 16)}
+          Ir para A pagar e receber
+        </button>
+        <button
+          type="button"
+          onClick={onNovoLancamento}
+          className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+        >
+          <PlusIcon size={16} />
+          Novo lançamento
+        </button>
+      </div>
+
+      <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
+        {passos.map((passo, indice) => (
+          <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">{traco(passo.icone)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+            <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+            <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+      <button
+        type="button"
+        onClick={() => setExplicando(atual => !atual)}
+        aria-expanded={explicando}
+        className="text-[13px] font-semibold text-[#0A7A42] hover:underline"
+      >
+        Como funcionam títulos liquidados {explicando ? "↑" : "→"}
+      </button>
+      {explicando && (
+        <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+          <p>
+            Um <strong>título</strong> é um lançamento com vencimento e ainda em aberto: uma cobrança que
+            você vai receber, ou uma despesa que vai pagar. Enquanto está aberto, ele mora em A pagar e receber.
+          </p>
+          <p>
+            <strong>Liquidar</strong> é dizer que o dinheiro entrou ou saiu de verdade — na data em que
+            aconteceu, pela conta que foi usada. É esse clique que tira o título de lá e traz para cá.
+          </p>
+          <p>
+            Por isso esta tela conta pela data da liquidação, não do vencimento: um título vencido em
+            agosto e pago em setembro aparece aqui em setembro, e é em setembro que ele entra no
+            resultado realizado.
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2.5 pt-1">
-          <button
-            type="button"
-            onClick={onIrParaAPagar}
-            className="flex h-11 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[18px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]"
-          >
-            <ChevronRightIcon size={15} />
-            Ir para A pagar e receber
-          </button>
-          <button
-            type="button"
-            onClick={onNovoLancamento}
-            className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
-          >
-            <PlusIcon size={15} />
-            Novo lançamento
-          </button>
-        </div>
-      </div>
+      )}
     </section>
   );
 }

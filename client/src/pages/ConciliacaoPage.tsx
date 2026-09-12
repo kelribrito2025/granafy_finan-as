@@ -149,7 +149,7 @@ function SemContasBancarias({ onCadastrar }: { onCadastrar: () => void }) {
   ];
 
   return (
-    <section className="flex flex-1 flex-col items-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+    <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
       {/* Dois extratos e o sinal de somar: o desenho do que falta acontecer. */}
       <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
         <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
