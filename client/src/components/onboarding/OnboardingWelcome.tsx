@@ -1,4 +1,3 @@
-import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { BuildingIcon, UploadIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
 
@@ -73,25 +72,24 @@ export function OnboardingWelcome({ name, onStart, onSkip, skipping }: {
         </p>
 
         {/* Os três lado a lado, como no modelo: dá para ver o caminho inteiro
-            antes de dar o primeiro passo. A superfície é a mesma do "Caixa
-            disponível" — o cartão escuro do produto, que é o que a pessoa vai
-            reencontrar no painel quando terminar daqui. */}
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
+            antes de dar o primeiro passo. A superfície é a dos cartões de
+            recursos da landing ("Tudo o que o financeiro de uma PME precisa"):
+            fundo claro, borda fina, chip verde — não o cartão escuro do
+            painel, que aqui pesava demais antes de a pessoa ter qualquer dado. */}
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
           {PASSOS.map(passo => {
             const Icone = passo.icone;
             return (
-              <AuroraSurface key={passo.numero} className="rounded-[16px] p-5">
-                <div className="flex flex-1 flex-col gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#1F4230] text-[#7EE2A8]">
-                    <Icone size={17} />
-                  </span>
-                  <span className="mt-1 text-[10.5px] font-semibold uppercase tracking-[.12em] text-[#8FB39E]">
-                    {passo.numero}
-                  </span>
-                  <strong className="text-[15px] font-bold">{passo.titulo}</strong>
-                  <span className="text-[12.5px] leading-relaxed text-[#C5DACE]">{passo.apoio}</span>
-                </div>
-              </AuroraSurface>
+              <div key={passo.numero} className="flex flex-col gap-3 rounded-[20px] border border-[#EDF2EE] bg-[#F8FAF9] p-6">
+                <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[12px] bg-[#DFF6EA] text-[#0A7A42]">
+                  <Icone size={19} />
+                </span>
+                <span className="text-[10.5px] font-semibold uppercase tracking-[.12em] text-[#8A968D]">
+                  {passo.numero}
+                </span>
+                <strong className="text-[17px] font-bold text-[#0B1F14]">{passo.titulo}</strong>
+                <span className="text-[14px] leading-[1.6] text-[#4C6355]">{passo.apoio}</span>
+              </div>
             );
           })}
         </div>
