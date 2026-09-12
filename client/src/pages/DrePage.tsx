@@ -8,7 +8,9 @@ import {
   ChevronRightIcon,
   DocumentIcon,
   DownloadIcon,
+  PlusIcon,
   SidebarMenuIcon,
+  UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -17,7 +19,7 @@ import { trpc } from "@/lib/trpc";
 import { marginOf, variationHelpsProfit, type DreLineKind } from "@shared/dre";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
@@ -44,8 +46,8 @@ function KpiCard({ label, value, hint, hintClass, highlight = false, valueClass 
   const content = (
     <>
       <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>{label}</span>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>{value}</strong>
-      <span className={`text-[12.5px] font-semibold ${highlight ? hintClass ?? "text-[#7EE2A8]" : hintClass ?? "text-[#8A968D]"}`}>{hint}</span>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? (highlight ? "text-white" : "")}`}>{value}</strong>
+      <span className={`text-[12.5px] font-semibold ${hintClass ?? (highlight ? "text-[#7EE2A8]" : "text-[#8A968D]")}`}>{hint}</span>
     </>
   );
   if (highlight) {
@@ -321,6 +323,140 @@ function MarginsCard({ data }: { data: SeriesData }) {
   );
 }
 
+/*
+ * O mês sem nenhum lançamento na demonstração.
+ *
+ * A DRE zerada é uma tabela de traços que não explica nada. No lugar dela:
+ * as linhas que vão ser calculadas (para a pessoa saber o que vem), os dois
+ * caminhos que trazem lançamentos, e os três passos até um mês fechado.
+ */
+function KpisDoMesVazio() {
+  const apagado = "text-[#B9C7BE]";
+  return (
+    <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard highlight label="Lucro líquido" value="R$ 0,00" valueClass="text-[#8FB39E]" hintClass="text-[#8FB39E]" hint="O resultado do mês é calculado a partir dos lançamentos por categoria." />
+      <KpiCard label="Receita líquida" value="—" valueClass={apagado} hint="Vendas e serviços menos devoluções" />
+      <KpiCard label="Margem líquida" value="—" valueClass={apagado} hint="Lucro sobre a receita do período" />
+      <KpiCard label="Ponto de equilíbrio" value="—" valueClass={apagado} hint="Depende das despesas fixas cadastradas" />
+    </section>
+  );
+}
+
+function DreVazia({ regime, onNovoLancamento, onImportar, onVerCompetencia }: {
+  regime: Regime;
+  onNovoLancamento: () => void;
+  onImportar: () => void;
+  onVerCompetencia: () => void;
+}) {
+  const [explicando, setExplicando] = useState(false);
+  const traco = (conteudo: ReactNode, tamanho = 20) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+  const linhas = [
+    ["Receita bruta", "categorias de receita"],
+    ["(−) Custos", "custos operacionais"],
+    ["= Lucro bruto", "receita menos custos"],
+    ["(−) Despesas", "administrativas e comerciais"],
+    ["= Lucro líquido", "resultado do período"],
+  ];
+  const passos = [
+    { titulo: "Registre os lançamentos", texto: "Manualmente ou pelo extrato do banco em OFX ou CSV.", icone: <><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /></> },
+    { titulo: "Confira as categorias", texto: "Cada categoria já sabe se é receita, custo ou despesa.", icone: <><path d="M12.586 2.586A2 2 0 0011.172 2H4a2 2 0 00-2 2v7.172a2 2 0 00.586 1.414l8.704 8.704a2.426 2.426 0 003.42 0l6.58-6.58a2.426 2.426 0 000-3.42z" /><circle cx="7.5" cy="7.5" r="1" /></> },
+    { titulo: "Feche o mês", texto: "Com o mês fechado, a posição do último dia fica salva no balanço.", icone: <><path d="M15 2H7a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V6z" /><path d="M14 2v4h5" /><path d="M9 13h6" /><path d="M9 17h6" /></> },
+  ];
+
+  return (
+    <>
+      <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+        {/* Uma demonstração em rascunho, uma preenchida, e o sinal de somar. */}
+        <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+          <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+          <span className="absolute left-[16px] top-[20px] h-[64px] w-[52px] -rotate-[7deg] rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white" />
+          <span className="absolute right-[16px] top-[26px] flex h-[64px] w-[52px] rotate-[6deg] flex-col justify-center gap-1.5 rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] px-2.5">
+            <span className="h-[3px] w-full rounded-[2px] bg-[#0A7A42]" />
+            <span className="h-[3px] w-[70%] rounded-[2px] bg-[#7EE2A8]" />
+            <span className="h-[3px] w-[85%] rounded-[2px] bg-[#0A7A42]" />
+          </span>
+          <span className="absolute bottom-[12px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+            <PlusIcon size={16} />
+          </span>
+        </div>
+
+        <div className="flex max-w-[520px] flex-col gap-2">
+          <h2 className="text-[22px] font-bold tracking-[-.02em]">Sem resultado para demonstrar</h2>
+          <p className="text-[14px] leading-relaxed text-[#4C6355]">
+            O DRE monta receitas, custos e despesas a partir das categorias dos seus lançamentos.
+            Registre o primeiro movimento do mês e a demonstração se preenche sozinha.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <button type="button" onClick={onNovoLancamento} className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
+            <PlusIcon size={16} />
+            Novo lançamento
+          </button>
+          <button type="button" onClick={onImportar} className="flex h-12 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[22px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]">
+            <UploadIcon size={16} />
+            Importar extrato
+          </button>
+        </div>
+
+        <div className="flex w-full max-w-[820px] flex-col gap-2 border-t border-[#F1F4F2] pt-6">
+          <span className="text-left text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">As linhas que o GranaFy vai calcular</span>
+          {linhas.map(([nome, origem]) => (
+            <div key={nome} className="flex items-center gap-3.5 rounded-[12px] bg-[#F8FAF9] px-4 py-[13px]">
+              <span className="min-w-0 flex-1 text-left text-[13px] font-bold text-[#28382E]">{nome}</span>
+              <span className="hidden whitespace-nowrap text-[12px] text-[#8A968D] sm:block">{origem}</span>
+              <span className="w-[96px] text-right text-[14px] font-bold text-[#B9C7BE]">—</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid w-full max-w-[820px] gap-3.5 sm:grid-cols-3">
+          {passos.map((passo, indice) => (
+            <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
+              <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">{traco(passo.icone)}</span>
+              <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+              <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+              <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+        <button type="button" onClick={() => setExplicando(atual => !atual)} aria-expanded={explicando} className="text-[13px] font-semibold text-[#0A7A42] hover:underline">
+          Como o GranaFy monta o DRE {explicando ? "↑" : "→"}
+        </button>
+        {explicando && (
+          <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+            <p>
+              Cada categoria carrega o seu papel: <strong>receita</strong>, <strong>custo</strong> ou
+              <strong> despesa</strong>. O DRE soma os lançamentos do mês por esse papel — receita bruta
+              menos custos dá o lucro bruto; menos despesas, o lucro líquido.
+            </p>
+            <p>
+              <strong>Competência</strong> conta cada lançamento no mês da data dele, pago ou não. <strong>Caixa</strong> conta
+              só o que já foi pago, e no mês do pagamento. Os dois são a mesma lista de lançamentos vista por
+              regras diferentes; você alterna na demonstração.
+            </p>
+            <p>
+              Transferências entre contas, compra de ativo e distribuição de lucro nunca entram no resultado:
+              movem dinheiro, não geram nem consomem lucro.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <p className="text-[12px] text-[#8A968D]">
+        Transferências entre contas nunca entram no resultado.{" "}
+        {regime === "competencia"
+          ? "Regime de competência: cada lançamento conta no mês do fato, não no do pagamento."
+          : <>Regime de caixa: só o que já foi pago conta, no mês do pagamento. <button type="button" onClick={onVerCompetencia} className="font-semibold text-[#0A7A42] hover:underline">Ver por competência</button></>}
+      </p>
+    </>
+  );
+}
+
 export default function DrePage() {
   // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
   // assinatura a página não redesenha quando o olhinho é ligado.
@@ -397,6 +533,9 @@ export default function DrePage() {
   const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40";
   const loading = view === "mes" ? statementQuery.isPending : seriesQuery.isPending;
   const error = view === "mes" ? statementQuery.error : seriesQuery.error;
+  const [, setLocation] = useLocation();
+  /* O mês sem nenhum lançamento na demonstração — no regime escolhido. */
+  const mesVazio = view === "mes" && Boolean(statement) && statement!.transactionCount === 0;
 
   const margin = statement ? marginOf(statement.totals.lucroLiquido, statement.totals.receitaLiquida) : null;
   const previousMargin = statement ? marginOf(statement.previousTotals.lucroLiquido, statement.previousTotals.receitaLiquida) : null;
@@ -429,7 +568,7 @@ export default function DrePage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">DRE</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                {regime === "competencia" ? "Regime de competência" : "Regime de caixa"} · {view === "mes" ? monthLabel : series ? `${series.from} a ${series.to}` : monthLabel}
+                {regime === "competencia" ? "Regime de competência" : "Regime de caixa"} · {mesVazio ? `nenhum lançamento em ${monthLabel.toLowerCase()}` : view === "mes" ? monthLabel : series ? `${series.from} a ${series.to}` : monthLabel}
               </p>
             </div>
 
@@ -443,7 +582,7 @@ export default function DrePage() {
               </button>
             </div>
 
-            <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+            <div className={`flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${mesVazio ? "pointer-events-none opacity-50" : ""}`}>
               {([["mes", "Mês"], ["semestre", "Semestre"], ["ano", "Ano"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -456,7 +595,7 @@ export default function DrePage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} disabled={mesVazio} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <button
               type="button"
               disabled={closeMonth.isPending || isFuture}
@@ -483,7 +622,19 @@ export default function DrePage() {
             </>
           )}
 
-          {view === "mes" && statement && (
+          {mesVazio && (
+            <>
+              <KpisDoMesVazio />
+              <DreVazia
+                regime={regime}
+                onNovoLancamento={() => setLocation("/lancamentos?novo=lancamento")}
+                onImportar={() => setLocation("/lancamentos?importar=extrato")}
+                onVerCompetencia={() => setRegime("competencia")}
+              />
+            </>
+          )}
+
+          {view === "mes" && statement && !mesVazio && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard

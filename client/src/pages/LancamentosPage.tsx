@@ -516,7 +516,10 @@ export default function LancamentosPage() {
   const [selected, setSelected] = useState<number[]>([]);
   const [actionOpen, setActionOpen] = useState<number | null>(null);
   const fecharMenuDeAcoes = useCallback(() => setActionOpen(null), []);
-  const [modalOpen, setModalOpen] = useState(false);
+  /* `?novo=lancamento` abre o modal de lançamento na chegada — ver o `?importar` abaixo. */
+  const [modalOpen, setModalOpen] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("novo") === "lancamento",
+  );
   /*
    * `?importar=extrato` abre a importação já na chegada — o mesmo padrão do
    * `?nova=conta` de Contas e categorias. Quem vem do painel vazio clicou em
@@ -527,7 +530,8 @@ export default function LancamentosPage() {
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("importar") === "extrato",
   );
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has("importar")) return;
+    const parametros = new URLSearchParams(window.location.search);
+    if (!parametros.has("importar") && !parametros.has("novo")) return;
     window.history.replaceState(null, "", "/lancamentos");
   }, []);
   const [editing, setEditing] = useState<Transaction | null>(null);
