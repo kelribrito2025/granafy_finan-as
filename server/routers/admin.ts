@@ -2,6 +2,7 @@ import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import * as consultas from "../admin/consultas";
 import * as exclusoes from "../admin/exclusoes";
+import * as papeis from "../admin/papeis";
 
 /*
  * O admin do sistema. Tudo passa pelo `adminProcedure`, que recusa quem não
@@ -10,6 +11,7 @@ import * as exclusoes from "../admin/exclusoes";
  */
 export const adminRouter = router({
   resumo: adminProcedure.query(() => consultas.resumoDoSistema()),
+  configuracoes: adminProcedure.query(() => consultas.configuracoesDoSistema()),
   barra: adminProcedure.query(() => consultas.contadoresDaBarra()),
   contas: router({
     listar: adminProcedure
@@ -43,5 +45,12 @@ export const adminRouter = router({
     excluir: adminProcedure
       .input(z.object({ id: z.number().int().positive(), confirmacao: z.string().min(1).max(320) }))
       .mutation(({ ctx, input }) => exclusoes.excluirUsuario({ id: input.id, confirmacao: input.confirmacao, ator: ctx.user.id })),
+    /* O papel de admin: promover pede o e-mail inteiro, não um id de lista. */
+    promover: adminProcedure
+      .input(z.object({ email: z.string().trim().email().max(320) }))
+      .mutation(({ ctx, input }) => papeis.promover({ email: input.email, ator: ctx.user.id })),
+    rebaixar: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(({ ctx, input }) => papeis.rebaixar({ id: input.id, ator: ctx.user.id })),
   }),
 });

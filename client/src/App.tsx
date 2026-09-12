@@ -27,7 +27,8 @@ import AdminContas from "@/admin/Contas";
 import AdminContaDetalhe from "@/admin/ContaDetalhe";
 import AdminUsuarios from "@/admin/Usuarios";
 import AdminAssinaturas from "@/admin/Assinaturas";
-import { AdminConfiguracoes, AdminReceita, AdminRetencao } from "@/admin/Exemplos";
+import { AdminConfiguracoes } from "@/admin/Configuracoes";
+import { AdminReceita, AdminRetencao } from "@/admin/Exemplos";
 
 function AuthLoading() {
   return (

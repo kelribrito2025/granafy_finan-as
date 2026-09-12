@@ -8,8 +8,9 @@
  * buraco; aqui é a regra. Só o `adminRouter` chama este arquivo, e só depois
  * do `adminProcedure` conferir `role = admin`.
  *
- * Nada aqui escreve. O que o admin altera (assinaturas, notas) chega na
- * sentada seguinte, com tabela própria.
+ * Nada aqui escreve. O que o admin altera mora ao lado, em arquivos que
+ * dizem isso no nome: `exclusoes.ts` apaga, `papeis.ts` promove e rebaixa.
+ * Assinaturas e notas internas chegam na sentada delas, com tabela própria.
  */
 import { and, count, desc, eq, gte, like, lt, max, or, sql } from "drizzle-orm";
 import {
@@ -22,6 +23,7 @@ import {
   users,
 } from "../../drizzle/schema";
 import { getDb } from "../db";
+import { envioDeEmailConfigurado } from "../emails";
 
 async function conexao() {
   const db = await getDb();
@@ -250,4 +252,67 @@ export async function contadoresDaBarra() {
   const [e] = await db.select({ n: count() }).from(companyProfiles);
   const [u] = await db.select({ n: count() }).from(users);
   return { contas: Number(e.n), usuarios: Number(u.n) };
+}
+
+
+/* ── Configurações ──────────────────────────────────────────────────────── */
+
+/** Quando este processo subiu — o "no ar desde" da tela. */
+const SUBIU_EM = new Date();
+
+/**
+ * Só o nome do banco, nunca a URL.
+ *
+ * A string de conexão carrega usuário e senha; ela não sai do servidor nem
+ * para um admin. O nome do schema é o que responde "estou olhando produção
+ * ou o banco de teste?", que é a pergunta que a tela precisa responder.
+ */
+function nomeDoBanco() {
+  const bruta = process.env.TIDB_DATABASE_URL || process.env.DATABASE_URL;
+  if (!bruta) return null;
+  try {
+    return new URL(bruta).pathname.replace(/^\//, "") || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * O que a tela de Configurações mostra. Tudo daqui tem fonte: ou o banco,
+ * ou o ambiente do processo. O que não tem — quantas empresas em cada plano,
+ * por exemplo — não aparece como número; aparece como "—" com a razão, e a
+ * razão é sempre a mesma: a tabela de assinaturas ainda não existe.
+ */
+export async function configuracoesDoSistema() {
+  const db = await conexao();
+  const equipe = await db
+    .select({ id: users.id, name: users.name, email: users.email, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn })
+    .from(users)
+    .where(eq(users.role, "admin"))
+    .orderBy(users.createdAt);
+
+  const [empresas] = await db.select({ n: count() }).from(companyProfiles);
+  const [pessoas] = await db.select({ n: count() }).from(users);
+  const [lancamentos] = await db.select({ n: count() }).from(transactions);
+
+  return {
+    equipe,
+    email: {
+      configurado: envioDeEmailConfigurado(),
+      remetente: process.env.PASSWORD_RESET_FROM_EMAIL ?? null,
+      /* Sem ela o e-mail sai sem logo e com o botão apontando para lugar nenhum. */
+      enderecoPublico: process.env.PUBLIC_URL ?? null,
+    },
+    ambiente: {
+      modo: process.env.NODE_ENV ?? "development",
+      banco: nomeDoBanco(),
+      agora: new Date(),
+      noArDesde: SUBIU_EM,
+    },
+    numeros: {
+      empresas: Number(empresas.n),
+      usuarios: Number(pessoas.n),
+      lancamentos: Number(lancamentos.n),
+    },
+  };
 }
