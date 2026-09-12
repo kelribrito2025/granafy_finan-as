@@ -497,6 +497,109 @@ function CategorizeModal({ selectedCount, selectedTypes, options, pending, onClo
 }
 
 
+/*
+ * A tela de quem ainda não tem nenhum lançamento — em mês nenhum.
+ *
+ * Mês vazio com a conta cheia é o "Nenhum lançamento encontrado" de sempre,
+ * dentro da lista, porque ali a pergunta é de filtro. Aqui a conta inteira
+ * está vazia, e a pergunta é outra: o que é um lançamento e por onde entra.
+ */
+function LancamentosVazio({ onNovo, onImportar }: { onNovo: () => void; onImportar: () => void }) {
+  const [explicando, setExplicando] = useState(false);
+  const traco = (conteudo: ReactNode, tamanho = 20) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+  const linhas = (cores: [string, string, string]) => (
+    <>
+      <span className="h-[3px] w-full rounded-[2px]" style={{ background: cores[0] }} />
+      <span className="h-[3px] w-[62%] rounded-[2px]" style={{ background: cores[1] }} />
+      <span className="h-[3px] w-[83%] rounded-[2px]" style={{ background: cores[2] }} />
+    </>
+  );
+  const passos = [
+    { titulo: "Registre entradas e saídas", texto: "Valor, data, categoria e conta. Leva poucos segundos por lançamento.", icone: <path d="M12 5v14M5 12h14" /> },
+    { titulo: "Ou traga o extrato", texto: "A importação reconhece créditos e débitos e sugere a categoria.", icone: <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></> },
+    { titulo: "Revise em lote", texto: "Confirme as sugestões de uma vez e siga para a conciliação.", icone: <path d="M20 6L9 17l-5-5" /> },
+  ];
+
+  return (
+    <>
+      <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+        {/* Um lançamento em rascunho, um registrado, e o sinal de somar. */}
+        <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+          <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+          <span className="absolute left-[14px] top-[20px] flex h-[46px] w-[58px] -rotate-[7deg] flex-col justify-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white px-2.5">
+            {linhas(["#DCE5DF", "#DCE5DF", "#DCE5DF"])}
+          </span>
+          <span className="absolute right-[14px] top-[28px] flex h-[46px] w-[58px] rotate-[6deg] flex-col justify-center gap-1.5 rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] px-2.5">
+            {linhas(["#0A7A42", "#7EE2A8", "#0A7A42"])}
+          </span>
+          <span className="absolute bottom-[12px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+            <PlusIcon size={16} />
+          </span>
+        </div>
+
+        <div className="flex max-w-[520px] flex-col gap-2">
+          <h2 className="text-[22px] font-bold tracking-[-.02em]">Nenhum lançamento ainda</h2>
+          <p className="text-[14px] leading-relaxed text-[#4C6355]">
+            Lançamento é cada entrada e saída do caixa. Registre manualmente ou traga o extrato do
+            banco — o GranaFy classifica por categoria e conta.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <button type="button" onClick={onNovo} className="flex h-12 items-center gap-2 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
+            <PlusIcon size={16} />
+            Novo lançamento
+          </button>
+          <button type="button" onClick={onImportar} className="flex h-12 items-center gap-2 whitespace-nowrap rounded-[12px] border border-[#E3EBE6] bg-white px-[22px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]">
+            <UploadIcon size={16} />
+            Importar extrato OFX ou CSV
+          </button>
+        </div>
+
+        <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
+          {passos.map((passo, indice) => (
+            <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
+              <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">{traco(passo.icone)}</span>
+              <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+              <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+              <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+        <button type="button" onClick={() => setExplicando(atual => !atual)} aria-expanded={explicando} className="text-[13px] font-semibold text-[#0A7A42] hover:underline">
+          Como registrar lançamentos no GranaFy {explicando ? "↑" : "→"}
+        </button>
+        {explicando && (
+          <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+            <p>
+              Um lançamento tem <strong>natureza</strong> (entrada, saída ou transferência entre contas),
+              <strong> data</strong>, <strong>valor</strong>, <strong>conta</strong> e <strong>categoria</strong>. A
+              categoria é o que leva o lançamento para a linha certa do DRE; a conta é o que move o saldo.
+            </p>
+            <p>
+              Ele nasce <strong>pendente</strong> quando ainda vai acontecer — é assim que vira um título em A pagar
+              e receber — ou <strong>pago</strong> quando o dinheiro já entrou ou saiu. Um lançamento pode se
+              repetir: aluguel, assinatura, parcela.
+            </p>
+            <p>
+              Importar o extrato cria os lançamentos em lote a partir do OFX ou CSV do banco, já pagos e
+              já na conta certa; você revisa a categoria antes de gravar, e o que já existia é marcado
+              como duplicado.
+            </p>
+          </div>
+        )}
+      </section>
+      <p className="text-[12px] text-[#8A968D]">
+        Transferências entre contas aparecem nesta lista, mas não contam como receita nem despesa no DRE.
+      </p>
+    </>
+  );
+}
+
 export default function LancamentosPage() {
   // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
   // assinatura a página não redesenha quando o olhinho é ligado.
@@ -543,6 +646,17 @@ export default function LancamentosPage() {
   const organizationQuery = trpc.organization.options.useQuery();
   const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
   const transactions = (transactionsQuery.data?.items ?? EMPTY_TRANSACTIONS) as Transaction[];
+  /*
+   * A conta inteira sem lançamento — não só o mês.
+   *
+   * O panorama da organização (que sabe quantos lançamentos cada conta tem)
+   * só é buscado quando o mês volta vazio: é a única situação em que ele
+   * decide alguma coisa aqui, e quem tem lançamentos não paga a consulta.
+   */
+  const mesVazio = transactionsQuery.isSuccess && transactions.length === 0;
+  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: mesVazio });
+  const contaVazia = mesVazio && overviewQuery.isSuccess
+    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0;
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {
@@ -820,13 +934,13 @@ export default function LancamentosPage() {
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={DocumentIcon} />
-            <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">Dados reais salvos na sua conta</p></div>
+            <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">{contaVazia ? "nenhum lançamento salvo na sua conta" : "Dados reais salvos na sua conta"}</p></div>
             <div className="order-3 mx-auto flex w-full items-center justify-center gap-2 lg:order-none lg:w-auto">
               <button type="button" aria-label="Mês anterior" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}><ChevronRightIcon size={15} className="rotate-180" /></button>
               <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}><ChevronRightIcon size={15} /></button>
             </div>
-            <label className="relative order-4 min-w-[200px] flex-1 lg:order-none lg:max-w-[280px]">
+            <label className={`relative order-4 min-w-[200px] flex-1 lg:order-none lg:max-w-[280px] ${contaVazia ? "pointer-events-none opacity-50" : ""}`}>
               <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
               <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar lançamento…" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
             </label>
@@ -838,7 +952,7 @@ export default function LancamentosPage() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Hint label="Exportar CSV"><button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+                <Hint label="Exportar CSV"><button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} disabled={contaVazia} className={toolButton}><DownloadIcon size={17} /></button></Hint>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
             </Tooltip>
@@ -847,6 +961,11 @@ export default function LancamentosPage() {
             <ProfileMenu />
           </header>
 
+          {contaVazia && (
+            <LancamentosVazio onNovo={() => { setEditing(null); setModalOpen(true); }} onImportar={() => setImportOpen(true)} />
+          )}
+
+          {!contaVazia && (<>
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Valor e contagem saem os dois do recorte: era aqui que a tela
                 misturava o total do mês com a contagem do filtro. Com filtro de
@@ -1059,6 +1178,7 @@ export default function LancamentosPage() {
             )}
             <footer className="grid grid-cols-2 overflow-hidden rounded-[15px] bg-white shadow-[0_12px_35px_rgba(11,31,20,.12)] ring-1 ring-[#E1E8E3] sm:grid-cols-4"><div className="px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo anterior</span><strong className="mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.previousBalance)}</strong></div><div className="border-l border-[#EDF1EE] px-3 py-3 text-center sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Entrada</span><strong className="mt-0.5 block text-[11.5px] text-[#0A9650] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(summary.incoming)}</strong></div><div className="border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-l sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saída</span><strong className="mt-0.5 block text-[11.5px] text-[#C13B32] sm:ml-2 sm:inline sm:text-[12.5px]">{formatMoney(-summary.outgoing)}</strong></div><div className="border-l border-t border-[#EDF1EE] px-3 py-3 text-center sm:border-t-0 sm:px-4"><span className="block text-[9.5px] text-[#8A968D] sm:inline sm:text-[10.5px]">Saldo final</span><strong className={`mt-0.5 block text-[11.5px] sm:ml-2 sm:inline sm:text-[12.5px] ${summary.previousBalance + summary.balance >= 0 ? "text-[#0A9650]" : "text-[#C13B32]"}`}>{formatMoney(summary.previousBalance + summary.balance)}</strong></div></footer>
           </div>
+          </>)}
         </section>
       </div>
 
