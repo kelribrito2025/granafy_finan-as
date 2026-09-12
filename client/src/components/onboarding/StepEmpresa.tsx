@@ -1,7 +1,7 @@
-import { LockIcon, ReportIcon } from "@/components/IconlyIcons";
+import { ChevronRightIcon, LockIcon, ReportIcon } from "@/components/IconlyIcons";
 import { OnboardingLateral } from "@/components/onboarding/OnboardingStepper";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 /*
@@ -81,6 +81,22 @@ export function StepEmpresa({ onDone, renderFooter }: {
 
   const pending = salvarEmpresa.isPending || salvarPreferencias.isPending;
 
+  /*
+   * Os regimes num carrossel: três à vista, os outros dois à direita.
+   *
+   * Cinco cartões numa grade quebravam em 3 + 2 e deixavam um buraco. Em
+   * fila, com encaixe por rolagem, cada cartão ocupa um terço da largura e a
+   * fila anda um cartão por clique nas setas — ou pelo arraste, no celular.
+   */
+  const trilho = useRef<HTMLDivElement>(null);
+  const rolar = (sentido: 1 | -1) => {
+    const fila = trilho.current;
+    if (!fila) return;
+    const cartao = fila.firstElementChild as HTMLElement | null;
+    const passo = cartao ? cartao.offsetWidth + 12 : fila.clientWidth / 3;
+    fila.scrollBy({ left: sentido * passo, behavior: "smooth" });
+  };
+
   return (
     <>
       {/*
@@ -115,12 +131,24 @@ export function StepEmpresa({ onDone, renderFooter }: {
         </label>
       </div>
 
-      <fieldset className="block">
-        <legend className={rotulo}>
-          Regime tributário
-          <span className="ml-1.5 font-normal text-[#8A968D]">· opcional, usado só na apresentação dos relatórios</span>
-        </legend>
-        <div className="mt-1 grid gap-3 sm:grid-cols-3">
+      {/* `div role=group` e não `fieldset`: o rótulo divide a linha com as setas
+          do carrossel, e `legend` só funciona como primeiro filho do fieldset. */}
+      <div role="group" aria-label="Regime tributário" className="block">
+        <div className="flex items-center gap-3">
+          <span className={rotulo}>
+            Regime tributário
+            <span className="ml-1.5 font-normal text-[#8A968D]">· opcional, usado só na apresentação dos relatórios</span>
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button type="button" aria-label="Regimes anteriores" onClick={() => rolar(-1)} className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#F1F4F2] text-[#4C6355] transition hover:bg-[#E3EBE6]">
+              <ChevronRightIcon size={14} className="rotate-180" />
+            </button>
+            <button type="button" aria-label="Próximos regimes" onClick={() => rolar(1)} className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#F1F4F2] text-[#4C6355] transition hover:bg-[#E3EBE6]">
+              <ChevronRightIcon size={14} />
+            </button>
+          </div>
+        </div>
+        <div ref={trilho} className="mt-1 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {REGIMES.map(regime => {
             const escolhido = taxRegime === regime.valor;
             return (
@@ -129,7 +157,7 @@ export function StepEmpresa({ onDone, renderFooter }: {
                 type="button"
                 onClick={() => setTaxRegime(regime.valor)}
                 aria-pressed={escolhido}
-                className={`flex flex-col items-start gap-1.5 rounded-[14px] border-[1.5px] p-4 text-left transition ${
+                className={`flex w-[calc((100%-24px)/3)] flex-none snap-start flex-col items-start gap-1.5 rounded-[14px] border-[1.5px] p-4 text-left transition sm:w-[calc((100%-24px)/3)] max-sm:w-[78%] ${
                   escolhido
                     ? "border-[#12B85C] bg-[#F1FBF6]"
                     : "border-[#E3EBE6] hover:border-[#B9C7BE] hover:bg-[#F8FAF9]"
@@ -144,7 +172,7 @@ export function StepEmpresa({ onDone, renderFooter }: {
             );
           })}
         </div>
-      </fieldset>
+      </div>
 
       {/* A nota do modelo, e ela é literal: o regime não entra em conta nenhuma.
           Vai para a coluna de apoio à direita, como nos outros passos. */}
