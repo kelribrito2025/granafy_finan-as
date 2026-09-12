@@ -45,6 +45,7 @@ import { todayIso } from "@/lib/period";
 import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/transactionRow";
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
@@ -653,10 +654,11 @@ export default function LancamentosPage() {
    * só é buscado quando o mês volta vazio: é a única situação em que ele
    * decide alguma coisa aqui, e quem tem lançamentos não paga a consulta.
    */
+  const semContas = useSemContas();
   const mesVazio = transactionsQuery.isSuccess && transactions.length === 0;
-  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: mesVazio });
-  const contaVazia = mesVazio && overviewQuery.isSuccess
-    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0;
+  const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: mesVazio && !semContas });
+  const contaVazia = semContas || (mesVazio && overviewQuery.isSuccess
+    && overviewQuery.data.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) === 0);
   const summary = transactionsQuery.data?.summary ?? { incoming: 0, outgoing: 0, balance: 0, previousBalance: 0 };
 
   const refresh = async () => {

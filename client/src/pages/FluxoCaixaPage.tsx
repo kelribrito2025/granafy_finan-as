@@ -16,6 +16,7 @@ import {
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useState, type ReactNode } from "react";
@@ -418,9 +419,7 @@ export default function FluxoCaixaPage() {
   const daily = dailyQuery.data;
   const monthly = monthlyQuery.data;
   const [, setLocation] = useLocation();
-  /* Mesma consulta da barra lateral; o react-query aproveita o cache. */
-  const accountsQuery = trpc.organization.accountBalances.useQuery();
-  const semContas = accountsQuery.isSuccess && accountsQuery.data.length === 0;
+  const semContas = useSemContas();
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;

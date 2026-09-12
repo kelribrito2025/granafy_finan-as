@@ -16,6 +16,7 @@ import {
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { marginOf, variationHelpsProfit, type DreLineKind } from "@shared/dre";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
@@ -535,7 +536,8 @@ export default function DrePage() {
   const error = view === "mes" ? statementQuery.error : seriesQuery.error;
   const [, setLocation] = useLocation();
   /* O mês sem nenhum lançamento na demonstração — no regime escolhido. */
-  const mesVazio = view === "mes" && Boolean(statement) && statement!.transactionCount === 0;
+  const semContas = useSemContas();
+  const mesVazio = semContas || (view === "mes" && Boolean(statement) && statement!.transactionCount === 0);
 
   const margin = statement ? marginOf(statement.totals.lucroLiquido, statement.totals.receitaLiquida) : null;
   const previousMargin = statement ? marginOf(statement.previousTotals.lucroLiquido, statement.previousTotals.receitaLiquida) : null;
@@ -615,7 +617,7 @@ export default function DrePage() {
             </div>
           )}
 
-          {loading && !error && (
+          {!mesVazio && loading && !error && (
             <>
               <KpiRowSkeleton />
               <ChartSkeleton minHeight={300} />
@@ -711,7 +713,7 @@ export default function DrePage() {
             </>
           )}
 
-          {view !== "mes" && series && (
+          {!mesVazio && view !== "mes" && series && (
             <>
               <section className="flex flex-col gap-0.5 rounded-[20px] bg-white px-5 pb-6 pt-5 ring-1 ring-[#E1E8E3] sm:px-6">
                 <div className="flex flex-wrap items-center gap-3 pb-3.5">

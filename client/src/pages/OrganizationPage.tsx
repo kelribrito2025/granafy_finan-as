@@ -30,6 +30,7 @@ import { formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -603,6 +604,7 @@ export default function OrganizationPage() {
   const [editingCostCenter, setEditingCostCenter] = useState<CostCenter | null>(null);
   const utils = trpc.useUtils();
   const overviewQuery = trpc.organization.overview.useQuery();
+  const semContasRapido = useSemContas();
   const data = overviewQuery.data;
   const refresh = async () => { await Promise.all([utils.organization.overview.invalidate(), utils.organization.options.invalidate(), utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate()]); };
   const createAccount = trpc.organization.createAccount.useMutation({ onSuccess: refresh });
@@ -687,7 +689,7 @@ export default function OrganizationPage() {
       .map(item => ({ ...item, share: (Math.abs(item.total) / biggest) * 100 }));
   }, [data?.costCenters]);
 
-  const headerSubtitle = section === "accounts" && accounts.length === 0 && !overviewQuery.isLoading
+  const headerSubtitle = section === "accounts" && (semContasRapido || (accounts.length === 0 && !overviewQuery.isLoading))
     ? "nenhuma conta cadastrada"
     : section === "accounts"
     ? `${activeAccounts} ${activeAccounts === 1 ? "conta ativa" : "contas ativas"}${archivedAccounts > 0 ? ` · ${archivedAccounts} arquivada${archivedAccounts === 1 ? "" : "s"}` : ""}`
@@ -757,7 +759,7 @@ export default function OrganizationPage() {
   const loading = overviewQuery.isLoading;
   const failed = overviewQuery.isError;
   /* Nenhuma conta, nem arquivada: a tela de contas vira o convite. */
-  const semContas = !loading && !failed && accounts.length === 0;
+  const semContas = semContasRapido || (!loading && !failed && accounts.length === 0);
 
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
@@ -815,7 +817,7 @@ export default function OrganizationPage() {
             ))}
           </section>
 
-          {loading && (
+          {!semContas && loading && (
             <>
               <KpiRowSkeleton cards={3} />
               <section className="flex min-h-[320px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">

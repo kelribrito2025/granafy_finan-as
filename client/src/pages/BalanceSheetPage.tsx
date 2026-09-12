@@ -47,6 +47,7 @@ import {
   type Period,
 } from "@/lib/period";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import {
   buildMovementRow,
   monthKeyOf,
@@ -1038,7 +1039,8 @@ export default function BalanceSheetPage() {
    * Vazio de verdade: nenhum item, nenhuma conta financeira e nenhum
    * automático (caixa, contas a pagar) — a posição não existe ainda.
    */
-  const balancoVazio = Boolean(data) && items.length === 0 && (data?.accountCount ?? 0) === 0
+  const semContas = useSemContas();
+  const balancoVazio = semContas || Boolean(data) && items.length === 0 && (data?.accountCount ?? 0) === 0
     && totals.totalAssets === 0 && totals.totalLiabilities === 0;
   const rowsOf = (group: BalanceGroup): StatementRow[] =>
     activeItems
@@ -1268,7 +1270,7 @@ export default function BalanceSheetPage() {
             <ProfileMenu />
           </header>
 
-          {overviewQuery.isLoading && (
+          {!balancoVazio && overviewQuery.isLoading && (
             <>
               <KpiRowSkeleton cards={4} />
               <ChartSkeleton minHeight={340} className="flex-1" />

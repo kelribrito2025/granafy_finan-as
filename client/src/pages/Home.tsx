@@ -21,6 +21,7 @@ import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
@@ -85,6 +86,7 @@ export default function Home() {
   // Mesma consulta da sidebar; o react-query aproveita o cache.
   const accountsQuery = trpc.organization.accountBalances.useQuery();
   const accountCount = accountsQuery.data?.length ?? 0;
+  const semContasRapido = useSemContas();
   /*
    * O primeiro acesso: nenhuma conta e nenhum lançamento.
    *
@@ -93,7 +95,7 @@ export default function Home() {
    * vazia — é a única situação em que ele decide alguma coisa aqui, e quem já
    * usa o sistema não paga essa consulta a cada abertura do painel.
    */
-  const semContas = accountsQuery.isSuccess && accountCount === 0;
+  const semContas = semContasRapido;
   const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: semContas });
   const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: semContas });
   const lancamentos = overviewQuery.data?.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) ?? 0;

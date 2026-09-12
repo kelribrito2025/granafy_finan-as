@@ -21,6 +21,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { summarizeBatch } from "@shared/reconciliation";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
@@ -1160,7 +1161,8 @@ export default function ConciliacaoPage() {
    * linha de mudança, e é impossível desenhar a tela cheia sem conta.
    */
   const [, setLocation] = useLocation();
-  const semContas = query.data?.semContas === true;
+  const semContasRapido = useSemContas();
+  const semContas = semContasRapido || query.data?.semContas === true;
   const data = query.data && query.data.semContas === false ? query.data : undefined;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
 
@@ -1356,7 +1358,7 @@ export default function ConciliacaoPage() {
             cartões não existia durante a espera e aparecia de uma vez, empurrando
             o extrato para baixo no instante em que o dado chegava.
           */}
-          {query.isPending && !query.error && (
+          {!semContas && query.isPending && !query.error && (
             <>
               <KpiRowSkeleton cards={4} />
               <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
@@ -1365,7 +1367,7 @@ export default function ConciliacaoPage() {
             </>
           )}
 
-          {data && (
+          {data && !semContas && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard label="Progresso do mês" value={`${data.progress}%`}>

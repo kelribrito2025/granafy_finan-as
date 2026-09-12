@@ -22,6 +22,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDate, formatMoney, today } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import type { TransactionInput, TransactionType } from "@/lib/transactionTypes";
 import { STATUS_LABELS, type Title, type TitleStatus } from "@shared/payables";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -496,7 +497,10 @@ export default function PagarReceberPage() {
   const period = { year: cursor.getFullYear(), month: cursor.getMonth() + 1 };
   const query = trpc.payables.overview.useQuery(period);
   /* Nenhum título aberto no mês — nem atrasado de mês anterior. */
-  const mesVazio = Boolean(query.data) && query.data!.open.length === 0;
+  const semContas = useSemContas();
+  const mesVazio = semContas || (Boolean(query.data) && query.data!.open.length === 0);
+  /* Sem dado ainda, a projeção vazia aponta para o último dia do mês na tela. */
+  const fimDoMes = `${period.year}-${String(period.month).padStart(2, "0")}-${String(new Date(period.year, period.month, 0).getDate()).padStart(2, "0")}`;
   const organizationQuery = trpc.organization.options.useQuery();
   const utils = trpc.useUtils();
   const settle = trpc.transactions.toggleStatus.useMutation({
@@ -719,7 +723,7 @@ export default function PagarReceberPage() {
               Não foi possível carregar os títulos: {query.error.message}
             </div>
           )}
-          {query.isPending && !query.error && (
+          {!mesVazio && query.isPending && !query.error && (
             <>
               <KpiRowSkeleton />
               <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
@@ -728,9 +732,9 @@ export default function PagarReceberPage() {
             </>
           )}
 
-          {data && mesVazio && (
+          {mesVazio && (
             <>
-              <KpisDoMesVazio projectedCashDate={data.projectedCashDate} />
+              <KpisDoMesVazio projectedCashDate={data?.projectedCashDate ?? fimDoMes} />
               <MesVazio onNovaCobranca={() => setNovoLancamento("entrada")} onNovaDespesa={() => setNovoLancamento("saida")} />
               <p className="text-[12px] text-[#4C6355]">
                 Título é lançamento pendente e o vencimento é a data dele. Atrasados de meses anteriores

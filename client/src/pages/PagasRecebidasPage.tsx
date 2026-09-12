@@ -23,6 +23,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 
 import { trpc } from "@/lib/trpc";
+import { useSemContas } from "@/hooks/useSemContas";
 import { formatDate, formatMoney } from "@/lib/appFormat";
 import { roundCurrency } from "@shared/currency";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -444,7 +445,8 @@ export default function PagasRecebidasPage() {
   const data = query.data;
   const items = data?.items ?? EMPTY;
   /* O mês inteiro sem título liquidado — antes de qualquer filtro. */
-  const mesVazio = Boolean(data) && items.length === 0;
+  const semContas = useSemContas();
+  const mesVazio = semContas || (Boolean(data) && items.length === 0);
   const [, setLocation] = useLocation();
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
 
@@ -610,7 +612,7 @@ export default function PagasRecebidasPage() {
               Não foi possível carregar os títulos liquidados: {query.error.message}
             </div>
           )}
-          {query.isPending && !query.error && (
+          {!mesVazio && query.isPending && !query.error && (
             <>
               <KpiRowSkeleton cards={6} />
               <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
@@ -619,7 +621,7 @@ export default function PagasRecebidasPage() {
             </>
           )}
 
-          {data && mesVazio && (
+          {mesVazio && (
             <>
               <KpisDoMesVazio arrangement={arrangement} />
               <MesVazio
