@@ -57,9 +57,10 @@ async function semearEmpresa(c: Connection, dono: number, nome: string) {
     [dono, companyId, `Vendas de ${nome}`, "entrada"],
   );
   for (const [descricao, valor] of [["Venda", "50.00"], ["Aluguel", "-30.00"]] as const) {
+    /* `category` e `account` são NOT NULL sem default: o INSERT tem que trazer as duas. */
     await c.query(
-      "INSERT INTO transactions (userId, companyId, description, amount, transactionDate, type, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [dono, companyId, descricao, valor, "2026-09-01", valor.startsWith("-") ? "saida" : "entrada", "Pago"],
+      "INSERT INTO transactions (userId, companyId, description, amount, transactionDate, type, status, category, account) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [dono, companyId, descricao, valor, "2026-09-01", valor.startsWith("-") ? "saida" : "entrada", "Pago", `Vendas de ${nome}`, `Conta de ${nome}`],
     );
   }
   return companyId;
