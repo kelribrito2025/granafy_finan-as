@@ -4,7 +4,9 @@ import {
   MessageIcon,
   ShowIcon,
 } from "@/components/IconlyIcons";
+import { PasswordStrengthBar } from "@/components/PasswordStrengthBar";
 import { trpc } from "@/lib/trpc";
+import { isPasswordValid, PASSWORD_REQUIREMENT_MESSAGE } from "@shared/password";
 import {
   ClipboardEvent,
   FormEvent,
@@ -146,6 +148,14 @@ export function PasswordResetPanel({
   const savePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!resetToken) return;
+    /*
+     * As mesmas regras do cadastro, conferidas antes de ir ao servidor: sem
+     * isso a resposta era o erro cru de validação, em JSON, na tela.
+     */
+    if (!isPasswordValid(password)) {
+      setFormError(PASSWORD_REQUIREMENT_MESSAGE);
+      return;
+    }
     if (password !== confirmation) {
       setFormError("As senhas não coincidem");
       return;
@@ -308,7 +318,7 @@ export function PasswordResetPanel({
         Crie uma nova senha
       </h1>
       <p className="mt-3 text-[14px] leading-6 text-[#718077]">
-        Escolha uma senha segura com pelo menos 8 caracteres.
+        Pelo menos 8 caracteres, um número e um caractere especial.
       </p>
 
       <form className="mt-8 space-y-4" onSubmit={savePassword}>
@@ -335,6 +345,7 @@ export function PasswordResetPanel({
               <ShowIcon size={20} />
             </button>
           </span>
+          <div className="mt-2.5"><PasswordStrengthBar value={password} /></div>
         </label>
 
         <label className="block">
