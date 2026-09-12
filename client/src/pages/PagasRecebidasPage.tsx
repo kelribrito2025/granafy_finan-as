@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
+  PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
   SwapIcon,
@@ -29,6 +30,7 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { buildSettledDayGroups, type SettledSortKey, type SettledSortState } from "@/lib/settledSort";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 import type { AppRouter } from "../../../server/routers";
 
 type Arrangement = "lista" | "colunas";
@@ -79,7 +81,7 @@ function KpiCard({ label, value, hint, note, valueClass, icon, highlight = false
         {icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] ${icon.className}`}>{icon.node}</span>}
         <span className={`text-[11px] font-semibold uppercase tracking-[.08em] ${highlight ? "text-[#8FB39E]" : "text-[#4C6355]"}`}>{label}</span>
       </div>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>{value}</strong>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? (highlight ? "text-white" : "")}`}>{value}</strong>
       <span className={`text-[12.5px] ${highlight ? "text-[#7EE2A8]" : "text-[#4C6355]"}`}>{hint}</span>
       {note && <span className={`text-[11.5px] ${highlight ? "text-[#8FB39E]" : "text-[#8A968D]"}`}>{note}</span>}
     </>
@@ -88,6 +90,70 @@ function KpiCard({ label, value, hint, note, valueClass, icon, highlight = false
     return <AuroraSurface className="rounded-[20px] p-6"><div className="flex flex-1 flex-col gap-2">{content}</div></AuroraSurface>;
   }
   return <article className="flex flex-col gap-2 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">{content}</article>;
+}
+
+/*
+ * O mês em que nada foi liquidado.
+ *
+ * Os cartões ficam no lugar, apagados: o desenho da tela não muda, só o
+ * conteúdo some. "—" e não "R$ 0,00" nos três claros, porque zero é um valor e
+ * aqui não há valor nenhum; o escuro mostra o zero apagado, como no modelo.
+ */
+function KpisDoMesVazio({ arrangement }: { arrangement: "lista" | "colunas" }) {
+  const apagado = "text-[#B9C7BE]";
+  return (
+    <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard
+        highlight
+        label={arrangement === "colunas" ? "Movimentado no mês" : "Resultado realizado"}
+        value="R$ 0,00"
+        valueClass="text-[#8FB39E]"
+        hint={arrangement === "colunas" ? "Soma de tudo que entrou e saiu de fato do caixa." : "Recebido menos pago."}
+      />
+      <KpiCard label="Recebido" value="—" valueClass={apagado} icon={{ node: <ArrowUpIcon size={15} />, className: "bg-[#DFF6EA] text-[#0A7A42]" }} hint="Títulos liquidados a favor" />
+      <KpiCard label="Pago" value="—" valueClass={apagado} icon={{ node: <ArrowDownIcon size={15} />, className: "bg-[#FDECEA] text-[#B3261E]" }} hint="Títulos liquidados contra" />
+      {arrangement === "colunas"
+        ? <KpiCard label="Resultado realizado" value="—" valueClass={apagado} hint="Recebido menos pago" />
+        : <KpiCard label="Prazo médio" value="—" valueClass={apagado} icon={{ node: <ClockIcon size={15} />, className: "bg-[#F1F4F2] text-[#4C6355]" }} hint="sem título liquidado no período" />}
+    </section>
+  );
+}
+
+function MesVazio({ onIrParaAPagar, onNovoLancamento }: { onIrParaAPagar: () => void; onNovoLancamento: () => void }) {
+  return (
+    <section className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+      <div className="flex min-h-[260px] flex-col items-center justify-center gap-3.5 rounded-[16px] bg-[#F8FAF9] px-8 py-10 text-center">
+        <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[16px] border border-[#E3EBE6] bg-white text-[#4C6355]">
+          <ArrowsUpDownIcon size={22} />
+        </span>
+        <div className="flex flex-col gap-1.5">
+          <strong className="text-[16px] font-bold">Nada liquidado ainda</strong>
+          <p className="max-w-[420px] text-[13px] leading-[1.55] text-[#4C6355]">
+            Esta tela mostra apenas títulos já pagos ou recebidos, na data em que o dinheiro entrou ou
+            saiu. Comece registrando o que está em aberto — quando você marcar como pago, ele aparece aqui.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2.5 pt-1">
+          <button
+            type="button"
+            onClick={onIrParaAPagar}
+            className="flex h-11 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[18px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]"
+          >
+            <ChevronRightIcon size={15} />
+            Ir para A pagar e receber
+          </button>
+          <button
+            type="button"
+            onClick={onNovoLancamento}
+            className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[18px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+          >
+            <PlusIcon size={15} />
+            Novo lançamento
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /** A seta do tipo, no círculo colorido do modelo. */
@@ -320,6 +386,9 @@ export default function PagasRecebidasPage() {
   const query = trpc.settled.overview.useQuery(period);
   const data = query.data;
   const items = data?.items ?? EMPTY;
+  /* O mês inteiro sem título liquidado — antes de qualquer filtro. */
+  const mesVazio = Boolean(data) && items.length === 0;
+  const [, setLocation] = useLocation();
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
 
   const accounts = useMemo(
@@ -444,9 +513,11 @@ export default function PagasRecebidasPage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Pagas e recebidas</h1>
               <p className="mt-0.5 text-[12.5px] text-[#4C6355]">
-                {data
-                  ? `${contagem(items.length)} ${items.length === 1 ? "título liquidado" : "títulos liquidados"} em ${monthLabel.toLowerCase()}`
-                  : monthLabel}
+                {!data
+                  ? monthLabel
+                  : mesVazio
+                    ? `nenhum título liquidado em ${monthLabel.toLowerCase()}`
+                    : `${contagem(items.length)} ${items.length === 1 ? "título liquidado" : "títulos liquidados"} em ${monthLabel.toLowerCase()}`}
               </p>
             </div>
 
@@ -460,7 +531,7 @@ export default function PagasRecebidasPage() {
               </button>
             </div>
 
-            <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+            <div className={`flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${mesVazio ? "pointer-events-none opacity-50" : ""}`}>
               {([["lista", "Lista única"], ["colunas", "Duas colunas"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -473,7 +544,7 @@ export default function PagasRecebidasPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos liquidados" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos liquidados" onClick={exportCsv} disabled={mesVazio} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <ProfileMenu />
           </header>
 
@@ -491,7 +562,20 @@ export default function PagasRecebidasPage() {
             </>
           )}
 
-          {data && (
+          {data && mesVazio && (
+            <>
+              <KpisDoMesVazio arrangement={arrangement} />
+              <MesVazio
+                onIrParaAPagar={() => setLocation("/a-pagar-e-receber")}
+                onNovoLancamento={() => setLocation("/a-pagar-e-receber?novo=lancamento")}
+              />
+              <p className="text-[13px] leading-relaxed text-[#4C6355]">
+                Aqui só entram títulos já liquidados. O que ainda está aberto fica em <strong className="font-semibold text-[#28382E]">A pagar e receber</strong>.
+              </p>
+            </>
+          )}
+
+          {data && !mesVazio && (
             <>
               {/* O cartão escuro troca de assunto entre os dois modos, como nos
                   modelos: nas colunas ele mostra o movimentado, na lista o

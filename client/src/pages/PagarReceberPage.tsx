@@ -26,7 +26,7 @@ import type { TransactionInput, TransactionType } from "@/lib/transactionTypes";
 import { STATUS_LABELS, type Title, type TitleStatus } from "@shared/payables";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -432,7 +432,22 @@ export default function PagarReceberPage() {
    * onde ainda precisava clicar de novo. O modal é o mesmo da Visão geral, e
    * abre já na natureza que o botão promete.
    */
-  const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(null);
+  /*
+   * `?novo=lancamento` abre o modal já na chegada — o mesmo padrão do
+   * `?nova=conta` de Contas e categorias. Quem vem do estado vazio de Pagas e
+   * recebidas clicou em "Novo lançamento"; cair aqui e ter de achar o botão de
+   * novo é um clique virando dois. Abre em entrada, como o botão do cabeçalho.
+   * A URL é limpa com `replace` para recarregar não reabrir o modal.
+   */
+  const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("novo") === "lancamento"
+      ? "entrada"
+      : null,
+  );
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("novo")) return;
+    window.history.replaceState(null, "", "/a-pagar-e-receber");
+  }, []);
   const createMutation = trpc.transactions.create.useMutation();
   const updateMutation = trpc.transactions.update.useMutation();
   const deleteMutation = trpc.transactions.delete.useMutation();
