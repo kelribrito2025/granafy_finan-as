@@ -1,8 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { FormularioDeEmpresa } from "@/components/FormularioDeEmpresa";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { GranafyLogo } from "@/components/GranafyLogo";
-import { PlusIcon } from "@/components/IconlyIcons";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { companyInitials } from "@shared/companies";
@@ -16,6 +14,12 @@ import { useLocation } from "wouter";
  * ser lembrado neste navegador — quem tem uma só entra direto, porque
  * perguntar entre uma opção não é escolher, é um clique a mais. Quem decide é
  * o servidor, em `companies.portao`; esta tela só desenha a escolha.
+ *
+ * A tela faz uma coisa só: escolher e entrar. Sem "lembrar minha escolha" —
+ * com duas empresas no mesmo login, entrar na errada sem perceber é o erro
+ * caro daqui, e um clique por sessão é barato perto de lançar na empresa
+ * errada. E sem "adicionar empresa": criar empresa é do menu do perfil, onde
+ * a pessoa já está dentro de uma e sabe o que está fazendo.
  *
  * Duas coisas do desenho não foram feitas, e as duas pela mesma razão: não
  * têm fonte. Papel por empresa ("Administradora", "Somente leitura") não
@@ -35,8 +39,6 @@ export default function EscolherEmpresaPage() {
   const [, setLocation] = useLocation();
   const lista = trpc.companies.list.useQuery();
   const [escolhida, setEscolhida] = useState<number | null>(null);
-  const [lembrar, setLembrar] = useState(false);
-  const [criando, setCriando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const empresas = (lista.data ?? []).filter(empresa => empresa.isActive);
@@ -56,7 +58,6 @@ export default function EscolherEmpresaPage() {
   const aoFalhar = (e: { message: string }) => setErro(e.message);
 
   const abrir = trpc.companies.open.useMutation({ onSuccess: recomecar, onError: aoFalhar });
-  const criar = trpc.companies.create.useMutation({ onSuccess: recomecar, onError: aoFalhar });
 
   /*
    * Uma empresa ativa só: não há escolha a fazer, e mostrar a tela seria
@@ -68,7 +69,6 @@ export default function EscolherEmpresaPage() {
   }, [empresas.length, lista.isSuccess, setLocation]);
 
   const alvo = empresas.find(empresa => empresa.id === escolhida) ?? null;
-  const ocupado = abrir.isPending || criar.isPending;
 
   return (
     <main className="relative min-h-screen bg-white text-[#0B1F14] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(460px,.92fr)]">
@@ -81,9 +81,12 @@ export default function EscolherEmpresaPage() {
           <GranafyLogo size={38} nameSize={20} subtitle="Powered by Bigteck" />
         </div>
 
-        <div className="my-auto w-full max-w-[520px] py-8">
-          <h1 className="text-[30px] font-bold leading-[1.1] tracking-[-0.04em] sm:text-[34px]">Em qual empresa entrar?</h1>
-          <p className="mt-2 text-[14px] text-[#4C6355]">
+        {/* A mesma caixa do login: centrada na coluna, 460px, e o conteúdo
+            no meio da altura. Sem o `mx-auto` o bloco encostava à esquerda de
+            uma coluna larga e a tela parecia torta. */}
+        <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-12 sm:py-16 lg:py-20">
+          <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.045em] sm:text-[38px]">Em qual empresa entrar?</h1>
+          <p className="mt-3 text-[15px] leading-6 text-[#718077]">
             {lista.isPending
               ? "Carregando suas empresas…"
               : `Você tem acesso a ${empresas.length} empresas com este login.`}
@@ -99,7 +102,7 @@ export default function EscolherEmpresaPage() {
             <p className="mt-6 rounded-xl bg-[#FBEBE9] px-3.5 py-2.5 text-[12.5px] text-[#A5231A]">{lista.error.message}</p>
           )}
 
-          {!criando && empresas.length > 0 && (
+          {empresas.length > 0 && (
             <>
               <span className="mt-7 block text-[11px] font-semibold uppercase tracking-[.1em] text-[#8A968D]">Suas empresas</span>
               <div className="mt-2.5 flex flex-col gap-2">
@@ -119,53 +122,19 @@ export default function EscolherEmpresaPage() {
 
               <button
                 type="button"
-                disabled={!alvo || ocupado}
-                onClick={() => alvo && abrir.mutate({ companyId: alvo.id, lembrar })}
-                className="mt-5 h-13 w-full rounded-[12px] bg-[#12B85C] py-4 text-[14.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:pointer-events-none disabled:opacity-50"
+                disabled={!alvo || abrir.isPending}
+                onClick={() => alvo && abrir.mutate({ companyId: alvo.id })}
+                className="mt-5 w-full rounded-[12px] bg-[#12B85C] py-4 text-[14.5px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:pointer-events-none disabled:opacity-50"
               >
                 {abrir.isPending ? "Entrando…" : alvo ? `Entrar na ${alvo.displayName}` : "Entrar"}
               </button>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setErro(null); setCriando(true); }}
-                  className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0A7A42] transition hover:text-[#0B1F14]"
-                >
-                  <PlusIcon size={15} />
-                  Adicionar empresa
-                </button>
-                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[#4C6355]">
-                  <input
-                    type="checkbox"
-                    checked={lembrar}
-                    onChange={e => setLembrar(e.target.checked)}
-                    className="h-4 w-4 accent-[#12B85C]"
-                  />
-                  Lembrar minha escolha neste dispositivo
-                </label>
-              </div>
-            </>
-          )}
-
-          {criando && (
-            <>
-              <span className="mt-7 block text-[11px] font-semibold uppercase tracking-[.1em] text-[#8A968D]">Nova empresa</span>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-[#4C6355]">
-                Ela já nasce aberta, com o catálogo de categorias, e você cai direto nas boas-vindas dela.
-              </p>
-              <FormularioDeEmpresa
-                inicial={null}
-                salvando={criar.isPending}
-                erro={erro}
-                onCancelar={() => { setErro(null); setCriando(false); }}
-                onSalvar={valores => criar.mutate(valores)}
-              />
             </>
           )}
         </div>
 
-        <footer className="mt-auto pt-6 text-[11.5px] text-[#8A968D]">© {new Date().getFullYear()} GranaFy</footer>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-[#9AA69E] lg:justify-start">
+          <span>© {new Date().getFullYear()} GranaFy</span>
+        </div>
       </section>
     </main>
   );

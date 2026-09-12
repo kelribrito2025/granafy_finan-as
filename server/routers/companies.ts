@@ -1,5 +1,5 @@
 import { companyDisplayName } from "@shared/companies";
-import { COMPANY_COOKIE_NAME, COMPANY_REMEMBER_COOKIE_NAME } from "@shared/const";
+import { COMPANY_COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -49,30 +49,6 @@ const VALIDADE_DA_ESCOLHA = 30 * 24 * 60 * 60 * 1000;
 function escolhaNoCookie(ctx: TrpcContext) {
   const cru = valorDoCookie(ctx.req, COMPANY_COOKIE_NAME);
   return cru !== null && /^\d+$/.test(cru) ? Number(cru) : null;
-}
-
-/** A pessoa já disse que não quer mais ser perguntada neste navegador. */
-function lembrancaLigada(ctx: TrpcContext) {
-  return valorDoCookie(ctx.req, COMPANY_REMEMBER_COOKIE_NAME) === "1";
-}
-
-/**
- * Liga ou desliga o "lembrar minha escolha".
- *
- * `undefined` não mexe: quem troca de empresa pelo menu do perfil não está
- * respondendo a essa pergunta, e mudar a preferência dela de lambuja seria
- * decidir no lugar da pessoa.
- */
-function gravarLembranca(ctx: TrpcContext, lembrar: boolean | undefined) {
-  if (lembrar === undefined) return;
-  if (lembrar) {
-    ctx.res.cookie(COMPANY_REMEMBER_COOKIE_NAME, "1", {
-      ...getSessionCookieOptions(ctx.req),
-      maxAge: VALIDADE_DA_ESCOLHA,
-    });
-  } else {
-    ctx.res.clearCookie(COMPANY_REMEMBER_COOKIE_NAME, getSessionCookieOptions(ctx.req));
-  }
 }
 
 function gravarEscolha(ctx: TrpcContext, companyId: number) {
@@ -189,35 +165,26 @@ export const companiesRouter = router({
   /**
    * O portão do login: esta pessoa precisa escolher antes de entrar?
    *
-   * Só com mais de uma empresa ATIVA, e só enquanto ela não tiver pedido para
-   * ser lembrada neste navegador. Quem tem uma empresa só nunca vê a tela —
-   * perguntar entre uma opção não é escolha, é um clique a mais.
+   * Só com mais de uma empresa ATIVA. Quem tem uma empresa só nunca vê a tela
+   * — perguntar entre uma opção não é escolha, é um clique a mais.
+   *
+   * Não há "não me pergunte de novo": com duas empresas abertas no mesmo
+   * login, entrar na errada sem perceber é o erro caro desta tela, e um
+   * clique por sessão é barato perto de lançar na empresa errada.
    *
    * Responde da lista que o contexto já montou para o request: nenhuma
    * consulta nova no caminho mais quente do produto, que é entrar.
    */
   portao: protectedProcedure.query(({ ctx }) => {
-    const ativas = ctx.companies.filter(empresa => empresa.isActive);
-    return {
-      ativas: ativas.length,
-      precisaEscolher: ativas.length > 1 && !lembrancaLigada(ctx),
-    };
+    const ativas = ctx.companies.filter(empresa => empresa.isActive).length;
+    return { ativas, precisaEscolher: ativas > 1 };
   }),
 
-  /**
-   * Troca a empresa aberta. O cliente limpa o cache e recarrega em seguida.
-   *
-   * `lembrar` só chega da tela de escolha do login, que é onde a pergunta é
-   * feita. Pelo menu do perfil ele vem indefinido e a preferência fica como
-   * estava.
-   */
-  open: protectedProcedure
-    .input(alvoSchema.extend({ lembrar: z.boolean().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      gravarEscolha(ctx, input.companyId);
-      gravarLembranca(ctx, input.lembrar);
-      return { success: true } as const;
-    }),
+  /** Troca a empresa aberta. O cliente limpa o cache e recarrega em seguida. */
+  open: protectedProcedure.input(alvoSchema).mutation(async ({ ctx, input }) => {
+    gravarEscolha(ctx, input.companyId);
+    return { success: true } as const;
+  }),
 
   rename: protectedProcedure
     .input(alvoSchema.merge(valoresSchema))

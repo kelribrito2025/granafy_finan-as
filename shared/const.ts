@@ -20,20 +20,6 @@ export const SEM_EMPRESA_ERR_MSG =
 /** A empresa escolhida no seletor. Lida desde a Fase 3; escrita a partir da 6. */
 export const COMPANY_COOKIE_NAME = "app_company_id";
 
-/*
- * "Lembrar minha escolha neste dispositivo".
- *
- * Cookie à parte do da empresa, porque as duas perguntas são diferentes: um
- * diz QUAL empresa abrir, e vale sempre; este diz se o login pode PULAR a
- * pergunta. Sem ele, quem tem mais de uma empresa escolhe a cada entrada —
- * que é o certo para quem divide o dia entre duas — e quem trabalha sempre na
- * mesma marca uma vez e não vê mais a tela.
- *
- * Não guarda id nenhum: é só um "sim". O id continua morando no outro cookie,
- * conferido contra a lista do dono em todo request.
- */
-export const COMPANY_REMEMBER_COOKIE_NAME = "app_company_lembrar";
-
 // One-time nonce cookie that binds an OAuth login to the browser that started
 // it. The `__Host-` prefix forces the cookie host-only (Secure, Path=/, no
 // Domain), so a sibling *.manus.space site cannot plant a matching value in a

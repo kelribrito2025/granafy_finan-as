@@ -17,7 +17,7 @@ import {
 import { DEFAULT_CATEGORY_CATALOG_VERSION, DEFAULT_TRANSACTION_CATEGORIES } from "./defaultCategories";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { COMPANY_COOKIE_NAME, COMPANY_REMEMBER_COOKIE_NAME } from "@shared/const";
+import { COMPANY_COOKIE_NAME } from "@shared/const";
 import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
@@ -247,41 +247,21 @@ describe.runIf(temBancoDeTeste())("as empresas de um login", () => {
     expect(await appRouter.createCaller(uma.ctx).companies.portao()).toEqual({ ativas: 1, precisaEscolher: false });
   });
 
-  it("quem pediu para ser lembrado neste navegador não é perguntado de novo", async () => {
-    const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "", taxId: "" });
-    await createCompany(ANA, { legalName: "Segunda", tradeName: "", taxId: "" });
-
-    const lembrado = contexto(ANA, await listCompanies(ANA), primeira!.id, `${COMPANY_REMEMBER_COOKIE_NAME}=1`);
-    expect(await appRouter.createCaller(lembrado.ctx).companies.portao()).toEqual({ ativas: 2, precisaEscolher: false });
-
-    /* Qualquer outro valor não vale como "sim": só o "1" que o servidor grava. */
-    const duvidoso = contexto(ANA, await listCompanies(ANA), primeira!.id, `${COMPANY_REMEMBER_COOKIE_NAME}=talvez`);
-    expect(await appRouter.createCaller(duvidoso.ctx).companies.portao()).toEqual({ ativas: 2, precisaEscolher: true });
-  });
-
-  it("a lembrança só muda quando a tela de escolha responde a pergunta", async () => {
+  it("abrir uma empresa não grava mais nada além do cookie dela", async () => {
+    /*
+     * A tela de escolha não tem "não me pergunte de novo": com duas empresas
+     * no mesmo login, entrar na errada sem perceber é o erro caro, e um
+     * clique por sessão é barato perto de lançar na empresa errada. Este
+     * teste é o que impede a preferência de voltar sem alguém decidir por ela.
+     */
     const primeira = await createCompany(ANA, { legalName: "Primeira", tradeName: "", taxId: "" });
     const segunda = await createCompany(ANA, { legalName: "Segunda", tradeName: "", taxId: "" });
-    const empresas = await listCompanies(ANA);
 
-    /* Pelo menu do perfil: troca a empresa e não opina sobre a lembrança. */
-    const menu = contexto(ANA, empresas, primeira!.id);
-    await appRouter.createCaller(menu.ctx).companies.open({ companyId: segunda!.id });
-    expect(menu.gravados.map(([nome]) => nome)).toEqual([COMPANY_COOKIE_NAME]);
-    expect(menu.apagados).toEqual([]);
+    const { ctx, gravados, apagados } = contexto(ANA, await listCompanies(ANA), primeira!.id);
+    await appRouter.createCaller(ctx).companies.open({ companyId: segunda!.id });
 
-    /* Na tela de escolha, com a caixa marcada. */
-    const marcada = contexto(ANA, empresas, primeira!.id);
-    await appRouter.createCaller(marcada.ctx).companies.open({ companyId: segunda!.id, lembrar: true });
-    expect(marcada.gravados).toEqual([
-      [COMPANY_COOKIE_NAME, String(segunda!.id)],
-      [COMPANY_REMEMBER_COOKIE_NAME, "1"],
-    ]);
-
-    /* E desmarcada: a lembrança é apagada, e a pergunta volta no próximo login. */
-    const desmarcada = contexto(ANA, empresas, primeira!.id, `${COMPANY_REMEMBER_COOKIE_NAME}=1`);
-    await appRouter.createCaller(desmarcada.ctx).companies.open({ companyId: segunda!.id, lembrar: false });
-    expect(desmarcada.apagados).toEqual([COMPANY_REMEMBER_COOKIE_NAME]);
+    expect(gravados).toEqual([[COMPANY_COOKIE_NAME, String(segunda!.id)]]);
+    expect(apagados).toEqual([]);
   });
 
   it("conciliação sem conta bancária responde um ESTADO, não um erro", async () => {
