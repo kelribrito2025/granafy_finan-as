@@ -25,6 +25,7 @@ import { PageIcon } from "@/components/PageIcon";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { ChartDot } from "@/components/ChartDot";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
+import { ModalDeConfirmacao } from "@/components/ModalDeConfirmacao";
 import { ModalIcon } from "@/components/ModalIcon";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LABELS } from "@shared/preferences";
@@ -1013,11 +1014,24 @@ export default function BalanceSheetPage() {
       ? (editingItem ? "Bem atualizado" : "Bem cadastrado no imobilizado")
       : (editingItem ? "Linha do balanço atualizada" : "Linha do balanço cadastrada"));
   };
-  const handleDelete = async (item: PatrimonialItem) => {
-    if (!window.confirm(`Excluir “${item.name}”? Os fechamentos históricos serão preservados.`)) return;
-    try { await deleteItem.mutateAsync({ id: item.id }); toast.success("Item patrimonial excluído"); }
-    catch (error) { toast.error(safeError(error, "Não foi possível excluir o item.")); }
+  /* As duas exclusões desta tela passam pelo mesmo modal — ver ModalDeConfirmacao. */
+  type Exclusao = { titulo: string; texto: string; executar: () => Promise<void> };
+  const [exclusao, setExclusao] = useState<Exclusao | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const confirmarExclusao = async () => {
+    if (!exclusao) return;
+    setExcluindo(true);
+    try { await exclusao.executar(); setExclusao(null); } finally { setExcluindo(false); }
   };
+
+  const handleDelete = (item: PatrimonialItem) => setExclusao({
+    titulo: "Excluir este item?",
+    texto: `“${item.name}” sai do balanço daqui em diante. Os fechamentos já registrados são preservados.`,
+    executar: async () => {
+      try { await deleteItem.mutateAsync({ id: item.id }); toast.success("Item patrimonial excluído"); }
+      catch (error) { toast.error(safeError(error, "Não foi possível excluir o item.")); }
+    },
+  });
   const saveSnapshot = async (referenceDate: string) => {
     try { await captureSnapshot.mutateAsync({ referenceDate }); setSnapshotModal(false); setTab("evolution"); toast.success("Posição patrimonial registrada"); }
     catch (error) { toast.error(safeError(error, "Não foi possível registrar a posição.")); }
@@ -1576,11 +1590,18 @@ export default function BalanceSheetPage() {
                                 <button
                                   type="button"
                                   aria-label={`Excluir fechamento de ${formatDate(row.snapshot.referenceDate)}`}
-                                  onClick={async () => {
-                                    if (!window.confirm(`Excluir o fechamento de ${formatDate(row.snapshot.referenceDate)}? Os bens e obrigações não são afetados.`)) return;
-                                    await deleteSnapshot.mutateAsync({ id: row.snapshot.id });
-                                    toast.success("Fechamento removido");
-                                  }}
+                                  onClick={() => setExclusao({
+                                    titulo: "Excluir este fechamento?",
+                                    texto: `A posição de ${formatDate(row.snapshot.referenceDate)} sai do histórico. Os bens e as obrigações cadastrados não são afetados.`,
+                                    executar: async () => {
+                                      try {
+                                        await deleteSnapshot.mutateAsync({ id: row.snapshot.id });
+                                        toast.success("Fechamento removido");
+                                      } catch (error) {
+                                        toast.error(safeError(error, "Não foi possível excluir o fechamento."));
+                                      }
+                                    },
+                                  })}
                                   className="flex h-7 w-7 items-center justify-center justify-self-end rounded-lg text-[#B3BFB7] hover:bg-[#FDECEA] hover:text-[#B3261E]"
                                 >
                                   <DeleteIcon size={14} />
@@ -1604,6 +1625,15 @@ export default function BalanceSheetPage() {
       {itemModal && (editingIsAsset
         ? <AssetModal item={editingItem} pending={createItem.isPending || updateItem.isPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setItemModal(false); setEditingItem(null); }} onSave={saveItem} />
         : <LiabilityModal item={editingItem} initialGroup={newItemGroup} pending={createItem.isPending || updateItem.isPending} onClose={() => { setItemModal(false); setEditingItem(null); }} onSave={saveItem} />)}
+      {exclusao && (
+        <ModalDeConfirmacao
+          titulo={exclusao.titulo}
+          texto={exclusao.texto}
+          pendente={excluindo}
+          onCancelar={() => setExclusao(null)}
+          onConfirmar={confirmarExclusao}
+        />
+      )}
       {snapshotModal && <SnapshotModal pending={captureSnapshot.isPending} onClose={() => setSnapshotModal(false)} onSave={saveSnapshot} />}
     </main>
   );

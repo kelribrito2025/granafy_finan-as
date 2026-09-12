@@ -28,6 +28,7 @@ import { PageIcon } from "@/components/PageIcon";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { formatDate as formatDateWithPreferences, formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import ImportTransactionsModal from "@/components/ImportTransactionsModal";
+import { ModalDeConfirmacao } from "@/components/ModalDeConfirmacao";
 import { ModalIcon } from "@/components/ModalIcon";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
@@ -836,13 +837,17 @@ export default function LancamentosPage() {
     }
   };
 
-  const removeSelected = async () => {
+  /* A exclusão em lote pergunta no modal do produto — ver ModalDeConfirmacao. */
+  const [excluindoLote, setExcluindoLote] = useState(false);
+  const removeSelected = () => {
     if (selected.length === 0) return;
-    const selectedCount = selected.length;
-    if (!window.confirm(`Excluir permanentemente ${selectedCount.toLocaleString("pt-BR")} lançamentos selecionados?`)) return;
+    setExcluindoLote(true);
+  };
+  const confirmarExclusaoEmLote = async () => {
     try {
       const result = await deleteManyMutation.mutateAsync({ ids: selected });
       setSelected([]);
+      setExcluindoLote(false);
       toast.success(`${result.deletedCount.toLocaleString("pt-BR")} lançamento${result.deletedCount === 1 ? " removido" : "s removidos"} do banco`);
     } catch (error) {
       toast.error(safeErrorMessage(error, "Não foi possível excluir os lançamentos selecionados. Tente novamente."));
@@ -1198,6 +1203,17 @@ export default function LancamentosPage() {
       </div>
 
       {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {excluindoLote && (
+        <ModalDeConfirmacao
+          titulo={selected.length === 1 ? "Excluir este lançamento?" : `Excluir ${selected.length.toLocaleString("pt-BR")} lançamentos?`}
+          texto={selected.length === 1
+            ? "Ele sai do banco de vez. Saldos, DRE e fluxo de caixa são recalculados sem ele."
+            : "Eles saem do banco de vez. Saldos, DRE e fluxo de caixa são recalculados sem eles."}
+          pendente={deleteManyMutation.isPending}
+          onCancelar={() => setExcluindoLote(false)}
+          onConfirmar={confirmarExclusaoEmLote}
+        />
+      )}
       {seriesPrompt && <SeriesScopeDialog action={seriesPrompt.action} transaction={seriesPrompt.transaction} pending={mutationPending || deleteMutation.isPending} onCancel={() => setSeriesPrompt(null)} onConfirm={scope => { if (seriesPrompt.action === "save") void commitSave(seriesPrompt.input, seriesPrompt.transaction, scope); else void commitDelete(seriesPrompt.transaction, scope); }} />}{categorizeOpen && <CategorizeModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setCategorizeOpen(false)} onSave={categorizeSelected} />}
       {importOpen && <ImportTransactionsModal onClose={() => setImportOpen(false)} onImported={refresh} onManageOrganization={() => setLocation("/organizacao")} />}
     </main>

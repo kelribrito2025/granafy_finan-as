@@ -21,6 +21,7 @@ import {
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
+import { ModalDeConfirmacao } from "@/components/ModalDeConfirmacao";
 import { ModalIcon } from "@/components/ModalIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { CartaoSkeleton, ChartSkeleton, TableSkeleton } from "@/components/PageSkeleton";
@@ -710,15 +711,41 @@ export default function OrganizationPage() {
     }
   };
 
-  const handleDeleteRule = async (rule: CategoryRuleView) => {
-    if (!window.confirm(`Excluir a regra “${rule.matchValue}”? Os lançamentos já classificados não mudam.`)) return;
+  /*
+   * As quatro exclusões desta tela passam pelo mesmo modal.
+   *
+   * Eram quatro `window.confirm`: popup do navegador, que trava a aba, ignora
+   * o tema e escreve o endereço do site em cima da pergunta. Aqui a pergunta
+   * guarda o que vai sumir, o título e o texto que explicam a consequência, e
+   * o que fazer quando a pessoa disser sim.
+   */
+  type Exclusao = { titulo: string; texto: string; executar: () => Promise<void> };
+  const [exclusao, setExclusao] = useState<Exclusao | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
+
+  const confirmarExclusao = async () => {
+    if (!exclusao) return;
+    setExcluindo(true);
     try {
-      await deleteRule.mutateAsync({ id: rule.id });
-      toast.success("Regra removida");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível excluir a regra");
+      await exclusao.executar();
+      setExclusao(null);
+    } finally {
+      setExcluindo(false);
     }
   };
+
+  const handleDeleteRule = (rule: CategoryRuleView) => setExclusao({
+    titulo: "Excluir esta regra?",
+    texto: `“${rule.matchValue}” deixa de classificar lançamentos novos. Os já classificados não mudam.`,
+    executar: async () => {
+      try {
+        await deleteRule.mutateAsync({ id: rule.id });
+        toast.success("Regra removida");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Não foi possível excluir a regra");
+      }
+    },
+  });
 
   const savePlan = async (content: string) => {
     try {
@@ -738,12 +765,33 @@ export default function OrganizationPage() {
   const saveCategory = async (values: Parameters<typeof createCategory.mutateAsync>[0]) => {
     try { if (editingCategory) await updateCategory.mutateAsync({ id: editingCategory.id, ...values }); else await createCategory.mutateAsync(values); setCategoryModal(false); setEditingCategory(null); toast.success(editingCategory ? "Categoria atualizada" : "Categoria criada"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível salvar a categoria"); }
   };
-  const handleDeleteAccount = async (item: Account) => { if (!window.confirm(`Excluir a conta “${item.name}”?`)) return; try { await deleteAccount.mutateAsync({ id: item.id }); toast.success("Conta excluída"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); } };
-  const handleDeleteCategory = async (item: Category) => { if (!window.confirm(`Excluir a categoria “${item.name}”?`)) return; try { await deleteCategory.mutateAsync({ id: item.id }); toast.success("Categoria excluída"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); } };
+  const handleDeleteAccount = (item: Account) => setExclusao({
+    titulo: "Excluir esta conta?",
+    texto: `“${item.name}” sai da lista e das telas do dia a dia. Se ela tiver lançamentos, o servidor recusa e sugere arquivar.`,
+    executar: async () => {
+      try { await deleteAccount.mutateAsync({ id: item.id }); toast.success("Conta excluída"); }
+      catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); }
+    },
+  });
+  const handleDeleteCategory = (item: Category) => setExclusao({
+    titulo: "Excluir esta categoria?",
+    texto: `“${item.name}” sai do plano de contas. Se ela já tiver lançamentos, o servidor recusa e sugere desativar.`,
+    executar: async () => {
+      try { await deleteCategory.mutateAsync({ id: item.id }); toast.success("Categoria excluída"); }
+      catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); }
+    },
+  });
   const saveCostCenter = async (values: Parameters<typeof createCostCenter.mutateAsync>[0]) => {
     try { if (editingCostCenter) await updateCostCenter.mutateAsync({ id: editingCostCenter.id, ...values }); else await createCostCenter.mutateAsync(values); setCostCenterModal(false); setEditingCostCenter(null); toast.success(editingCostCenter ? "Centro de custo atualizado" : "Centro de custo criado"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível salvar o centro de custo"); }
   };
-  const handleDeleteCostCenter = async (item: CostCenter) => { if (!window.confirm(`Excluir o centro de custo “${item.name}”?`)) return; try { await deleteCostCenter.mutateAsync({ id: item.id }); toast.success("Centro de custo excluído"); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); } };
+  const handleDeleteCostCenter = (item: CostCenter) => setExclusao({
+    titulo: "Excluir este centro de custo?",
+    texto: `“${item.name}” sai da lista. Se já tiver lançamentos apontando para ele, o servidor recusa e sugere desativar.`,
+    executar: async () => {
+      try { await deleteCostCenter.mutateAsync({ id: item.id }); toast.success("Centro de custo excluído"); }
+      catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível excluir"); }
+    },
+  });
 
   const loading = overviewQuery.isLoading;
   const failed = overviewQuery.isError;
@@ -1074,6 +1122,15 @@ export default function OrganizationPage() {
         </section>
       </div>
 
+      {exclusao && (
+        <ModalDeConfirmacao
+          titulo={exclusao.titulo}
+          texto={exclusao.texto}
+          pendente={excluindo}
+          onCancelar={() => setExclusao(null)}
+          onConfirmar={confirmarExclusao}
+        />
+      )}
       {accountModal && <AccountModal account={editingAccount} tipoInicial={tipoInicial} pending={createAccount.isPending || updateAccount.isPending} onClose={() => { setAccountModal(false); setEditingAccount(null); setTipoInicial(undefined); }} onSave={saveAccount} />}
       {categoryModal && <CategoryModal category={editingCategory} pending={createCategory.isPending || updateCategory.isPending} onClose={() => { setCategoryModal(false); setEditingCategory(null); }} onSave={saveCategory} />}
       {costCenterModal && <CostCenterModal costCenter={editingCostCenter} pending={createCostCenter.isPending || updateCostCenter.isPending} onClose={() => { setCostCenterModal(false); setEditingCostCenter(null); }} onSave={saveCostCenter} />}
