@@ -1255,7 +1255,7 @@ export default function ConciliacaoPage() {
     URL.revokeObjectURL(url);
   };
 
-  const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
+  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
 
   const tabs: Array<{ key: Tab; label: string; count: number; danger?: boolean }> = data
     ? [
@@ -1293,12 +1293,12 @@ export default function ConciliacaoPage() {
             </div>
 
             {data && data.accounts.length > 0 && (
-              <label className="flex h-11 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[14px] font-bold ring-1 ring-[#DFE6E1]">
+              <label className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[13px] font-bold ring-1 ring-[#DFE6E1]">
                 <span className="sr-only">Conta bancária</span>
                 <select
                   value={data.account.id}
                   onChange={event => { setAccountId(Number(event.target.value)); setSelected(new Set()); }}
-                  className="max-w-[180px] bg-transparent text-[14px] font-bold outline-none"
+                  className="max-w-[180px] bg-transparent text-[13px] font-bold outline-none"
                 >
                   {data.accounts.map(account => (
                     <option key={account.id} value={account.id}>{account.name}</option>
@@ -1311,7 +1311,7 @@ export default function ConciliacaoPage() {
               <button type="button" aria-label="Mês anterior" onClick={() => { setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1)); setSelected(new Set()); }} className={toolButton}>
                 <ChevronRightIcon size={15} className="rotate-180" />
               </button>
-              <div className="flex h-11 min-w-[168px] items-center justify-center rounded-[12px] bg-white px-4 text-[14px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => { setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1)); setSelected(new Set()); }} className={toolButton}>
                 <ChevronRightIcon size={15} />
               </button>
@@ -1324,7 +1324,7 @@ export default function ConciliacaoPage() {
                   type="button"
                   onClick={() => setReopenOpen(true)}
                   title={data.period.closedAt ? `Fechado em ${formatDate(new Date(data.period.closedAt).toISOString().slice(0, 10))}` : undefined}
-                  className="flex h-11 items-center gap-2 rounded-[12px] bg-[#F1F4F2] px-4 text-[14px] font-bold text-[#4C6355] transition hover:bg-[#E3EBE6]"
+                  className="flex h-10 items-center gap-2 rounded-[12px] bg-[#F1F4F2] px-3.5 text-[13px] font-bold sm:px-4 text-[#4C6355] transition hover:bg-[#E3EBE6]"
                 >
                   Mês fechado
                 </button>
@@ -1334,7 +1334,7 @@ export default function ConciliacaoPage() {
                   disabled={closePeriod.isPending || data.balance.difference !== 0}
                   title={data.balance.difference === 0 ? "Fecha o mês com a diferença zerada" : "O mês só fecha com a diferença de saldo zerada"}
                   onClick={() => closePeriod.mutate({ ...period, accountId })}
-                  className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold sm:px-4 text-white transition hover:bg-[#0F9E4E] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CheckIcon size={15} />
                   {closePeriod.isPending ? "Fechando…" : "Fechar o mês"}

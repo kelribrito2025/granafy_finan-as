@@ -205,7 +205,7 @@ export default function Home() {
               type="button"
               aria-label="Abrir menu"
               onClick={() => setMobileOpen(true)}
-              className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95 xl:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F8FAF9] active:scale-95 xl:hidden"
             >
               <SidebarMenuIcon size={18} />
             </button>
@@ -216,13 +216,13 @@ export default function Home() {
               </p>
             </div>
 
-            <div className={`order-3 flex w-full items-center gap-1.5 rounded-xl bg-white p-1.5 sm:order-none sm:w-auto ${primeiroAcesso ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`order-3 flex h-10 w-full items-center gap-1 rounded-[12px] bg-white p-1 sm:order-none sm:w-auto ${primeiroAcesso ? "pointer-events-none opacity-50" : ""}`}>
               {["Mês", "Trimestre", "Ano"].map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setPeriod(item)}
-                  className={`flex-1 rounded-[9px] px-3.5 py-2 text-[13px] transition active:scale-[0.98] sm:flex-none ${
+                  className={`flex-1 rounded-[9px] px-3.5 py-[7px] text-[13px] transition active:scale-[0.98] sm:flex-none ${
                     period === item ? "bg-[#12B85C] font-bold text-white" : "text-[#4C6355] hover:bg-[#F1FBF6]"
                   }`}
                 >
@@ -236,7 +236,7 @@ export default function Home() {
                 aria-label="Abrir notificações"
                 aria-expanded={notificationsOpen}
                 onClick={() => setNotificationsOpen((open) => !open)}
-                className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#28382E] transition hover:bg-[#F8FAF9] active:scale-95"
+                className="relative flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F8FAF9] active:scale-95"
               >
                 <NotificationIcon size={17} />
                 {(dashboard?.overdue.count ?? 0) > 0 && <span className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-[#E5533D] ring-2 ring-white" />}
@@ -262,7 +262,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setNovoLancamento(true)}
-              className="flex h-[42px] items-center gap-2 rounded-xl bg-[#12B85C] px-3.5 text-[13.5px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
+              className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[0.98] sm:px-4"
             >
               <PlusIcon size={15} />
               <span className="hidden sm:inline">Novo lançamento</span>

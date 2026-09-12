@@ -627,7 +627,7 @@ export default function OrganizationPage() {
   const activeCategories = data?.categories.filter(item => item.isActive).length ?? 0;
   const activeCostCenters = data?.costCenters.filter(item => item.isActive).length ?? 0;
   const totalBalance = data?.accounts.reduce((sum, item) => sum + item.balance, 0) ?? 0;
-  const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] active:scale-95";
+  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] active:scale-95";
 
   const accounts = (data?.accounts ?? []) as Account[];
   const archivedAccounts = accounts.filter(item => !item.isActive).length;
@@ -786,12 +786,12 @@ export default function OrganizationPage() {
             {section === "accounts" ? (
               <label className={`relative min-w-[200px] flex-1 sm:max-w-[260px] ${semContas ? "pointer-events-none opacity-50" : ""}`}>
                 <SearchIcon size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
-                <input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Buscar conta…" className="h-11 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
+                <input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Buscar conta…" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
               </label>
             ) : (
-              <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+              <div className="flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
                 {([["categories", "Categorias"], ["costCenters", "Centros de custo"]] as const).map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => setCategoryView(value)} aria-pressed={categoryView === value} className={`px-4 text-[13.5px] transition ${categoryView === value ? "bg-[#12B85C] font-bold text-white" : "text-[#4C6355] hover:bg-[#F1FBF6]"}`}>
+                  <button key={value} type="button" onClick={() => setCategoryView(value)} aria-pressed={categoryView === value} className={`px-4 text-[13px] transition ${categoryView === value ? "bg-[#12B85C] font-bold text-white" : "text-[#4C6355] hover:bg-[#F1FBF6]"}`}>
                     {label}
                   </button>
                 ))}
@@ -801,7 +801,7 @@ export default function OrganizationPage() {
             {section === "categories" && (
               <Hint label="Importar plano de contas"><button type="button" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button></Hint>
             )}
-            <button type="button" onClick={openPrimary} className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F9E4E]">
+            <button type="button" onClick={openPrimary} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold sm:px-4 text-white hover:bg-[#0F9E4E]">
               <PlusIcon size={15} />{primaryLabel}
             </button>
             <ProfileMenu />

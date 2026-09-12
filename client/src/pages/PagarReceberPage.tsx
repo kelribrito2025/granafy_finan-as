@@ -550,7 +550,7 @@ export default function PagarReceberPage() {
     URL.revokeObjectURL(url);
   };
 
-  const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
+  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
   /*
    * O lançamento nasce aqui, não em outra tela.
    *
@@ -682,13 +682,13 @@ export default function PagarReceberPage() {
               <button type="button" aria-label="Mês anterior" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} className="rotate-180" />
               </button>
-              <div className="flex h-11 min-w-[168px] items-center justify-center rounded-[12px] bg-white px-4 text-[14px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} />
               </button>
             </div>
 
-            <div className={`flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${mesVazio ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${mesVazio ? "pointer-events-none opacity-50" : ""}`}>
               {([["lista", "Lista única"], ["colunas", "Duas colunas"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -706,7 +706,7 @@ export default function PagarReceberPage() {
               type="button"
               onClick={() => setNovoLancamento("entrada")}
               title="Abre a tela de lançamentos, onde a conta é cadastrada"
-              className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98]"
+              className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold sm:px-4 text-white transition hover:bg-[#0F9E4E] active:scale-[.98]"
             >
               <PlusIcon size={15} />
               Nova conta

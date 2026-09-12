@@ -1246,7 +1246,7 @@ export default function BalanceSheetPage() {
                 </p>
               )}
             </div>
-            <div className={`flex items-center gap-1.5 rounded-[12px] bg-white p-1.5 ring-1 ring-[#E1E8E3] ${balancoVazio ? "pointer-events-none opacity-50" : ""}`}>
+            <div className={`flex h-10 items-center gap-1 rounded-[12px] bg-white p-1 ring-1 ring-[#E1E8E3] ${balancoVazio ? "pointer-events-none opacity-50" : ""}`}>
               {(["mensal", "trimestral", "anual"] as Period[]).map(value => (
                 <button
                   key={value}

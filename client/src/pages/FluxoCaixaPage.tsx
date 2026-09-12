@@ -365,7 +365,7 @@ export default function FluxoCaixaPage() {
     URL.revokeObjectURL(url);
   };
 
-  const toolButton = "flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
+  const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95";
 
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
@@ -389,19 +389,19 @@ export default function FluxoCaixaPage() {
 
             {/* O mês vem logo depois do título, como em Lançamentos: é o
                 mesmo controle, e ficar num lugar em cada tela obriga a
-                procurá-lo de novo a cada troca de página. As medidas seguem a
-                escala desta tela (h-11), que é maior que a de lá. */}
+                procurá-lo de novo a cada troca de página. As medidas são as de
+                lá: todo cabeçalho segue a escala de Lançamentos (h-10). */}
             <div className="order-3 mx-auto flex w-full items-center justify-center gap-1.5 lg:order-none lg:w-auto">
               <button type="button" aria-label="Mês anterior" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} className="rotate-180" />
               </button>
-              <div className="flex h-11 min-w-[168px] items-center justify-center rounded-[12px] bg-white px-4 text-[14px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} />
               </button>
             </div>
 
-            <div className="flex h-11 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+            <div className="flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
               {([["dia", "Diário"], ["semana", "Semanal"], ["mes", "Mensal"]] as const).map(([value, label]) => (
                 <button
                   key={value}
