@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import {
   ChevronRightIcon,
   DownloadIcon,
+  PlusIcon,
   SidebarMenuIcon,
   TrendUpIcon,
   type IconlyIcon,
@@ -17,7 +18,7 @@ import { formatDate, formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
@@ -311,6 +312,94 @@ function MonthlyTable({ data }: { data: MonthlyData }) {
   );
 }
 
+/*
+ * O fluxo de caixa de quem ainda não tem conta.
+ *
+ * Sem conta não há saldo de partida, e sem saldo de partida não há curva:
+ * a tela inteira seria zeros e traços. Mês sem movimento COM conta é outro
+ * caso — a curva existe, só está plana — e continua com o estado de sempre.
+ */
+function FluxoVazio({ onCadastrarConta, onNovoLancamento }: { onCadastrarConta: () => void; onNovoLancamento: () => void }) {
+  const [explicando, setExplicando] = useState(false);
+  const traco = (conteudo: ReactNode, tamanho = 20) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+  const passos = [
+    { titulo: "Informe o saldo inicial", texto: "A curva parte do saldo da conta no dia do cadastro.", icone: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></> },
+    { titulo: "Registre entradas e saídas", texto: "Cada movimento liquidado desenha a linha do realizado.", icone: <><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /></> },
+    { titulo: "Cadastre os pendentes", texto: "Títulos com vencimento futuro viram a linha projetada.", icone: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> },
+  ];
+
+  return (
+    <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+      {/* A curva por desenhar: o trecho realizado, o resto tracejado, e o sinal de somar. */}
+      <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+        <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+        <svg width="80" height="52" viewBox="0 0 80 52" fill="none" className="absolute left-[16px] top-[22px]">
+          <path d="M2 44C12 44 16 14 26 14s14 22 24 22 16-28 26-28" stroke="#B9C7BE" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 6" />
+          <path d="M2 44C12 44 16 30 26 30" stroke="#12B85C" strokeWidth="3.5" strokeLinecap="round" />
+          <circle cx="26" cy="30" r="5" fill="#12B85C" />
+        </svg>
+        <span className="absolute bottom-[10px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+          <PlusIcon size={16} />
+        </span>
+      </div>
+
+      <div className="flex max-w-[520px] flex-col gap-2">
+        <h2 className="text-[22px] font-bold tracking-[-.02em]">A curva do caixa começa no primeiro lançamento</h2>
+        <p className="text-[14px] leading-relaxed text-[#4C6355]">
+          Com uma conta cadastrada e movimentos registrados, o GranaFy desenha o saldo realizado dia a
+          dia e projeta o futuro a partir dos títulos em aberto.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={onCadastrarConta} className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
+          <PlusIcon size={16} />
+          Cadastrar conta bancária
+        </button>
+        <button type="button" onClick={onNovoLancamento} className="flex h-12 items-center gap-2 rounded-[12px] border border-[#E3EBE6] bg-white px-[22px] text-[14px] font-semibold text-[#28382E] transition hover:bg-[#F8FAF9]">
+          <PlusIcon size={16} />
+          Novo lançamento
+        </button>
+      </div>
+
+      <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
+        {passos.map((passo, indice) => (
+          <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">{traco(passo.icone)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+            <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+            <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+      <button type="button" onClick={() => setExplicando(atual => !atual)} aria-expanded={explicando} className="text-[13px] font-semibold text-[#0A7A42] hover:underline">
+        Como o GranaFy projeta o caixa {explicando ? "↑" : "→"}
+      </button>
+      {explicando && (
+        <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+          <p>
+            O <strong>realizado</strong> parte do saldo inicial das contas e soma, dia a dia, o que já foi
+            pago ou recebido. É a linha cheia — e o "saldo de hoje" é só isso, sem nenhuma projeção.
+          </p>
+          <p>
+            O <strong>projetado</strong> continua a linha daí em diante com os títulos em aberto, cada um
+            na data em que vence: o que está para entrar sobe a curva, o que está para sair desce. Por
+            isso a tela também mostra o saldo previsto para o fim do mês e para o mês seguinte.
+          </p>
+          <p>
+            O menor saldo do período e o dia mais apertado saem dessa mesma curva — são o ponto em que ela
+            chega mais perto de zero. Transferências entre contas não mudam o total e não entram.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function FluxoCaixaPage() {
   // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
   // assinatura a página não redesenha quando o olhinho é ligado.
@@ -328,6 +417,10 @@ export default function FluxoCaixaPage() {
 
   const daily = dailyQuery.data;
   const monthly = monthlyQuery.data;
+  const [, setLocation] = useLocation();
+  /* Mesma consulta da barra lateral; o react-query aproveita o cache. */
+  const accountsQuery = trpc.organization.accountBalances.useQuery();
+  const semContas = accountsQuery.isSuccess && accountsQuery.data.length === 0;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;
@@ -401,7 +494,7 @@ export default function FluxoCaixaPage() {
               </button>
             </div>
 
-            <div className="flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1]">
+            <div className={`flex h-10 items-stretch overflow-hidden rounded-[12px] bg-white ring-1 ring-[#DFE6E1] ${semContas ? "pointer-events-none opacity-50" : ""}`}>
               {([["dia", "Diário"], ["semana", "Semanal"], ["mes", "Mensal"]] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -414,7 +507,7 @@ export default function FluxoCaixaPage() {
               ))}
             </div>
 
-            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+            <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} disabled={semContas} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
             <ProfileMenu />
           </header>
 
@@ -432,7 +525,14 @@ export default function FluxoCaixaPage() {
             O de antes era três KPIs e um gráfico largo, que é a forma de
             nenhuma das duas.
           */}
-          {loading && !error && (view === "mes" ? (
+          {semContas && (
+            <FluxoVazio
+              onCadastrarConta={() => setLocation("/organizacao?nova=conta")}
+              onNovoLancamento={() => setLocation("/lancamentos?novo=lancamento")}
+            />
+          )}
+
+          {!semContas && loading && !error && (view === "mes" ? (
             <>
               <KpiRowSkeleton cards={4} />
               <TableSkeleton />
@@ -445,7 +545,7 @@ export default function FluxoCaixaPage() {
             </>
           ))}
 
-          {view !== "mes" && daily && (
+          {!semContas && view !== "mes" && daily && (
             <>
               <section className="flex flex-col gap-5 lg:flex-row">
                 <AuroraSurface className="w-full shrink-0 rounded-[20px] p-6 lg:w-[340px]">
@@ -518,7 +618,7 @@ export default function FluxoCaixaPage() {
             </>
           )}
 
-          {view === "mes" && monthly && (
+          {!semContas && view === "mes" && monthly && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <AuroraSurface className="rounded-[20px] p-6">
