@@ -109,7 +109,7 @@ banco nunca está lento quando isso acontece".
 Duas seguidas mudam a regra prática: repetir a rodada não é mais resposta. A
 próxima rodada cheia só depois de instrumentar o `beforeAll`/`beforeEach` com
 tempo por comando, para a ocorrência seguinte dizer ONDE o tempo foi — e não só
-que foi.
+que foi. Feito: ver "O relógio do arreio", abaixo.
 
 ## O que já foi descartado com medição
 
@@ -148,3 +148,57 @@ registrar quanto cada `INSERT` levou.
 Enquanto não fechar: **intermitência não se commita, se investiga.** Uma rodada
 vermelha por timeout não bloqueia o commit se a rodada limpa seguinte fechar
 verde, mas a ocorrência entra nesta tabela antes do commit sair.
+
+## A regra da rodada cheia
+
+Decidida em 12/09/2026, depois da sétima. A hipótese do consumo por cluster
+não foi confirmada, mas é a única que sobrou, e o custo de agir como se fosse
+verdade é zero. Então a suíte cheia **só roda com o cluster em paz**:
+
+- **Sem varredura de mutação em paralelo.** A varredura roda o mesmo arreio
+  dezenas de vezes, semeando tudo a cada mutação — é o consumidor mais pesado
+  que este repositório tem.
+- **Sem o servidor local ativo.** O `pnpm dev` aponta para a produção e paga
+  RU no mesmo cluster.
+- **Aviso antes de rodar.** Quem for disparar a rodada avisa, para que a
+  produção não esteja em uso de verdade naquela janela — a quarta ocorrência
+  caiu exatamente numa.
+
+Se a hipótese for verdadeira, isso sozinho derruba a maioria das ocorrências.
+Se uma ocorrência acontecer com o cluster em paz, a hipótese cai — e aí o
+relógio abaixo é o que resta para dizer onde o tempo foi.
+
+## O relógio do arreio
+
+Instrumentação em `testDatabase.ts`, ligada por padrão (`ARREIO_RELOGIO=0`
+desliga). Escreve no `stderr` linhas com hora de parede em UTC — a mesma do
+painel da TiDB Cloud, para cruzar com o gráfico de Request Units:
+
+```
+[arreio 14:02:11.804] empresas.isolation.test.ts · conectou em 812 ms
+[arreio 14:02:12.310] schema pronto em 506 ms · 0 migrations novas
+[arreio 14:02:31.115] empresas.isolation.test.ts · 2740 ms (ociosa 4102 ms antes) · DELETE FROM `transactions` WHERE `userId` IN (?, ?)
+[arreio 14:03:02.001] empresas.isolation.test.ts · EM VOO há 10 s (ociosa 3311 ms antes) · INSERT INTO transactions (...
+[arreio 14:03:40.930] empresas.isolation.test.ts · ERRO ECONNRESET após 48929 ms (ociosa 3311 ms antes) · INSERT INTO transactions (...
+[arreio 14:03:41.002] pool · conexão nova nº 3
+[arreio 14:04:05.560] empresas.isolation.test.ts · fechou · 214 consultas · 61230 ms no banco · mais lenta 2740 ms (DELETE …) · maior ocioso 6120 ms
+```
+
+O que cada linha responde:
+
+- **`conectou`** e **`schema pronto`** — quanto custa o `beforeAll`, sempre.
+- **consulta lenta** (acima de 2 s) — o comando, o tempo, e quanto a conexão
+  ficou parada antes dele. É a medição direta da hipótese "primeira ida depois
+  de uma parada".
+- **`EM VOO`** — a consulta que ainda não voltou aos 10 s. Quando o hook morre,
+  esta é a linha que nomeia o comando, porque o comando nunca volta.
+- **`ERRO`** — o código e quanto tempo levou para chegar. Um `ECONNRESET` aos
+  48 s é o servidor cortando uma consulta que esperou; um imediato é outra
+  coisa.
+- **`pool`** — o lado do código de produção, que passa pelo drizzle. Conexão
+  nova é um handshake TLS até us-east-1; `FILA` é pool esgotado.
+- **`fechou`** — o resumo por arquivo. É a linha de base: uma rodada quieta
+  deixa onze dessas, e a próxima ocorrência se compara com elas.
+
+Rodada quieta não deve mostrar nada além de `conectou`, `schema pronto`,
+`pool · conexão nova` e `fechou`. Qualquer outra linha é dado.

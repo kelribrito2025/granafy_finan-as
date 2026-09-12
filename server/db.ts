@@ -102,10 +102,11 @@ function createTiDbClient(databaseUrl: string) {
  * `conferirAlvoDeTeste`, que lança em vez de conectar.
  */
 export async function usarBancoDeTesteEm(url: string) {
-  const { conferirAlvoDeTeste } = await import("./testDatabase");
+  const { conferirAlvoDeTeste, escutarPoolDeTeste } = await import("./testDatabase");
   conferirAlvoDeTeste(url, process.env.TIDB_DATABASE_URL);
   await esquecerBancoDeTeste();
   const { db, pool } = createTiDbClient(url);
+  escutarPoolDeTeste(pool);
   _dbTeste = db;
   _poolTeste = pool;
   return _dbTeste;

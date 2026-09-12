@@ -95,7 +95,9 @@ export function temBancoDeTeste() {
 
 export async function conectarNoBancoDeTeste(): Promise<Connection> {
   const { url } = conferirAlvoDeTeste(process.env.TEST_DATABASE_URL, process.env.TIDB_DATABASE_URL);
-  return createConnection({
+  const rotulo = arquivoChamador();
+  const inicio = Date.now();
+  const conexao = await createConnection({
     host: url.hostname,
     port: Number(url.port || "4000"),
     user: decodeURIComponent(url.username),
@@ -105,6 +107,120 @@ export async function conectarNoBancoDeTeste(): Promise<Connection> {
     connectTimeout: 15_000,
     multipleStatements: false,
   });
+  anotar(`${rotulo} · conectou em ${Date.now() - inicio} ms`);
+  return cronometrarConexao(conexao, rotulo);
+}
+
+/*
+ * O relógio do arreio.
+ *
+ * Sete ocorrências do timeout aberto (ver `timeoutsDaSuite.md`) e nenhuma
+ * disse ONDE o tempo foi: o vitest sabe que o hook estourou, não qual comando
+ * estava esperando. Este relógio anota, com hora de parede, o que os arreios
+ * pagam ao banco — e só fala quando há algo a dizer:
+ *
+ *   - consulta que passa de LIMIAR_LENTA_MS, junto com quanto tempo a conexão
+ *     ficou ociosa antes dela (a hipótese da "primeira ida depois de parada");
+ *   - consulta ainda em voo depois de AVISO_EM_VOO_MS — é a linha que sobra
+ *     quando o hook morre, porque a consulta que trava nunca volta para se
+ *     explicar;
+ *   - erro, com o código e quanto tempo levou para chegar: um ECONNRESET aos
+ *     40 s é outro bicho que um ECONNRESET imediato;
+ *   - o resumo da conexão ao fechar — quantas consultas, a mais lenta, o maior
+ *     ocioso —, que é a linha de base que uma rodada quieta deixa.
+ *
+ * A hora de parede (UTC, como o painel do TiDB) é para cruzar com o consumo
+ * do cluster. `ARREIO_RELOGIO=0` desliga tudo.
+ */
+const LIMIAR_LENTA_MS = 2_000;
+const AVISO_EM_VOO_MS = 10_000;
+const RELOGIO_LIGADO = process.env.ARREIO_RELOGIO !== "0";
+
+function horaDeParede() {
+  return new Date().toISOString().slice(11, 23);
+}
+
+function anotar(linha: string) {
+  if (RELOGIO_LIGADO) process.stderr.write(`[arreio ${horaDeParede()}] ${linha}\n`);
+}
+
+function resumirSql(sql: unknown) {
+  const texto = typeof sql === "string" ? sql : String((sql as { sql?: string } | null)?.sql ?? sql);
+  return texto.replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+/** O arquivo de teste que pediu a conexão, lido da pilha — só para rotular a linha. */
+function arquivoChamador() {
+  const linha = (new Error().stack ?? "").split("\n").find(trecho => /\.test\.ts/.test(trecho));
+  return linha?.match(/([\w.-]+\.test\.ts)/)?.[1] ?? "?";
+}
+
+type Consulta = (...args: any[]) => Promise<any>;
+
+function cronometrarConexao(conexao: Connection, rotulo: string) {
+  const resumo = { consultas: 0, totalMs: 0, maxMs: 0, maxSql: "", maiorOciosoMs: 0, ultimoFim: Date.now() };
+
+  const envolver = <F extends Consulta>(original: F): F =>
+    (async (...args: any[]) => {
+      const sql = resumirSql(args[0]);
+      const inicio = Date.now();
+      const ociosa = inicio - resumo.ultimoFim;
+      const aviso = setTimeout(
+        () => anotar(`${rotulo} · EM VOO há ${AVISO_EM_VOO_MS / 1000} s (ociosa ${ociosa} ms antes) · ${sql}`),
+        AVISO_EM_VOO_MS,
+      );
+      aviso.unref();
+      try {
+        const resultado = await original(...args);
+        const ms = Date.now() - inicio;
+        if (ms > LIMIAR_LENTA_MS) anotar(`${rotulo} · ${ms} ms (ociosa ${ociosa} ms antes) · ${sql}`);
+        return resultado;
+      } catch (erro) {
+        const codigo = (erro as { code?: string }).code ?? (erro as Error).name;
+        anotar(`${rotulo} · ERRO ${codigo} após ${Date.now() - inicio} ms (ociosa ${ociosa} ms antes) · ${sql}`);
+        throw erro;
+      } finally {
+        clearTimeout(aviso);
+        const ms = Date.now() - inicio;
+        resumo.consultas += 1;
+        resumo.totalMs += ms;
+        resumo.ultimoFim = Date.now();
+        if (ms > resumo.maxMs) {
+          resumo.maxMs = ms;
+          resumo.maxSql = sql;
+        }
+        if (ociosa > resumo.maiorOciosoMs) resumo.maiorOciosoMs = ociosa;
+      }
+    }) as F;
+
+  conexao.query = envolver(conexao.query.bind(conexao) as Consulta) as Connection["query"];
+  conexao.execute = envolver(conexao.execute.bind(conexao) as Consulta) as Connection["execute"];
+
+  const fechar = conexao.end.bind(conexao);
+  conexao.end = (async () => {
+    anotar(
+      `${rotulo} · fechou · ${resumo.consultas} consultas · ${resumo.totalMs} ms no banco` +
+        ` · mais lenta ${resumo.maxMs} ms (${resumo.maxSql}) · maior ocioso ${resumo.maiorOciosoMs} ms`,
+    );
+    return fechar();
+  }) as Connection["end"];
+
+  return conexao;
+}
+
+/**
+ * O pool que o código de produção usa dentro do arreio (`usarBancoDeTesteEm`).
+ *
+ * As consultas dele passam pelo drizzle, não por aqui; o que dá para ouvir de
+ * fora são dois eventos que interessam ao padrão: conexão nova (um handshake
+ * TLS até us-east-1, que é o custo da "primeira ida") e fila (as dez conexões
+ * ocupadas — o sinal de pool esgotado que a medição de vazamento descartou,
+ * mas que agora fica gravado em vez de medido à mão).
+ */
+export function escutarPoolDeTeste(pool: { on(evento: string, ouvinte: () => void): unknown }) {
+  let abertas = 0;
+  pool.on("connection", () => anotar(`pool · conexão nova nº ${++abertas}`));
+  pool.on("enqueue", () => anotar("pool · consulta na FILA: as dez conexões estão ocupadas"));
 }
 
 /**
@@ -122,6 +238,8 @@ export async function conectarNoBancoDeTeste(): Promise<Connection> {
 const DIARIO = "_migracoes_do_arreio";
 
 export async function prepararSchemaDeTeste(conexao: Connection) {
+  const inicio = Date.now();
+  let novas = 0;
   /*
    * Um diário, e não "se já tem tabela, pula".
    *
@@ -167,7 +285,9 @@ export async function prepararSchemaDeTeste(conexao: Connection) {
     }
     // IGNORE porque duas suítes podem chegar aqui juntas na primeira montagem.
     await conexao.query(`INSERT IGNORE INTO \`${DIARIO}\` (arquivo) VALUES (?)`, [arquivo]);
+    novas += 1;
   }
+  anotar(`schema pronto em ${Date.now() - inicio} ms · ${novas} migrations novas`);
 }
 
 /*
