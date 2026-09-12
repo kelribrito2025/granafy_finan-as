@@ -32,6 +32,7 @@ Sempre a mesma forma, e é o que separa isso de um teste ruim:
 | 5 | 10/09 08:19:58 | 467,75 s | 0 — **ECONNRESET** | `cadastros.isolation.test.ts` (11/11) | 78.924 ms | dois `ALTER TABLE ADD COLUMN` em produção, **~40 s antes** |
 | 6 | 12/09 12:46:19 | 522,92 s | 2 | `signupCompany.isolation.test.ts` | **47.036 ms** | nada medido rodando em paralelo |
 | 7 | 12/09 08:56:44 | **707,16 s** | 2 + **ECONNRESET** | `aperto.isolation.test.ts` (9/9) | **258.695 ms** | a rodada seguinte à sexta, sem nada entre as duas |
+| 8 | 12/09 12:37 (rodada de 4 arquivos estáticos, não a suíte cheia) | — | 1 falha, texto **não capturado** | `semEmpresa.test.ts` (1/4) — lê **produção**, não o arreio | — | **servidor local (`tsx`) ligado, apontando para produção**; rodado sozinho logo depois, com o servidor derrubado: verde em 2,1 s |
 
 A ocorrência 1 é a que faz esta a quarta vez. Ela não tem números porque o log
 não sobreviveu à sessão, e a causa dela **foi atribuída depois**: três arreios
@@ -110,6 +111,27 @@ Duas seguidas mudam a regra prática: repetir a rodada não é mais resposta. A
 próxima rodada cheia só depois de instrumentar o `beforeAll`/`beforeEach` com
 tempo por comando, para a ocorrência seguinte dizer ONDE o tempo foi — e não só
 que foi. Feito: ver "O relógio do arreio", abaixo.
+
+### A oitava: fora do arreio, com o servidor local ligado
+
+A primeira ocorrência fora dos arreios de isolamento. `semEmpresa.test.ts`
+não usa o `granafy_test`: ele chama `settings.company` pelo `appRouter` e
+lê o banco de **produção** (uma leitura, sem escrita). Caiu uma vez numa
+rodada de quatro arquivos estáticos, no fim da sentada 1 do admin, e passou
+sozinho em 2,1 s logo depois.
+
+O que estava ligado na hora, verificado: o servidor local (`npx tsx
+server/_core/index.ts`), apontando para produção, com o navegador de teste
+abrindo as seis telas do admin — cada uma com quatro a cinco consultas que
+atravessam todas as empresas. É exatamente a condição que a regra da rodada
+cheia proíbe, e é dado a favor da hipótese do cluster: o teste que sofreu não
+tem tabela em comum com o arreio, só tem o cluster em comum.
+
+Dois furos meus nesta ocorrência: o texto da falha não foi capturado (o
+filtro da saída era estreito demais — daqui em diante a saída inteira vai
+para arquivo antes de filtrar), e o commit saiu antes da investigação, porque
+o comando encadeava commit ao teste com `;` em vez de `&&`. O push só foi
+depois de rodar sozinho verde.
 
 ## O que já foi descartado com medição
 
