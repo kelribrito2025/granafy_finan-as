@@ -71,11 +71,17 @@ const GRUPOS: Array<{ titulo: string; itens: Array<{ rotulo: string; icone: Icon
   { titulo: "Sistema", itens: [{ rotulo: "Configurações", icone: SettingsIcon, caminho: "/admin/configuracoes" }] },
 ];
 
+/*
+ * A barra fica parada enquanto o conteúdo rola: `sticky` na altura da
+ * janela, com a rolagem dentro dela. Sem a altura fixa o flex a estica até o
+ * fim do conteúdo e o `sticky` não tem para onde grudar — em página longa
+ * (Usuários, Contas) o menu subia junto e sumia.
+ */
 function BarraDoAdmin({ local, nome }: { local: string; nome: string }) {
   const barra = trpc.admin.barra.useQuery(undefined, { staleTime: 60_000 });
   const ativo = (caminho: string) => (caminho === "/admin" ? local === "/admin" : local.startsWith(caminho));
   return (
-    <aside className="hidden w-[232px] shrink-0 flex-col gap-5 rounded-[20px] bg-[#0B1F14] px-3 py-5 text-white lg:flex">
+    <aside className="hidden w-[232px] shrink-0 flex-col gap-5 self-start overflow-y-auto rounded-[20px] bg-[#0B1F14] px-3 py-5 text-white lg:sticky lg:top-5 lg:flex lg:h-[calc(100vh-40px)] lg:min-h-0">
       <div className="flex items-center gap-2.5 px-1.5">
         <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
           <svg width="20" height="20" viewBox="0 0 64 64" fill="none" aria-hidden="true"><circle cx="32" cy="32" r="23" stroke="#FFFFFF" strokeWidth="10" opacity=".38" /><path d="M55 32a23 23 0 01-36 19" stroke="#FFFFFF" strokeWidth="10" strokeLinecap="round" /></svg>
