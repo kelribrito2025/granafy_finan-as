@@ -31,7 +31,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
@@ -224,12 +224,12 @@ function BankMark({ institution, color, compact = false }: { institution: string
   return <span className={`flex ${sizeClass} items-center justify-center px-1.5 font-extrabold text-white ${compact ? "text-[9px]" : "text-[12px]"}`} style={{ backgroundColor: preset?.color ?? color }}>{preset?.initials ?? institution.slice(0, 2).toUpperCase()}</span>;
 }
 
-function AccountModal({ account, pending, onClose, onSave }: { account?: Account | null; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number }) => Promise<void> }) {
+function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { account?: Account | null; /** O tipo já escolhido por quem abriu — os cartões do estado vazio. */ tipoInicial?: Account["accountType"]; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number }) => Promise<void> }) {
   const matchedPreset = BANK_PRESETS.find(item => item.name.toLowerCase() === account?.institution.toLowerCase());
   const [institutionChoice, setInstitutionChoice] = useState<BankPresetId>(matchedPreset?.id ?? "outro");
   const [name, setName] = useState(account?.name ?? "");
   const [institution, setInstitution] = useState(account?.institution ?? "");
-  const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? "corrente");
+  const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? tipoInicial ?? "corrente");
   const [color, setColor] = useState(account?.color ?? "#12B85C");
   const [initialBalance, setInitialBalance] = useState(account ? formatCurrencyValue(account.initialBalance) : "0,00");
   const [errorMessage, setErrorMessage] = useState("");
@@ -472,6 +472,94 @@ function ImportPlanModal({ pending, onClose, onSave }: {
   );
 }
 
+/*
+ * A tela de contas de quem ainda não tem nenhuma.
+ *
+ * A lista vazia com o cabeçalho de colunas dizia "nenhuma conta ativa" como
+ * se fosse um filtro. Sem conta nenhuma — nem arquivada — o que a pessoa
+ * precisa é entender o que é uma conta aqui e cadastrar a primeira, já pelo
+ * tipo certo: os quatro cartões abrem o modal com o tipo escolhido.
+ */
+const TIPOS_DE_CONTA: Array<{ tipo: Account["accountType"]; titulo: string; texto: string; icone: ReactNode }> = [
+  { tipo: "corrente", titulo: "Conta corrente", texto: "Banco, agência e saldo inicial", icone: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></> },
+  { tipo: "cartao", titulo: "Cartão de crédito", texto: "A fatura entra como dívida no saldo", icone: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /><path d="M6 15h4" /></> },
+  { tipo: "carteira", titulo: "Caixa", texto: "Dinheiro em espécie, saldo inicial", icone: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></> },
+  { tipo: "gateway", titulo: "Adquirente ou gateway", texto: "Maquininha, Pix ou meio de pagamento", icone: <><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></> },
+];
+
+function ContasVazias({ onCadastrar }: { onCadastrar: (tipo?: Account["accountType"]) => void }) {
+  const traco = (conteudo: ReactNode, tamanho = 20) => (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
+  );
+  return (
+    <>
+      <AuroraSurface className="rounded-[20px] p-6">
+        <div className="flex flex-1 flex-col gap-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8FB39E]">Saldo consolidado</span>
+            <span className="ml-auto rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-[#C5DACE]">Sem contas</span>
+          </div>
+          <strong className="text-[38px] font-bold leading-none tracking-[-.03em] text-[#8FB39E]">R$ 0,00</strong>
+          <div className="h-2.5 rounded-full bg-[#1F3D2B]" />
+          <span className="text-[12px] text-[#8FB39E]">A distribuição por conta aparece aqui assim que a primeira conta for cadastrada.</span>
+        </div>
+      </AuroraSurface>
+
+      <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+        {/* Uma conta em rascunho, uma cadastrada, e o sinal de somar. */}
+        <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+          <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+          <span className="absolute left-[14px] top-[22px] h-[38px] w-[56px] -rotate-[8deg] rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white" />
+          <span className="absolute right-[14px] top-[30px] flex h-[38px] w-[56px] rotate-[6deg] items-center justify-center rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] text-[#0A7A42]">
+            {traco(<><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>)}
+          </span>
+          <span className="absolute bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+            <PlusIcon size={16} />
+          </span>
+        </div>
+
+        <div className="flex max-w-[520px] flex-col gap-2">
+          <h2 className="text-[22px] font-bold tracking-[-.02em]">Nenhuma conta cadastrada</h2>
+          <p className="text-[14px] leading-relaxed text-[#4C6355]">
+            As contas são a base do GranaFy: é nelas que entram e saem os lançamentos, e é a partir delas
+            que o saldo consolidado, a conciliação e o DRE são calculados.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onCadastrar()}
+          className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+        >
+          <PlusIcon size={16} />
+          Cadastrar primeira conta
+        </button>
+
+        <div className="flex w-full max-w-[720px] flex-col gap-3 border-t border-[#F1F4F2] pt-6">
+          <span className="text-left text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Que tipo de conta você quer cadastrar?</span>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {TIPOS_DE_CONTA.map(item => (
+              <button
+                key={item.tipo}
+                type="button"
+                onClick={() => onCadastrar(item.tipo)}
+                className="flex items-center gap-3 rounded-[14px] border border-[#E3EBE6] bg-white p-3.5 text-left transition hover:bg-[#F8FAF9]"
+              >
+                <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[12px] bg-[#F1F4F2] text-[#28382E]">{traco(item.icone, 17)}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-[13.5px] font-bold">{item.titulo}</span>
+                  <span className="text-[12px] text-[#8A968D]">{item.texto}</span>
+                </span>
+                <ChevronRightIcon size={16} className="shrink-0 text-[#8A968D]" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
 export default function OrganizationPage() {
   // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
   // assinatura a página não redesenha quando o olhinho é ligado.
@@ -510,6 +598,7 @@ export default function OrganizationPage() {
   const [categoryModal, setCategoryModal] = useState(false);
   const [costCenterModal, setCostCenterModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [tipoInicial, setTipoInicial] = useState<Account["accountType"] | undefined>(undefined);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingCostCenter, setEditingCostCenter] = useState<CostCenter | null>(null);
   const utils = trpc.useUtils();
@@ -598,7 +687,9 @@ export default function OrganizationPage() {
       .map(item => ({ ...item, share: (Math.abs(item.total) / biggest) * 100 }));
   }, [data?.costCenters]);
 
-  const headerSubtitle = section === "accounts"
+  const headerSubtitle = section === "accounts" && accounts.length === 0 && !overviewQuery.isLoading
+    ? "nenhuma conta cadastrada"
+    : section === "accounts"
     ? `${activeAccounts} ${activeAccounts === 1 ? "conta ativa" : "contas ativas"}${archivedAccounts > 0 ? ` · ${archivedAccounts} arquivada${archivedAccounts === 1 ? "" : "s"}` : ""}`
     : `${activeCategories} categorias · ${activeCostCenters} centros de custo`;
 
@@ -665,6 +756,8 @@ export default function OrganizationPage() {
 
   const loading = overviewQuery.isLoading;
   const failed = overviewQuery.isError;
+  /* Nenhuma conta, nem arquivada: a tela de contas vira o convite. */
+  const semContas = !loading && !failed && accounts.length === 0;
 
   return (
     <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
@@ -676,8 +769,8 @@ export default function OrganizationPage() {
             <SidebarStatCard
               tone={totalBalance < 0 ? "negative" : "positive"}
               kicker="Saldo consolidado"
-              value={formatMoney(totalBalance)}
-              hint={`${activeAccounts} ${activeAccounts === 1 ? "conta ativa" : "contas ativas"}`}
+              value={semContas ? "—" : formatMoney(totalBalance)}
+              hint={semContas ? "nenhuma conta cadastrada" : `${activeAccounts} ${activeAccounts === 1 ? "conta ativa" : "contas ativas"}`}
             />
           }
         />
@@ -691,7 +784,7 @@ export default function OrganizationPage() {
             </div>
 
             {section === "accounts" ? (
-              <label className="relative min-w-[200px] flex-1 sm:max-w-[260px]">
+              <label className={`relative min-w-[200px] flex-1 sm:max-w-[260px] ${semContas ? "pointer-events-none opacity-50" : ""}`}>
                 <SearchIcon size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
                 <input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Buscar conta…" className="h-11 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
               </label>
@@ -732,7 +825,11 @@ export default function OrganizationPage() {
           )}
           {failed && <section className="flex min-h-[420px] flex-1 flex-col items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><strong className="text-[#B3261E]">Não foi possível carregar</strong><button type="button" onClick={() => overviewQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button></section>}
 
-          {!loading && !failed && section === "accounts" && (
+          {semContas && section === "accounts" && (
+            <ContasVazias onCadastrar={tipo => { setEditingAccount(null); setTipoInicial(tipo); setAccountModal(true); }} />
+          )}
+
+          {!loading && !failed && !semContas && section === "accounts" && (
             <>
               <AuroraSurface className="rounded-[20px] p-6">
                 <div className="flex flex-1 flex-col gap-3.5">
@@ -982,7 +1079,7 @@ export default function OrganizationPage() {
         </section>
       </div>
 
-      {accountModal && <AccountModal account={editingAccount} pending={createAccount.isPending || updateAccount.isPending} onClose={() => { setAccountModal(false); setEditingAccount(null); }} onSave={saveAccount} />}
+      {accountModal && <AccountModal account={editingAccount} tipoInicial={tipoInicial} pending={createAccount.isPending || updateAccount.isPending} onClose={() => { setAccountModal(false); setEditingAccount(null); setTipoInicial(undefined); }} onSave={saveAccount} />}
       {categoryModal && <CategoryModal category={editingCategory} pending={createCategory.isPending || updateCategory.isPending} onClose={() => { setCategoryModal(false); setEditingCategory(null); }} onSave={saveCategory} />}
       {costCenterModal && <CostCenterModal costCenter={editingCostCenter} pending={createCostCenter.isPending || updateCostCenter.isPending} onClose={() => { setCostCenterModal(false); setEditingCostCenter(null); }} onSave={saveCostCenter} />}
       {ruleModal && <RuleModal categories={data?.categories ?? []} costCenters={data?.costCenters ?? []} pending={createRule.isPending} onClose={() => setRuleModal(false)} onSave={saveRule} />}
