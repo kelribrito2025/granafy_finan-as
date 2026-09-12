@@ -1,4 +1,5 @@
 import { LockIcon, ReportIcon } from "@/components/IconlyIcons";
+import { OnboardingLateral } from "@/components/onboarding/OnboardingStepper";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -145,14 +146,17 @@ export function StepEmpresa({ onDone, renderFooter }: {
         </div>
       </fieldset>
 
-      {/* A nota do modelo, e ela é literal: o regime não entra em conta nenhuma. */}
-      <p className="flex items-start gap-2.5 rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] leading-relaxed text-[#0A7A42]">
-        <LockIcon size={15} className="mt-0.5 shrink-0" />
-        <span>
-          Você pode mudar qualquer um desses campos depois em Configurações → Empresa. O GranaFy{" "}
-          <strong className="font-semibold">não calcula impostos</strong> — o regime apenas rotula os relatórios.
-        </span>
-      </p>
+      {/* A nota do modelo, e ela é literal: o regime não entra em conta nenhuma.
+          Vai para a coluna de apoio à direita, como nos outros passos. */}
+      <OnboardingLateral>
+        <p className="flex items-start gap-2.5 rounded-[14px] bg-[#F1FBF6] p-4 text-[12.5px] leading-relaxed text-[#0A7A42]">
+          <LockIcon size={15} className="mt-0.5 shrink-0" />
+          <span>
+            Tudo isso pode ser alterado depois em Configurações → Empresa. O regime só rotula os
+            relatórios: o GranaFy <strong className="font-semibold">não calcula impostos</strong>.
+          </span>
+        </p>
+      </OnboardingLateral>
 
       {renderFooter({ onContinue: continuar, pending, label: "Continuar" })}
     </>
