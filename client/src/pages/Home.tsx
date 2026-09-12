@@ -258,16 +258,22 @@ export default function Home() {
                 <div className="popover-enter absolute right-0 top-12 z-30 w-[300px] rounded-2xl bg-white p-3.5 shadow-[0_20px_50px_rgba(11,31,20,.18)]">
                   <div className="flex items-center gap-2 px-1 pb-2.5">
                     <strong className="text-[13px]">Notificações</strong>
-                    <span className="ml-auto rounded-md bg-[#FDECEA] px-2 py-0.5 text-[10px] font-bold text-[#8E1F16]">{dashboard?.overdue.count ?? 0} pendente{dashboard?.overdue.count === 1 ? "" : "s"}</span>
+                    {!nadaPendente && <span className="ml-auto rounded-md bg-[#FDECEA] px-2 py-0.5 text-[10px] font-bold text-[#8E1F16]">{atrasadas + pendentes} pendente{atrasadas + pendentes === 1 ? "" : "s"}</span>}
                   </div>
-                  <button onClick={() => setLocation("/lancamentos")} className="flex w-full gap-3 rounded-xl bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98]">
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#E5533D]" />
-                    <span><strong className="block text-xs text-[#8E1F16]">{dashboard?.overdue.count ?? 0} conta{dashboard?.overdue.count === 1 ? "" : "s"} em atraso</strong><span className="mt-0.5 block text-[11px] text-[#8A4A45]">Total pendente de {formatMoney(dashboard?.overdue.amount ?? 0)}</span></span>
-                  </button>
-                  <button onClick={() => setLocation("/lancamentos")} className="mt-1.5 flex w-full gap-3 rounded-xl p-3 text-left transition hover:bg-[#F1F4F2]">
-                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#12B85C]" />
-                    <span><strong className="block text-xs">Lançamentos pendentes</strong><span className="mt-0.5 block text-[11px] text-[#8A968D]">{(dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0)} itens aguardam revisão</span></span>
-                  </button>
+                  {/* Mesma regra do cartão "Precisa de você": zero não é notificação. */}
+                  {nadaPendente && <NadaPendente texto="Avisamos aqui quando houver atraso ou lançamento a revisar." />}
+                  {atrasadas > 0 && (
+                    <button onClick={() => setLocation("/lancamentos")} className="flex w-full gap-3 rounded-xl bg-[#FDECEA] p-3 text-left transition hover:brightness-[.98]">
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#E5533D]" />
+                      <span><strong className="block text-xs text-[#8E1F16]">{atrasadas} conta{atrasadas === 1 ? "" : "s"} em atraso</strong><span className="mt-0.5 block text-[11px] text-[#8A4A45]">Total pendente de {formatMoney(dashboard?.overdue.amount ?? 0)}</span></span>
+                    </button>
+                  )}
+                  {pendentes > 0 && (
+                    <button onClick={() => setLocation("/lancamentos")} className="mt-1.5 flex w-full gap-3 rounded-xl p-3 text-left transition hover:bg-[#F1F4F2]">
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#12B85C]" />
+                      <span><strong className="block text-xs">Lançamentos pendentes</strong><span className="mt-0.5 block text-[11px] text-[#8A968D]">{pendentes} {pendentes === 1 ? "item aguarda" : "itens aguardam"} revisão</span></span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
