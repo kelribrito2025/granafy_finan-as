@@ -1,7 +1,7 @@
 import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
-import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
+import { KpiRowSkeleton, SplitChartSkeleton, TableSkeleton } from "@/components/PageSkeleton";
 import { ChartDot } from "@/components/ChartDot";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -20,7 +20,6 @@ import type { AppRouter } from "../../../server/routers";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type View = "dia" | "semana" | "mes";
@@ -416,7 +415,6 @@ export default function FluxoCaixaPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar fluxo" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 
@@ -425,12 +423,27 @@ export default function FluxoCaixaPage() {
               Não foi possível carregar o fluxo de caixa: {error.message}
             </div>
           )}
-          {loading && !error && (
+          {/*
+            O esqueleto segue a VISÃO, porque as duas telas desta página têm
+            formas diferentes: diária e semanal abrem com o cartão do saldo ao
+            lado da curva, mais dois avisos e a tabela; mensal abre com quatro
+            cartões e vai direto para a tabela — não tem gráfico nenhum.
+            
+            O de antes era três KPIs e um gráfico largo, que é a forma de
+            nenhuma das duas.
+          */}
+          {loading && !error && (view === "mes" ? (
             <>
-              <KpiRowSkeleton cards={3} />
-              <ChartSkeleton minHeight={260} />
+              <KpiRowSkeleton cards={4} />
+              <TableSkeleton />
             </>
-          )}
+          ) : (
+            <>
+              <SplitChartSkeleton />
+              <KpiRowSkeleton cards={2} colunas={2} />
+              <TableSkeleton />
+            </>
+          ))}
 
           {view !== "mes" && daily && (
             <>

@@ -31,10 +31,9 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Account = {
@@ -487,7 +486,27 @@ export default function OrganizationPage() {
   const [accountFilter, setAccountFilter] = useState<"active" | "archived">("active");
   const [ruleModal, setRuleModal] = useState(false);
   const [importPlanOpen, setImportPlanOpen] = useState(false);
-  const [accountModal, setAccountModal] = useState(false);
+  /*
+   * `?nova=conta` abre o modal já na chegada.
+   *
+   * Quem vem da conciliação sem conta bancária clicou em "Cadastrar conta
+   * bancária" — cair nesta página e ter de achar o botão de novo transforma um
+   * clique em três. O `useState` com inicializador, e não um efeito: com efeito
+   * a página pinta uma vez sem o modal e ele aparece no quadro seguinte.
+   *
+   * A URL é limpa logo depois, com `replace`, por dois motivos: recarregar a
+   * página não deve reabrir o modal, e o botão "voltar" do navegador não deve
+   * levar de volta a um endereço que abre modal.
+   */
+  const [accountModal, setAccountModal] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("nova") === "conta"
+  );
+
+  useEffect(() => {
+    if (!accountModal) return;
+    if (!new URLSearchParams(window.location.search).has("nova")) return;
+    window.history.replaceState(null, "", "/organizacao");
+  }, [accountModal]);
   const [categoryModal, setCategoryModal] = useState(false);
   const [costCenterModal, setCostCenterModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -689,9 +708,6 @@ export default function OrganizationPage() {
             {section === "categories" && (
               <Hint label="Importar plano de contas"><button type="button" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button></Hint>
             )}
-
-            <HideValuesButton />
-
             <button type="button" onClick={openPrimary} className="flex h-11 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13.5px] font-bold text-white hover:bg-[#0F9E4E]">
               <PlusIcon size={15} />{primaryLabel}
             </button>

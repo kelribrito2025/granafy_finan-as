@@ -213,9 +213,6 @@ export default function Home() {
                 </button>
               ))}
             </div>
-
-            <HideValuesButton />
-
             <div ref={notificationsAnchor} className="relative">
               <button
                 type="button"
@@ -263,7 +260,9 @@ export default function Home() {
               <div className="flex flex-1 flex-col gap-[18px]">
               <div className="relative z-10 flex items-center gap-2.5">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8FB39E]">Caixa disponível</span>
-                <span className="ml-auto rounded-lg bg-[#06120B]/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                {/* O olhinho mora aqui, e só aqui: ver HideValuesButton. */}
+                <HideValuesButton tone="onDark" className="ml-auto" />
+                <span className="rounded-lg bg-[#06120B]/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
                   {accountCount} {accountCount === 1 ? "conta" : "contas"}
                 </span>
               </div>

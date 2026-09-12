@@ -2,7 +2,6 @@ import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import {
   ArrowDownIcon,
   ArrowsUpDownIcon,
@@ -475,7 +474,6 @@ export default function PagasRecebidasPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos liquidados" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 
@@ -486,7 +484,7 @@ export default function PagasRecebidasPage() {
           )}
           {query.isPending && !query.error && (
             <>
-              <KpiRowSkeleton />
+              <KpiRowSkeleton cards={6} />
               <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
                 <GranafyLoader label="Carregando títulos liquidados…" />
               </div>

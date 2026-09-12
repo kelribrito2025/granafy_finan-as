@@ -218,6 +218,27 @@ describe.runIf(temBancoDeTeste())("as empresas de um login", () => {
     expect(gravados).toEqual([[COMPANY_COOKIE_NAME, String(segunda!.id)]]);
   });
 
+  it("conciliação sem conta bancária responde um ESTADO, não um erro", async () => {
+    /*
+     * O `overview` lançava BAD_REQUEST quando não havia conta, e a tela desenhava
+     * a barra vermelha de falha para uma conta que estava só começando. Agora
+     * responde `semContas`, e este teste é o que impede alguém de voltar a
+     * lançar: sem ele, o `throw` antigo passaria em silêncio por toda a suíte.
+     */
+    const empresa = await createCompany(ANA, { legalName: "Sem conta", tradeName: "", taxId: "" });
+    const { ctx } = contexto(ANA, await listCompanies(ANA), empresa!.id);
+    const resposta = await appRouter.createCaller(ctx).reconciliation.overview({ year: 2026, month: 9, accountId: null });
+    expect(resposta.semContas).toBe(true);
+
+    /* Com uma conta, o pacote inteiro — e o discriminante diz que é o pacote. */
+    await c.query(
+      "INSERT INTO financialAccounts (userId, companyId, name, initialBalance) VALUES (?, ?, 'Caixa', '0.00')",
+      [ANA, empresa!.id],
+    );
+    const cheia = await appRouter.createCaller(ctx).reconciliation.overview({ year: 2026, month: 9, accountId: null });
+    expect(cheia.semContas).toBe(false);
+  });
+
   it("abrir a empresa de OUTRO dono não grava cookie nenhum", async () => {
     /*
      * A guarda aqui é a lista do request: `ctx.companies` só tem as empresas de

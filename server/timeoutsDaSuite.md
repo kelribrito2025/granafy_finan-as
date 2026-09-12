@@ -30,6 +30,8 @@ Sempre a mesma forma, e é o que separa isso de um teste ruim:
 | 3 | 09/09 21:59:43 | 463,22 s | 2 | `cadastros.isolation.test.ts` | 109.027 ms | varredura de mutação encerrada 21:59:36, **7 segundos antes** |
 | 4 | 10/09 00:19:46 | **1846,60 s** | 13 | `cadastros.isolation.test.ts` (11/11) + `empresas.isolation.test.ts` | **1.441.441 ms** (24 min) | nenhuma varredura desde 23:22; produção em uso pelo dono na mesma janela (não medido) |
 | 5 | 10/09 08:19:58 | 467,75 s | 0 — **ECONNRESET** | `cadastros.isolation.test.ts` (11/11) | 78.924 ms | dois `ALTER TABLE ADD COLUMN` em produção, **~40 s antes** |
+| 6 | 12/09 12:46:19 | 522,92 s | 2 | `signupCompany.isolation.test.ts` | **47.036 ms** | nada medido rodando em paralelo |
+| 7 | 12/09 08:56:44 | **707,16 s** | 2 + **ECONNRESET** | `aperto.isolation.test.ts` (9/9) | **258.695 ms** | a rodada seguinte à sexta, sem nada entre as duas |
 
 A ocorrência 1 é a que faz esta a quarta vez. Ela não tem números porque o log
 não sobreviveu à sessão, e a causa dela **foi atribuída depois**: três arreios
@@ -58,6 +60,57 @@ O que a quinta acrescenta de verdade é outra coisa: o mesmo arquivo leva 69 s
 sozinho, 78,9 s dentro da suíte cheia, 109 s na terceira ocorrência e 1.441 s na
 quarta. **O que degrada é a suíte inteira em paralelo**, não o arquivo.
 
+### A primeira repetição — e o que ela é de verdade
+
+A sexta é a mesma da segunda: mesmo arquivo, **mesmo teste** — "a conta nova
+nasce com exatamente uma empresa" —, e o arquivo levando 47.036 ms contra
+47.146 ms. Na primeira leitura isso pareceu um limite configurado escondido em
+algum lugar. Não é, e vale deixar escrito por que não:
+
+    30.008 ms  o teste que morreu, no timeout do vitest
+     3.309 ms  nenhuma categoria-padrão nasce sem empresa
+     3.665 ms  as categorias apontam para a empresa daquela conta
+     5.072 ms  entrar de novo recria a empresa que faltar
+    ─────────
+    47.036 ms  o arquivo
+
+Os 47 s são 30 s de timeout mais quatro testes determinísticos que levam o
+mesmo tempo toda vez. A "repetição exata" é aritmética, não pista.
+
+O que sobra, e é real: **nas duas vezes morreu o PRIMEIRO teste do arquivo** —
+o primeiro a rodar depois do `beforeAll` que semeia. Na rodada verde ele leva
+3,3 s. Então não é "o arquivo fica lento"; é uma consulta específica, a
+primeira depois da semeadura, que trava enquanto as seguintes andam normal. É
+a mesma forma da quinta ocorrência, em que o `INSERT` do semear morreu e os
+testes seguintes caíram em 1 ms sobre a conexão fechada.
+
+Isso aponta para a **primeira ida ao banco depois de um lote grande de
+escrita** — e não para o cluster em geral, que responde normal um segundo
+depois. O que investigar na próxima: instrumentar o `beforeAll` e o primeiro
+teste com `console.time`, para saber se o tempo vai na semeadura, no
+`await` de conexão ou na primeira consulta de leitura.
+
+### A sétima: duas seguidas, e o banco lento a rodada inteira
+
+Veio logo depois da sexta, na rodada de confirmação. Morreu no `DELETE` do
+`limparTabelas` — a limpeza do `beforeEach` —, com `ECONNRESET`, dois hooks
+estourando os 120 s e os seis testes restantes caindo em 1 ms sobre a conexão
+fechada. É a quinta ocorrência outra vez, com o verbo trocado: lá o `INSERT` do
+semear, aqui o `DELETE` do limpar. **Sempre uma escrita de preparação.**
+
+E um dado que contradiz uma linha da lista de descartados: a suíte inteira levou
+707 s, contra 450–500 s de uma rodada normal, e os quatro arreios pesados foram
+todos mais lentos — `conciliacao.isolation` 102 s, `empresas.isolation` 93 s.
+"Banco lento em geral" foi descartado medindo DEPOIS da quarta ocorrência,
+quando ele já tinha se recomposto. Durante esta, ele estava lento sim, para
+todo mundo. O descarte continua valendo para o que mediu; não vale como "o
+banco nunca está lento quando isso acontece".
+
+Duas seguidas mudam a regra prática: repetir a rodada não é mais resposta. A
+próxima rodada cheia só depois de instrumentar o `beforeAll`/`beforeEach` com
+tempo por comando, para a ocorrência seguinte dizer ONDE o tempo foi — e não só
+que foi.
+
 ## O que já foi descartado com medição
 
 - **Vazamento de conexão.** Medido durante a rodada: o vitest mantém de 0 a 3
@@ -65,8 +118,9 @@ quarta. **O que degrada é a suíte inteira em paralelo**, não o arquivo.
 - **Arreio novo culpado.** A `empresas.isolation` é nova e travou junto na
   ocorrência 4 — mas o `signupCompany` rodou em 3,36 s na mesma rodada logo
   depois. Não é um arquivo específico.
-- **Banco lento em geral.** Medido imediatamente depois da pior ocorrência:
-  180 ms por query, normal. Quando a rodada seguinte roda, o banco está bom.
+- **Banco lento em geral.** Medido imediatamente DEPOIS da quarta ocorrência:
+  180 ms por query, normal. Vale para o que mediu — a sétima mostrou a rodada
+  inteira lenta enquanto acontecia. Ver acima.
 - **DDL no cluster.** Falsificado com experimento, não com raciocínio: 360
   comandos DDL concorrentes não mudaram o tempo do arreio em nada. Ver a quinta
   ocorrência acima.

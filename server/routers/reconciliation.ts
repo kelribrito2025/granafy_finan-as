@@ -91,8 +91,16 @@ export const reconciliationRouter = router({
     const end = lastDayOf(input.year, input.month);
     const label = `${MONTH_NAMES[input.month - 1]} de ${input.year}`;
 
+    /*
+     * Sem conta cadastrada não é ERRO, e tratar como erro era o problema: a tela
+     * mostrava uma barra vermelha dizendo "Cadastre uma conta bancária para
+     * conciliar" e mais nada — a mesma moldura de uma falha de servidor, para
+     * uma conta nova que está simplesmente começando.
+     *
+     * Agora é um estado, e o cliente desenha as boas-vindas da conciliação.
+     */
     if (!account) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Cadastre uma conta bancária para conciliar." });
+      return { semContas: true as const, label };
     }
 
     const [movements, candidateRows, rules, statement, period] = await Promise.all([
@@ -183,6 +191,7 @@ export const reconciliationRouter = router({
     const difference = statement ? Math.round((statement.balance - systemBalance) * 100) / 100 : null;
 
     return {
+      semContas: false as const,
       label,
       year: input.year,
       month: input.month,

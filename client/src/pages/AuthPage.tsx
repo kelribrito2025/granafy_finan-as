@@ -7,6 +7,7 @@ import {
   ShowIcon,
   TrendUpIcon,
 } from "@/components/IconlyIcons";
+import { CaixaDeSelecao } from "@/components/SelectionCheckbox";
 import { GranafyLogo } from "@/components/GranafyLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -380,15 +381,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                     onClick={() => setRemember(value => !value)}
                     className="flex items-center gap-2.5 text-left"
                   >
-                    <span className={`flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-md transition ${
-                      remember ? "bg-[#12B85C] text-white" : "border-[1.5px] border-[#C9D5CD]"
-                    }`}>
-                      {remember && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" aria-hidden="true">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      )}
-                    </span>
+                    <CaixaDeSelecao marcada={remember} tamanho={20} />
                     <span className="text-[13px] text-[#28382E]">Lembrar-me</span>
                   </button>
                 </div>
@@ -431,15 +424,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   onClick={() => setAcceptedTerms(value => !value)}
                   className="flex items-start gap-2.5 text-left"
                 >
-                  <span className={`mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md transition ${
-                    acceptedTerms ? "bg-[#12B85C] text-white" : "border-[1.5px] border-[#C9D5CD]"
-                  }`}>
-                    {acceptedTerms && (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" aria-hidden="true">
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    )}
-                  </span>
+                  <CaixaDeSelecao marcada={acceptedTerms} className="mt-px" />
                   <span className="text-[13px] leading-relaxed text-[#28382E]">
                     Aceito os{" "}
                     <a href="/termos" target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="font-semibold text-[#0A7A42] underline-offset-2 hover:underline">

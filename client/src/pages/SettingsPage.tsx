@@ -32,7 +32,6 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useSearch } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type SettingsTab = "company" | "preferences" | "onboarding" | "plans" | "subscription";
@@ -162,7 +161,6 @@ export default function SettingsPage() {
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{SUBTITULO_POR_ABA[tab]}</p>
             </div>
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 

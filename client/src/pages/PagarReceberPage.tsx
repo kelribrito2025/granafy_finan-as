@@ -10,7 +10,9 @@ import {
   ArrowUpIcon,
   CheckIcon,
   ChevronRightIcon,
+  DeleteIcon,
   DownloadIcon,
+  EditIcon,
   PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
@@ -24,10 +26,10 @@ import type { TransactionInput, TransactionType } from "@/lib/transactionTypes";
 import { STATUS_LABELS, type Title, type TitleStatus } from "@shared/payables";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Arrangement = "lista" | "colunas";
@@ -115,7 +117,8 @@ function signedMoney(value: number) {
   return value < 0 ? `− ${formatMoney(Math.abs(value))}` : `+ ${formatMoney(value)}`;
 }
 
-const LIST_GRID = "grid grid-cols-[26px_minmax(0,1fr)_auto] gap-3 lg:grid-cols-[34px_84px_minmax(0,1fr)_170px_140px_120px_150px_44px]";
+/* A última coluna é o ⋮: sem ele, um título a pagar só tinha um destino, ser pago. */
+const LIST_GRID = "grid grid-cols-[26px_minmax(0,1fr)_auto] gap-3 lg:grid-cols-[34px_84px_minmax(0,1fr)_170px_140px_120px_150px_44px_36px]";
 
 function SettleButton({ title, onSettle, pending }: { title: Title; onSettle: (id: number) => void; pending: boolean }) {
   const label = title.side === "receber" ? "Marcar como recebido" : "Marcar como pago";
@@ -137,11 +140,54 @@ function SettleButton({ title, onSettle, pending }: { title: Title; onSettle: (i
   );
 }
 
-function SingleList({ data, titles, onSettle, pending }: {
+/**
+ * O ⋮ do título: editar e excluir.
+ *
+ * Até aqui um título a pagar tinha UM destino nesta tela — ser pago. Errou a
+ * data, o valor ou lançou em dobro? Tinha de ir a Lançamentos, achar a linha
+ * no meio do mês e resolver lá. O menu traz as duas ações para onde a pessoa
+ * está olhando. Fecha ao escolher, no Esc e no clique fora, pelo mesmo hook
+ * dos outros menus do produto.
+ */
+function TitleMenu({ title, onEditar, onExcluir }: { title: Title; onEditar: (title: Title) => void; onExcluir: (title: Title) => void }) {
+  const [aberto, setAberto] = useState(false);
+  const caixa = useRef<HTMLDivElement | null>(null);
+  useDismissOnOutside(aberto, caixa, useCallback(() => setAberto(false), []));
+  return (
+    <div ref={caixa} className="relative justify-self-end">
+      <button
+        type="button"
+        aria-label="Ações do título"
+        aria-expanded={aberto}
+        aria-haspopup="menu"
+        onClick={() => setAberto(atual => !atual)}
+        className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] transition hover:bg-[#F1F4F2] hover:text-[#0B1F14]"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
+        </svg>
+      </button>
+      {aberto && (
+        <div role="menu" className="absolute right-0 top-9 z-30 w-[168px] rounded-[12px] bg-white p-1 shadow-[0_12px_30px_rgba(11,31,20,.16)] ring-1 ring-[#E3EBE6]">
+          <button type="button" role="menuitem" onClick={() => { setAberto(false); onEditar(title); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[12.5px] font-medium hover:bg-[#F1F4F2]">
+            <EditIcon size={15} />Editar
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setAberto(false); onExcluir(title); }} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[12.5px] font-medium text-[#8E1F16] hover:bg-[#FDECEA]">
+            <DeleteIcon size={15} />Excluir
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SingleList({ data, titles, onSettle, pending, onEditar, onExcluir }: {
   data: Overview;
   titles: Title[];
   onSettle: (id: number) => void;
   pending: boolean;
+  onEditar: (title: Title) => void;
+  onExcluir: (title: Title) => void;
 }) {
   const visible = new Set(titles.map(title => title.id));
   const groups = data.groups
@@ -162,6 +208,7 @@ function SingleList({ data, titles, onSettle, pending }: {
         <span className="hidden lg:block">Categoria</span>
         <span className="hidden lg:block">Situação</span>
         <span className="text-right">Valor</span>
+        <span className="hidden lg:block" />
         <span className="hidden lg:block" />
       </div>
 
@@ -199,6 +246,7 @@ function SingleList({ data, titles, onSettle, pending }: {
                 {signedMoney(title.amount)}
               </span>
               <span className="hidden lg:block"><SettleButton title={title} onSettle={onSettle} pending={pending} /></span>
+              <span className="hidden lg:block"><TitleMenu title={title} onEditar={onEditar} onExcluir={onExcluir} /></span>
             </div>
           ))}
         </div>
@@ -208,9 +256,9 @@ function SingleList({ data, titles, onSettle, pending }: {
 }
 
 // A última coluna precisa caber "+ R$ 17.930,00" sem quebrar o sinal em outra linha.
-const COLUMN_GRID = "grid grid-cols-[64px_minmax(0,1fr)_auto] gap-2.5 sm:grid-cols-[74px_minmax(0,1fr)_106px_146px_32px]";
+const COLUMN_GRID = "grid grid-cols-[64px_minmax(0,1fr)_auto_32px] gap-2.5 sm:grid-cols-[74px_minmax(0,1fr)_106px_146px_32px_32px]";
 
-function SideColumn({ side, titles, total, warning, onSettle, pending, onNew }: {
+function SideColumn({ side, titles, total, warning, onSettle, pending, onNew, onEditar, onExcluir }: {
   side: "receber" | "pagar";
   titles: Title[];
   total: number;
@@ -218,6 +266,8 @@ function SideColumn({ side, titles, total, warning, onSettle, pending, onNew }: 
   onSettle: (id: number) => void;
   pending: boolean;
   onNew: () => void;
+  onEditar: (title: Title) => void;
+  onExcluir: (title: Title) => void;
 }) {
   const receiving = side === "receber";
   return (
@@ -269,6 +319,7 @@ function SideColumn({ side, titles, total, warning, onSettle, pending, onNew }: 
               {signedMoney(title.amount)}
             </span>
             <SettleButton title={title} onSettle={onSettle} pending={pending} />
+            <TitleMenu title={title} onEditar={onEditar} onExcluir={onExcluir} />
           </div>
         ))
       )}
@@ -383,19 +434,64 @@ export default function PagarReceberPage() {
    */
   const [novoLancamento, setNovoLancamento] = useState<TransactionType | null>(null);
   const createMutation = trpc.transactions.create.useMutation();
+  const updateMutation = trpc.transactions.update.useMutation();
+  const deleteMutation = trpc.transactions.delete.useMutation();
+  /* O lançamento inteiro, buscado só quando alguém pede para editar: a lista só tem a projeção. */
+  const [editando, setEditando] = useState<Parameters<typeof TransactionModal>[0]["transaction"]>(null);
+  const [excluindo, setExcluindo] = useState<Title | null>(null);
+  const [buscandoEdicao, setBuscandoEdicao] = useState(false);
+
+  /* Tudo que mostra um número muda quando um título muda; é a mesma lista do salvar. */
+  const recarregar = () => Promise.all([
+    utils.payables.invalidate(),
+    utils.transactions.invalidate(),
+    utils.cashflow.invalidate(),
+    utils.organization.invalidate(),
+    utils.dre.invalidate(),
+    utils.settled.invalidate(),
+  ]);
+
+  const abrirEdicao = async (title: Title) => {
+    setBuscandoEdicao(true);
+    try {
+      setEditando(await utils.transactions.byId.fetch({ id: title.id }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir o lançamento");
+    } finally {
+      setBuscandoEdicao(false);
+    }
+  };
+
+  const salvarEdicao = async (input: TransactionInput) => {
+    if (!editando) return;
+    try {
+      /* `single`: só este título. Série recorrente se edita inteira em Lançamentos, onde a pergunta é feita. */
+      await updateMutation.mutateAsync({ id: editando.id, scope: "single", ...input });
+      await recarregar();
+      toast.success("Lançamento atualizado");
+      setEditando(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+    }
+  };
+
+  const confirmarExclusao = async () => {
+    if (!excluindo) return;
+    try {
+      await deleteMutation.mutateAsync({ id: excluindo.id, scope: "single" });
+      await recarregar();
+      toast.success("Título excluído");
+      setExcluindo(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o título");
+    }
+  };
   const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
 
   const salvarLancamento = async (input: TransactionInput) => {
     try {
       const resultado = await createMutation.mutateAsync(input);
-      await Promise.all([
-        utils.payables.invalidate(),
-        utils.transactions.invalidate(),
-        utils.cashflow.invalidate(),
-        utils.organization.invalidate(),
-        utils.dre.invalidate(),
-        utils.settled.invalidate(),
-      ]);
+      await recarregar();
       toast.success(resultado.monthCount > 1
         ? `${resultado.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
         : "Lançamento salvo");
@@ -469,7 +565,6 @@ export default function PagarReceberPage() {
               <PlusIcon size={15} />
               Nova conta
             </button>
-            <HideValuesButton />
             <ProfileMenu />
           </header>
 
@@ -559,7 +654,7 @@ export default function PagarReceberPage() {
                     </label>
                   </div>
 
-                  <SingleList data={data} titles={filtered} onSettle={id => settle.mutate({ id })} pending={settle.isPending} />
+                  <SingleList data={data} titles={filtered} onSettle={id => settle.mutate({ id })} pending={settle.isPending} onEditar={abrirEdicao} onExcluir={setExcluindo} />
                   <TotalsBar receivable={data.totals.receivable} payable={data.totals.payable} balance={data.totals.balance} />
                 </section>
               ) : (
@@ -578,7 +673,7 @@ export default function PagarReceberPage() {
                           : null
                       }
                       onSettle={id => settle.mutate({ id })}
-                      pending={settle.isPending}
+                      pending={settle.isPending} onEditar={abrirEdicao} onExcluir={setExcluindo}
                       onNew={() => setNovoLancamento("entrada")}
                     />
                     <SideColumn
@@ -594,7 +689,7 @@ export default function PagarReceberPage() {
                           : null
                       }
                       onSettle={id => settle.mutate({ id })}
-                      pending={settle.isPending}
+                      pending={settle.isPending} onEditar={abrirEdicao} onExcluir={setExcluindo}
                       onNew={() => setNovoLancamento("saida")}
                     />
                   </section>
@@ -612,6 +707,41 @@ export default function PagarReceberPage() {
           )}
         </section>
       </div>
+      {editando && (
+        <TransactionModal
+          transaction={editando}
+          defaultDate={today()}
+          pending={updateMutation.isPending}
+          options={organizationOptions}
+          onManageOrganization={() => setLocation("/organizacao")}
+          onClose={() => setEditando(null)}
+          onSave={salvarEdicao}
+        />
+      )}
+      {buscandoEdicao && (
+        <div role="status" aria-live="polite" className="fixed inset-0 z-[85] flex items-center justify-center bg-[#0B1F14]/20">
+          <GranafyLoader size="sm" label="Abrindo o lançamento…" />
+        </div>
+      )}
+      {excluindo && (
+        <div role="dialog" aria-modal="true" aria-labelledby="excluir-titulo" className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0B1F14]/[.42] p-4" onMouseDown={event => event.target === event.currentTarget && !deleteMutation.isPending && setExcluindo(null)}>
+          <div className="modal-enter w-full max-w-[420px] rounded-[20px] bg-white p-6 shadow-[0_20px_50px_rgba(11,31,20,.24)]">
+            <h2 id="excluir-titulo" className="text-[18px] font-bold tracking-[-.01em]">Excluir este título?</h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-[#4C6355]">
+              <strong className="font-semibold text-[#0B1F14]">{excluindo.description}</strong> · {formatDate(excluindo.transactionDate)} · {signedMoney(excluindo.amount)}
+            </p>
+            <p className="mt-3 rounded-[14px] bg-[#FDECEA] px-3.5 py-3 text-[12px] leading-relaxed text-[#8E1F16]">
+              O lançamento é apagado, não arquivado. Se ele veio de uma série recorrente, só esta parcela sai.
+            </p>
+            <div className="mt-5 flex gap-2.5">
+              <button type="button" disabled={deleteMutation.isPending} onClick={() => setExcluindo(null)} className="h-12 flex-1 rounded-[12px] bg-[#F1F4F2] text-[13.5px] font-semibold text-[#4C6355] hover:bg-[#E3EBE6] disabled:opacity-50">Cancelar</button>
+              <button type="button" disabled={deleteMutation.isPending} onClick={confirmarExclusao} className="h-12 flex-[1.4] rounded-[12px] bg-[#B3261E] text-[13.5px] font-bold text-white hover:bg-[#9A1F18] disabled:opacity-60">
+                {deleteMutation.isPending ? "Excluindo…" : "Excluir título"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {novoLancamento && (
         <TransactionModal
           defaultType={novoLancamento}

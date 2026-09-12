@@ -1,4 +1,5 @@
 import type { Connection } from "mysql2/promise";
+import { DEFAULT_TRANSACTION_CATEGORIES } from "./defaultCategories";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import { hashPassword } from "./auth";
@@ -9,9 +10,10 @@ import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoD
 /*
  * O cadastro fecha o vazamento na fonte.
  *
- * `createLocalUser` insere 50 categorias-padrão na mesma transação da conta.
- * Antes desta fase elas nasciam sem empresa, e foi assim que dois logins
- * "vazios" apareceram no banco com 50 linhas cada — 100 linhas que o backfill
+ * `createLocalUser` insere o catálogo de categorias-padrão inteiro na mesma
+ * transação da conta. Antes desta fase elas nasciam sem empresa, e foi assim
+ * que dois logins "vazios" apareceram no banco com 50 linhas cada (o catálogo
+ * tinha 50 na época; hoje tem mais) — 100 linhas que o backfill
  * teria de adotar e que a última fase não conseguiria pôr em NOT NULL.
  *
  * Este arquivo existe porque a mutação denunciou a falta dele: quebrar o
@@ -167,7 +169,7 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
     expect(Number((depois as Array<{ n: number }>)[0]!.n)).toBe(1);
   });
 
-  it("todas as 50 categorias-padrão da conta carregam a mesma empresa", async () => {
+  it("todas as categorias-padrão da conta carregam a mesma empresa — e são todas", async () => {
     const usuario = await cadastrar({ email: "t@teste.local", name: "Terceira", passwordHash: "h" });
     const [linhas] = await c.query(
       "SELECT companyId, COUNT(*) AS n FROM transactionCategories WHERE userId = ? GROUP BY companyId",
@@ -177,6 +179,12 @@ describe.runIf(temBancoDeTeste())("cadastro cria a empresa junto da conta", () =
     // Um grupo só: nenhuma sobrou de fora, nenhuma pegou empresa diferente.
     expect(grupos).toHaveLength(1);
     expect(grupos[0]!.companyId).not.toBeNull();
-    expect(Number(grupos[0]!.n)).toBeGreaterThan(0);
+    /*
+     * E o grupo tem o catálogo INTEIRO. `toBeGreaterThan(0)` deixava passar um
+     * cadastro que inserisse uma categoria só — e o título do teste dizia "50",
+     * um número memorizado de quando o catálogo tinha 50. O tamanho vem do
+     * catálogo, para o teste não envelhecer de novo.
+     */
+    expect(Number(grupos[0]!.n)).toBe(DEFAULT_TRANSACTION_CATEGORIES.length);
   });
 });

@@ -585,6 +585,22 @@ export const transactionsRouter = router({
     return { ...toTransaction(record), updatedCount: targets.length };
   }),
 
+  /**
+   * Um lançamento inteiro, pelo id.
+   *
+   * Existe porque A pagar e receber lista TÍTULOS — uma projeção com data,
+   * descrição, valor e status — e o modal de edição precisa do lançamento
+   * completo: conta, categoria, centro de custo, recorrência. Carregar tudo isso
+   * na lista de títulos só para o caso de alguém clicar em "Editar" seria pagar
+   * por linha o que se usa por clique. A guarda é a do `getTransactionById`,
+   * já provada por mutação nos arreios de isolamento.
+   */
+  byId: protectedProcedure.input(z.object({ id: z.number().int().positive() })).query(async ({ ctx, input }) => {
+    const record = await db.getTransactionById(escopoDe(ctx), input.id);
+    if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
+    return toTransaction(record);
+  }),
+
   duplicate: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(escopoDe(ctx), input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });

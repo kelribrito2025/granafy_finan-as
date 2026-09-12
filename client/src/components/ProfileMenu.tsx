@@ -2,7 +2,6 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import {
   ArchiveIcon,
   CardIcon,
-  CheckIcon,
   ChevronRightIcon,
   CloseIcon,
   SettingsIcon,
@@ -10,6 +9,8 @@ import {
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CaixaDeSelecao } from "@/components/SelectionCheckbox";
+import { GranafyRing } from "@/components/GranafyLoader";
 import { companyInitials } from "@shared/companies";
 import { trpc } from "@/lib/trpc";
 import { useCallback, useRef, useState } from "react";
@@ -188,14 +189,7 @@ function PainelDeArquivar({ empresas, selecionadas, salvando, onAlternar, onCanc
                 marcada ? "border-[#12B85C] bg-[#F1FBF6]" : "border-[#E3EAE5]"
               } ${bloqueada ? "opacity-55" : "hover:bg-[#F8FAF9]"}`}
             >
-              <span
-                aria-hidden="true"
-                className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] ${
-                  marcada ? "border-[#12B85C] bg-[#12B85C] text-white" : "border-[#C9D4CD]"
-                }`}
-              >
-                {marcada && <CheckIcon size={11} />}
-              </span>
+              <CaixaDeSelecao marcada={marcada} tamanho={20} />
               <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-[#DFF6EA] text-[12px] font-bold text-[#0A7A42]">
                 {companyInitials(empresa.displayName)}
               </span>
@@ -369,21 +363,35 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                     ? "Arquivar empresas"
                     : "Trocar de empresa"}
             </h2>
-            <p className="mt-1 text-[12.5px] text-[#8A968D]">
+            {/*
+              O anel no lugar da palavra "carregando", que era o último texto de
+              espera do modal — e ficava no subtítulo, onde depois entra a
+              contagem de empresas: o mesmo lugar, dizendo a mesma coisa com o
+              desenho que o resto do produto usa para esperar.
+            */}
+            <p className="mt-1 flex min-h-[18px] items-center gap-2 text-[12.5px] text-[#8A968D]">
+              {carregando && !form && <GranafyRing size={13} />}
               {form?.modo === "criar"
                 ? "Ela nasce vazia, e você cai nas boas-vindas dela"
                 : form?.modo === "arquivar"
                   ? "saem da lista, mas nada é apagado · dá para reativar depois"
+                  /* Esperando, quem fala é o anel logo acima. */
                   : carregando
-                    ? "carregando…"
+                    ? null
                     /*
-                     * A contagem de arquivadas aparece aqui, e o NOME delas não:
-                     * o cabeçalho responde "existe algo guardado?" sem gastar a
-                     * lista com empresa que ninguém vai abrir agora.
+                     * A contagem, em duas formas. "Saldo em caixa hoje" saiu
+                     * daqui: era o rótulo do mockup e anunciava o número de
+                     * apoio da lista em vez do que a lista é, embaixo de um
+                     * título que já diz "Trocar de empresa".
+                     *
+                     * Havendo arquivada, a contagem se divide — e mostra a
+                     * QUANTIDADE sem o nome: o cabeçalho responde "existe algo
+                     * guardado?" sem gastar a lista com empresa que ninguém vai
+                     * abrir agora.
                      */
                     : arquivadas.length > 0
                       ? `${ativas} ${ativas === 1 ? "ativa" : "ativas"} · ${arquivadas.length} ${arquivadas.length === 1 ? "arquivada" : "arquivadas"}`
-                      : "Saldo em caixa hoje"}
+                      : `${ativas} ${ativas === 1 ? "empresa cadastrada" : "empresas cadastradas"}`}
             </p>
           </div>
           <button type="button" aria-label="Fechar" disabled={ocupado} onClick={onClose} className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9] disabled:opacity-50"><CloseIcon size={16} /></button>
@@ -416,6 +424,24 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
         ) : (
           <>
             <div className="mt-5 flex flex-col gap-2.5">
+              {/*
+                Enquanto a lista não chega, uma linha vazia no lugar dela.
+                
+                Sem isto o modal abria com o título, o subtítulo e o "Adicionar
+                empresa" — nada mais. Quem abriu para TROCAR via um modal que
+                parecia só saber criar, e a lista empurrava o botão para baixo ao
+                aparecer.
+              */}
+              {carregando && (
+                <div className="flex items-center gap-3 rounded-[14px] border border-[#E3EAE5] p-3.5" aria-hidden="true">
+                  <span className="h-[38px] w-[38px] shrink-0 rounded-[11px] bg-[#F1F4F2]" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-2">
+                    <span className="block h-2.5 w-32 rounded-full bg-[#EDF2EE]" />
+                    <span className="block h-2 w-24 rounded-full bg-[#F1F4F2]" />
+                  </span>
+                  <GranafyRing size={16} />
+                </div>
+              )}
               {listaAtiva.length === 0 && arquivadas.length === 0 && !carregando && (
                 <p className="rounded-[14px] bg-[#F8FAF9] px-3.5 py-4 text-center text-[12.5px] text-[#8A968D]">
                   Nenhuma empresa cadastrada ainda.
@@ -427,18 +453,30 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                   <div
                     key={empresa.id}
                     /* Só ativas chegam aqui: as arquivadas têm seção própria embaixo. */
-                    className={`rounded-[14px] p-3.5 ${
-                      empresa.isCurrent ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]" : "border border-[#E3EAE5]"
+                    /*
+                      O CARD inteiro abre a empresa — o padding, a linha do saldo,
+                      o espaço entre o nome e o check. Antes só o miolo (avatar e
+                      nome) era o botão, e clicar no saldo, que é a parte mais
+                      olhada, não fazia nada. Como o ⋮ mora dentro do card e
+                      botão não aninha botão, o card é `role="button"` e o menu
+                      segura o clique para não subir.
+                    */
+                    role={empresa.isCurrent ? undefined : "button"}
+                    tabIndex={empresa.isCurrent ? undefined : 0}
+                    aria-disabled={ocupado || undefined}
+                    onClick={() => { if (empresa.isCurrent || ocupado) return; setErro(null); setTrocando(empresa.id); abrir.mutate({ companyId: empresa.id }); }}
+                    onKeyDown={event => {
+                      if (empresa.isCurrent || ocupado) return;
+                      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setErro(null); setTrocando(empresa.id); abrir.mutate({ companyId: empresa.id }); }
+                    }}
+                    className={`rounded-[14px] p-3.5 transition ${
+                      empresa.isCurrent
+                        ? "border-[1.5px] border-[#12B85C] bg-[#F1FBF6]"
+                        : "cursor-pointer border border-[#E3EAE5] hover:border-[#B9C7BE] hover:bg-[#F8FAF9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12B85C]/40"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {/* A linha inteira abre a empresa, menos a que já está aberta. */}
-                      <button
-                        type="button"
-                        disabled={empresa.isCurrent || ocupado}
-                        onClick={() => { setErro(null); setTrocando(empresa.id); abrir.mutate({ companyId: empresa.id }); }}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
-                      >
+                      <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
                         <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${
                           empresa.isCurrent ? "bg-[#12B85C] text-white" : "bg-[#DFF6EA] text-[#0A7A42]"
                         }`}>
@@ -448,28 +486,34 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                           <span className={`block truncate text-[14px] ${empresa.isCurrent ? "font-bold text-[#0A7A42]" : "font-semibold"}`}>
                             {empresa.displayName}
                           </span>
-                          <span className="block truncate text-[12px] text-[#8A968D]">
-                            {abrindo ? "abrindo…" : `${empresa.papel} · ${criadaEmLegivel(empresa.criadaEm)}`}
+                          {/*
+                            O anel da marca, o mesmo que o cartão de "A receber"
+                            usa no lugar do número: a espera aparece ONDE o dado
+                            vai aparecer, e a linha não muda de altura por causa
+                            de um texto entrando e saindo.
+                          */}
+                          <span className="flex items-center gap-2 text-[12px] text-[#8A968D]">
+                            {abrindo && <GranafyRing size={13} />}
+                            <span className="min-w-0 truncate">
+                              {abrindo ? "abrindo" : `${empresa.papel} · ${criadaEmLegivel(empresa.criadaEm)}`}
+                            </span>
                           </span>
                         </span>
-                      </button>
+                      </span>
 
                       {/*
                         O check e o menu ficam juntos, à direita: um diz onde você
-                        está, o outro é a porta da gestão. Fora do botão de abrir,
-                        senão clicar no menu trocaria de empresa.
+                        está, o outro é a porta da gestão. O menu segura o clique
+                        (mousedown e click), senão abrir o ⋮ trocaria de empresa.
                       */}
                       {/*
-                        Seleção de rádio, e não seta: a seta dizia "vai para lá",
-                        que é verdade mas não responde a pergunta da tela. O
-                        círculo vazio ao lado do cheio responde: esta é a aberta,
-                        aquelas não são.
+                        A mesma caixa de seleção do aceite dos termos no login, e
+                        não um desenho próprio: seleção é seleção em todo o
+                        produto. A seta que ficava aqui dizia "vai para lá", que é
+                        verdade mas não responde a pergunta da tela.
                       */}
-                      {empresa.isCurrent ? (
-                        <CheckIcon size={12} className="shrink-0 rounded-full bg-[#12B85C] p-[3px] text-white" />
-                      ) : (
-                        <span aria-hidden="true" className="h-[18px] w-[18px] shrink-0 rounded-full border-[1.5px] border-[#C9D4CD]" />
-                      )}
+                      <CaixaDeSelecao marcada={empresa.isCurrent} tamanho={20} />
+                      <span onClick={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
                       <MenuDaEmpresa
                         desabilitado={ocupado}
                         rotulos={[
@@ -492,6 +536,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                           }
                         }}
                       />
+                      </span>
                     </div>
 
                     {/*
@@ -587,7 +632,19 @@ export function ProfileMenu() {
   const companiesQuery = trpc.companies.list.useQuery(undefined, { enabled: switcher, staleTime: 60_000 });
 
   const company = companyQuery.data;
-  const companyName = company?.tradeName || company?.legalName || "Empresa sem nome";
+  /*
+   * "Empresa sem nome" é a resposta para uma empresa que EXISTE e não tem nome
+   * preenchido — e era o que aparecia enquanto a consulta estava no ar, porque
+   * `company` indefinido cai no mesmo fallback. Quem abria o menu lia que a
+   * empresa dele não tinha nome, e um instante depois o nome aparecia.
+   *
+   * A consulta só sai quando o menu abre (`enabled`), então essa espera é
+   * visível todas as primeiras vezes, não uma corrida rara.
+   */
+  const carregandoEmpresa = companyQuery.isPending;
+  const companyName = carregandoEmpresa
+    ? "Carregando…"
+    : company?.tradeName || company?.legalName || "Empresa sem nome";
 
   useDismissOnOutside(open, anchor, useCallback(() => setOpen(false), []));
 
@@ -629,11 +686,18 @@ export function ProfileMenu() {
               onClick={() => { setOpen(false); setSwitcher(true); }}
               className="flex w-full items-center gap-3 rounded-[12px] bg-[#F1FBF6] p-2.5 text-left hover:bg-[#DFF6EA]"
             >
-              <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C] text-[13px] font-bold text-white">
-                {companyInitials(companyName)}
+              {/*
+                Enquanto espera, o anel no lugar das iniciais: "CA", de
+                "Carregando", seria uma sigla plausível de empresa e a pessoa
+                não teria como saber que não é a dela.
+              */}
+              <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${
+                carregandoEmpresa ? "bg-[#EDF2EE]" : "bg-[#12B85C] text-white"
+              }`}>
+                {carregandoEmpresa ? <GranafyRing size={16} /> : companyInitials(companyName)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-semibold text-[#0A7A42]">{companyName}</span>
+                <span className={`block truncate text-[14px] font-semibold ${carregandoEmpresa ? "text-[#8A968D]" : "text-[#0A7A42]"}`}>{companyName}</span>
                 <span className="block text-[12px] text-[#4C6355]">empresa atual</span>
               </span>
               {/* Troca, não avanço: a seta única dizia "próxima tela". */}

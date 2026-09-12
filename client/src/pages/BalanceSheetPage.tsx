@@ -62,7 +62,6 @@ import {
 import { FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type BalanceGroup =
@@ -1152,14 +1151,13 @@ export default function BalanceSheetPage() {
               ))}
             </div>
             <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
-            <HideValuesButton />
             <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
             <ProfileMenu />
           </header>
 
           {overviewQuery.isLoading && (
             <>
-              <KpiRowSkeleton cards={3} />
+              <KpiRowSkeleton cards={4} />
               <ChartSkeleton minHeight={340} className="flex-1" />
             </>
           )}

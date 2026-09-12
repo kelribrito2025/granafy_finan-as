@@ -3,13 +3,17 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
 import { GranafyLoader } from "@/components/GranafyLoader";
+import { KpiRowSkeleton } from "@/components/PageSkeleton";
 import {
+  CardIcon,
   CheckIcon,
   ChevronRightIcon,
   CloseIcon,
   DownloadIcon,
+  PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
+  UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -23,10 +27,16 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useLocation } from "wouter";
 
-type Overview = inferRouterOutputs<AppRouter>["reconciliation"]["overview"];
+/*
+ * O `overview` virou união: ou o pacote da conciliação, ou "não há conta". O
+ * `Extract` pega o primeiro, que é o que esta tela inteira usa — sem ele, todo
+ * `Overview["items"]` do arquivo passaria a não compilar, e a resposta certa
+ * não é afrouxar o tipo aqui, é dizer de qual dos dois se está falando.
+ */
+type Overview = Extract<inferRouterOutputs<AppRouter>["reconciliation"]["overview"], { semContas: false }>;
 type Item = Overview["items"][number];
 type Tab = "pendentes" | "sugeridas" | "sem_par" | "conciliadas";
 
@@ -98,6 +108,76 @@ function ModalShell({ title, subtitle, icon = CheckIcon, children, onClose }: {
 }
 
 /** Menu de ações da linha. */
+/**
+ * A conciliação de quem ainda não tem conta bancária.
+ *
+ * Antes isto era uma barra vermelha com uma frase — a mesma moldura de uma
+ * falha de servidor, porque o servidor de fato respondia com erro. Conta nova
+ * que está começando não errou nada.
+ *
+ * O botão leva para Contas e categorias com o modal de Nova conta JÁ ABERTO. É
+ * a diferença entre "vá cadastrar" e cadastrar: sem isso a pessoa cai numa
+ * página nova e precisa achar o botão outra vez.
+ *
+ * Os três passos NÃO prometem Open Finance. O desenho pedia "sincronize via
+ * Open Finance ou envie o extrato", e sincronização bancária não existe no
+ * produto — só a importação de OFX e CSV. Prometer conexão automática na tela
+ * de boas-vindas seria a decepção mais cara que esta tela pode causar.
+ */
+function SemContasBancarias({ onCadastrar }: { onCadastrar: () => void }) {
+  const passos = [
+    { icone: CardIcon, titulo: "Cadastre a conta", texto: "Escolha o banco, o tipo de conta e informe o saldo inicial." },
+    { icone: UploadIcon, titulo: "Importe o extrato", texto: "Envie o arquivo OFX ou CSV que o seu banco exporta." },
+    { icone: CheckIcon, titulo: "Confirme os pares", texto: "O GranaFy sugere as combinações; você revisa e confirma em lote." },
+  ];
+
+  return (
+    <section className="flex flex-1 flex-col items-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
+      {/* Dois extratos e o sinal de somar: o desenho do que falta acontecer. */}
+      <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
+        <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
+        <span className="absolute left-[14px] top-[22px] h-[38px] w-[56px] -rotate-[8deg] rounded-[10px] border-[1.5px] border-dashed border-[#B9C7BE] bg-white" />
+        <span className="absolute right-[14px] top-[30px] flex h-[38px] w-[56px] rotate-[6deg] items-center justify-center rounded-[10px] border-[1.5px] border-[#12B85C] bg-[#DFF6EA] text-[#0A7A42]">
+          <CheckIcon size={18} />
+        </span>
+        <span className="absolute bottom-[14px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
+          <PlusIcon size={16} />
+        </span>
+      </div>
+
+      <div className="flex max-w-[520px] flex-col gap-2">
+        <h2 className="text-[22px] font-bold tracking-[-.02em]">Nenhuma conta bancária para conciliar</h2>
+        <p className="text-[14px] leading-relaxed text-[#4C6355]">
+          A conciliação compara o extrato do banco com os lançamentos do GranaFy. Cadastre a
+          primeira conta para começar — leva menos de um minuto.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onCadastrar}
+        className="flex h-12 items-center gap-2.5 rounded-[12px] bg-[#12B85C] px-6 text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+      >
+        <PlusIcon size={16} />
+        Cadastrar conta bancária
+      </button>
+
+      <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
+        {passos.map((passo, indice) => (
+          <div key={passo.titulo} className="flex flex-col items-center gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-center">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">
+              <passo.icone size={20} />
+            </span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
+            <strong className="text-[14px] font-bold">{passo.titulo}</strong>
+            <span className="text-[12.5px] leading-relaxed text-[#4C6355]">{passo.texto}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RowMenu({ item, onAction, onClose }: {
   item: Item;
   onAction: (action: string) => void;
@@ -1025,7 +1105,15 @@ export default function ConciliacaoPage() {
     { enabled: modal?.kind === "history" }
   );
 
-  const data = query.data;
+  /*
+   * O estreitamento mora aqui, e não no JSX: `data` é o pacote da conciliação,
+   * e o retorno "sem contas" não tem nenhum dos campos dele. Separando na
+   * origem, as 51 leituras de `data.` no arquivo continuam válidas sem uma
+   * linha de mudança, e é impossível desenhar a tela cheia sem conta.
+   */
+  const [, setLocation] = useLocation();
+  const semContas = query.data?.semContas === true;
+  const data = query.data && query.data.semContas === false ? query.data : undefined;
   const monthLabel = `${MONTH_LABELS[period.month - 1]} de ${period.year}`;
 
   const visible = useMemo(() => {
@@ -1182,7 +1270,6 @@ export default function ConciliacaoPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar conciliação" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
-            <HideValuesButton />
             {data && (
               data.period.closed ? (
                 <button
@@ -1214,8 +1301,20 @@ export default function ConciliacaoPage() {
               {query.error.message}
             </div>
           )}
+          {semContas && <SemContasBancarias onCadastrar={() => setLocation("/organizacao?nova=conta")} />}
+          {/*
+            Os três cartões nascem vazios no lugar certo, como em A pagar e
+            receber. Antes a tela inteira era um bloco centralizado: a linha de
+            cartões não existia durante a espera e aparecia de uma vez, empurrando
+            o extrato para baixo no instante em que o dado chegava.
+          */}
           {query.isPending && !query.error && (
-            <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando o extrato…" /></div>
+            <>
+              <KpiRowSkeleton cards={4} />
+              <div className="flex min-h-[320px] items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
+                <GranafyLoader label="Carregando o extrato…" />
+              </div>
+            </>
           )}
 
           {data && (

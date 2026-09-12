@@ -49,7 +49,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type Reac
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 
@@ -828,7 +827,6 @@ export default function LancamentosPage() {
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
             </Tooltip>
             <Hint label="Imprimir" className="hidden sm:inline-flex"><button type="button" aria-label="Imprimir lançamentos" onClick={() => window.print()} className={toolButton}><PrintIcon size={17} /></button></Hint>
-            <HideValuesButton />
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
             <ProfileMenu />
           </header>

@@ -20,7 +20,6 @@ import type { AppRouter } from "../../../server/routers";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { HideValuesButton } from "@/components/HideValuesButton";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type DreOutputs = inferRouterOutputs<AppRouter>["dre"];
@@ -458,7 +457,6 @@ export default function DrePage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
-            <HideValuesButton />
             <button
               type="button"
               disabled={closeMonth.isPending || isFuture}

@@ -1,6 +1,24 @@
 import { CheckIcon } from "@/components/IconlyIcons";
 
 /*
+ * As caixas de seleção do produto. São DUAS, e a diferença é de propósito.
+ *
+ * `SelectionCheckbox` é a da lista de lançamentos: precisa de um terceiro
+ * estado — a seleção parcial — e por isso mostra o tique sempre, mudando só a
+ * cor. Trocar o desenho junto com a cor fazia a caixinha vazia parecer botão
+ * de outra coisa.
+ *
+ * `CaixaDeSelecao`, no fim do arquivo, é a de decisão simples: aceite dos
+ * termos, "lembrar-me", a linha do modal de trocar empresa, a lista de
+ * arquivar. Marcada é quadrado verde cheio; desmarcada é contorno vazio. Não
+ * tem estado misto porque nenhum desses casos tem meio-caminho.
+ *
+ * Ficam no mesmo arquivo para que a próxima caixinha de seleção seja uma
+ * ESCOLHA entre estas duas, e não uma terceira desenhada à mão — que é o que
+ * havia em quatro lugares antes.
+ */
+
+/*
  * A caixinha de seleção da lista de lançamentos.
  *
  * Fica fora da página porque o modal de lançamento também a usa, e o modal
@@ -59,5 +77,36 @@ export function SelectionCheckbox({ checked, mixed = false, label, tone = "light
     >
       <ColumnCheckState checked={checked} mixed={mixed} tone={tone} />
     </button>
+  );
+}
+
+export function CaixaDeSelecao({ marcada, tamanho = 22, className = "" }: {
+  marcada: boolean;
+  tamanho?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ width: tamanho, height: tamanho }}
+      className={`flex shrink-0 items-center justify-center rounded-md transition ${
+        marcada ? "bg-[#12B85C] text-white" : "border-[1.5px] border-[#C9D5CD]"
+      } ${className}`}
+    >
+      {marcada && (
+        <svg
+          width={Math.round(tamanho * 0.6)}
+          height={Math.round(tamanho * 0.6)}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      )}
+    </span>
   );
 }
