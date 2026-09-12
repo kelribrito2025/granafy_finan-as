@@ -5,6 +5,7 @@ import {
   ChartIcon,
   CheckIcon,
   ChevronRightIcon,
+  ClockIcon,
   CloseIcon,
   DashboardIcon,
   DeleteIcon,
@@ -827,8 +828,8 @@ function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, cap
         </span>
         <span className={`truncate text-[12.5px] font-semibold ${highlight ? "text-[#8FB39E]" : "text-[#4C6355]"}`}>{label}</span>
       </div>
-      <strong className={`text-[26px] font-bold tracking-[-.02em] ${highlight ? "text-white" : valueClass ?? ""}`}>{value}</strong>
-      <span className={`text-[12px] font-semibold ${highlight ? "text-[#C5DACE]" : captionClass ?? "text-[#8A968D]"}`}>{caption}</span>
+      <strong className={`text-[26px] font-bold tracking-[-.02em] ${valueClass ?? (highlight ? "text-white" : "")}`}>{value}</strong>
+      <span className={`text-[12px] font-semibold ${captionClass ?? (highlight ? "text-[#C5DACE]" : "text-[#8A968D]")}`}>{caption}</span>
     </>
   );
 
@@ -840,6 +841,108 @@ function KpiCard({ icon: Icon, chipClass, label, value, valueClass, caption, cap
     );
   }
   return <article className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">{content}</article>;
+}
+
+/*
+ * O balanço de quem ainda não cadastrou nada.
+ *
+ * Nem conta financeira, nem bem, nem obrigação: não há posição para mostrar,
+ * e mostrar "R$ 0,00" em tudo pareceria uma empresa zerada em vez de uma que
+ * ainda não começou. Os grupos ficam no lugar, cada um dizendo o que entra
+ * nele e por onde entra.
+ */
+function KpisDoBalancoVazio() {
+  const apagado = "text-[#B9C7BE]";
+  return (
+    <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard highlight icon={ChartIcon} chipClass="" label="Ativo total" value="R$ 0,00" valueClass="text-[#8FB39E]" caption="Bens, direitos e saldo das contas financeiras." captionClass="text-[#8FB39E]" />
+      <KpiCard icon={ArrowDownIcon} chipClass="bg-[#FDECEA] text-[#B3261E]" label="Passivo total" value="—" valueClass={apagado} caption="Obrigações de curto e longo prazo" />
+      <KpiCard icon={TrendUpIcon} chipClass="bg-[#DFF6EA] text-[#0A7A42]" label="Patrimônio líquido" value="—" valueClass={apagado} caption="Ativos menos passivos" />
+      <KpiCard icon={DashboardIcon} chipClass="bg-[#F1F4F2] text-[#28382E]" label="Liquidez corrente" value="—" valueClass={apagado} caption="Ativo circulante ÷ passivo circulante" />
+    </section>
+  );
+}
+
+function GrupoVazio({ titulo, tone, texto, acao, onAcao }: {
+  titulo: string;
+  tone: "asset" | "liability";
+  texto: string;
+  acao: string;
+  onAcao: () => void;
+}) {
+  const ativo = tone === "asset";
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className={`flex items-center justify-between rounded-[12px] px-3.5 py-3 ${ativo ? "bg-[#F1FBF6]" : "bg-[#FDECEA]"}`}>
+        <span className={`text-[11.5px] font-bold uppercase tracking-[.08em] ${ativo ? "text-[#0A7A42]" : "text-[#8E1F16]"}`}>{titulo}</span>
+        <span className={`text-[13.5px] font-bold opacity-50 ${ativo ? "text-[#0A7A42]" : "text-[#8E1F16]"}`}>—</span>
+      </div>
+      <div className="flex items-center gap-3 px-3.5 pb-2 pt-1">
+        <span className="flex-1 text-[12.5px] leading-relaxed text-[#4C6355]">{texto}</span>
+        <button type="button" onClick={onAcao} className="whitespace-nowrap text-[12.5px] font-bold text-[#0A7A42] hover:underline">
+          {acao} →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BalancoVazio({ onCadastrarConta, onCadastrarBem, onNovaDespesa, onCadastrarObrigacao }: {
+  onCadastrarConta: () => void;
+  onCadastrarBem: () => void;
+  onNovaDespesa: () => void;
+  onCadastrarObrigacao: () => void;
+}) {
+  const cabecalho = (titulo: string) => (
+    <div className="flex items-center justify-between">
+      <h2 className="text-[15px] font-bold">{titulo}</h2>
+      <span className="text-[15px] font-bold text-[#B9C7BE]">—</span>
+    </div>
+  );
+  return (
+    <section className="grid flex-1 items-start gap-5 xl:grid-cols-2">
+      <article className="flex min-w-0 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+        {cabecalho("Ativo")}
+        <GrupoVazio
+          titulo="Ativo circulante" tone="asset"
+          texto="Saldos em conta entram aqui automaticamente quando você cadastra uma conta bancária. Estoque e contas a receber também."
+          acao="Cadastrar conta" onAcao={onCadastrarConta}
+        />
+        <GrupoVazio
+          titulo="Ativo não circulante" tone="asset"
+          texto="Imóveis, veículos, máquinas e equipamentos da empresa."
+          acao="Cadastrar bem" onAcao={onCadastrarBem}
+        />
+      </article>
+
+      <div className="flex min-w-0 flex-col gap-5">
+        <article className="flex min-w-0 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+          {cabecalho("Passivo")}
+          <GrupoVazio
+            titulo="Passivo circulante" tone="liability"
+            texto="Contas a pagar em até 12 meses: fornecedores, impostos, salários."
+            acao="Nova despesa" onAcao={onNovaDespesa}
+          />
+          <GrupoVazio
+            titulo="Passivo não circulante" tone="liability"
+            texto="Empréstimos e financiamentos com prazo acima de um ano."
+            acao="Cadastrar obrigação" onAcao={onCadastrarObrigacao}
+          />
+        </article>
+
+        <article className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+          {cabecalho("Patrimônio líquido")}
+          <p className="text-[12.5px] leading-relaxed text-[#4C6355]">
+            Capital social e resultados acumulados. É calculado automaticamente quando ativo e passivo tiverem valores.
+          </p>
+          <div className="flex items-center gap-2.5 rounded-[12px] bg-[#F8FAF9] px-3.5 py-3 text-[12.5px] text-[#8A968D]">
+            <ClockIcon size={15} />
+            A primeira posição pode ser registrada no histórico depois do primeiro cadastro.
+          </div>
+        </article>
+      </div>
+    </section>
+  );
 }
 
 export default function BalanceSheetPage() {
@@ -931,6 +1034,12 @@ export default function BalanceSheetPage() {
     balanceDifference: summary?.balanceDifference ?? 0,
   };
   const activeItems = items.filter(item => item.isActive);
+  /*
+   * Vazio de verdade: nenhum item, nenhuma conta financeira e nenhum
+   * automático (caixa, contas a pagar) — a posição não existe ainda.
+   */
+  const balancoVazio = Boolean(data) && items.length === 0 && (data?.accountCount ?? 0) === 0
+    && totals.totalAssets === 0 && totals.totalLiabilities === 0;
   const rowsOf = (group: BalanceGroup): StatementRow[] =>
     activeItems
       .filter(item => item.balanceGroup === group)
@@ -1125,15 +1234,19 @@ export default function BalanceSheetPage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Balanço patrimonial</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                Posição em {formatDate(referenceDate)} · valores em {CURRENCY_LABELS[preferences.currency].name.toLowerCase()}
+                {balancoVazio
+                  ? `Posição em ${formatDate(referenceDate)} · nenhum item cadastrado`
+                  : `Posição em ${formatDate(referenceDate)} · valores em ${CURRENCY_LABELS[preferences.currency].name.toLowerCase()}`}
               </p>
-              <p className="mt-0.5 text-[11px] text-[#B3BFB7]">
-                {baseline
-                  ? `Comparando com o fechamento de ${formatDate(baseline.referenceDate)}`
-                  : `Sem fechamento salvo até ${formatDate(baselineDate)} para comparar`}
-              </p>
+              {!balancoVazio && (
+                <p className="mt-0.5 text-[11px] text-[#B3BFB7]">
+                  {baseline
+                    ? `Comparando com o fechamento de ${formatDate(baseline.referenceDate)}`
+                    : `Sem fechamento salvo até ${formatDate(baselineDate)} para comparar`}
+                </p>
+              )}
             </div>
-            <div className="flex items-center gap-1.5 rounded-[12px] bg-white p-1.5 ring-1 ring-[#E1E8E3]">
+            <div className={`flex items-center gap-1.5 rounded-[12px] bg-white p-1.5 ring-1 ring-[#E1E8E3] ${balancoVazio ? "pointer-events-none opacity-50" : ""}`}>
               {(["mensal", "trimestral", "anual"] as Period[]).map(value => (
                 <button
                   key={value}
@@ -1150,7 +1263,7 @@ export default function BalanceSheetPage() {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={exportBalanceSheet} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
+            <button type="button" onClick={exportBalanceSheet} disabled={balancoVazio} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 disabled:pointer-events-none disabled:opacity-50 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
             <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
             <ProfileMenu />
           </header>
@@ -1163,7 +1276,24 @@ export default function BalanceSheetPage() {
           )}
           {overviewQuery.isError && <section className="flex min-h-[520px] flex-1 flex-col items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><strong className="text-[#B3261E]">Não foi possível carregar o balanço</strong><button type="button" onClick={() => overviewQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button></section>}
 
-          {!overviewQuery.isLoading && !overviewQuery.isError && (
+          {balancoVazio && (
+            <>
+              <KpisDoBalancoVazio />
+              <section className="pointer-events-none flex overflow-x-auto rounded-[14px] bg-white p-1 opacity-50 ring-1 ring-[#E1E8E3] sm:w-fit" aria-hidden="true">
+                {["Visão do balanço", "Bens e direitos", "Obrigações e PL", "Evolução"].map((label, indice) => (
+                  <span key={label} className={`whitespace-nowrap rounded-[10px] px-4 py-2.5 text-[12px] font-bold ${indice === 0 ? "bg-[#DFF6EA] text-[#0A7A42]" : "text-[#718077]"}`}>{label}</span>
+                ))}
+              </section>
+              <BalancoVazio
+                onCadastrarConta={() => setLocation("/organizacao?nova=conta")}
+                onCadastrarBem={() => openNew("ativo_nao_circulante")}
+                onNovaDespesa={() => setLocation("/a-pagar-e-receber?novo=despesa")}
+                onCadastrarObrigacao={() => openNew("passivo_nao_circulante")}
+              />
+            </>
+          )}
+
+          {!overviewQuery.isLoading && !overviewQuery.isError && !balancoVazio && (
             <>
               <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
