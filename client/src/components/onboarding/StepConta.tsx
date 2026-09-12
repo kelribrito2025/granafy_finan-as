@@ -68,17 +68,24 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
     const apelido = name.trim() || institution.trim();
     if (apelido.length < 2) return toast.info("Informe o banco ou um apelido para a conta.");
     if (!data) return toast.info("Informe a data a que o saldo inicial se refere.");
+    /*
+     * Campo vazio é zero. O campo mostra "0,00" de sugestão e quem não digita
+     * nada quer exatamente isso — e `currencyInputToNumber("")` devolve NaN,
+     * que o servidor recusava com um erro cru de validação.
+     */
+    const saldoInicial = saldo.trim() ? currencyInputToNumber(saldo) : 0;
+    if (!Number.isFinite(saldoInicial)) return toast.info("Informe um saldo inicial válido.");
     try {
       const conta = await criar.mutateAsync({
         name: apelido,
         institution: institution.trim(),
         accountType,
         color: "#12B85C",
-        initialBalance: currencyInputToNumber(saldo),
+        initialBalance: saldoInicial,
         initialBalanceDate: data,
       });
       await utils.organization.invalidate();
-      onDone(conta!.id, currencyInputToNumber(saldo), data);
+      onDone(conta!.id, saldoInicial, data);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível criar a conta");
     }
