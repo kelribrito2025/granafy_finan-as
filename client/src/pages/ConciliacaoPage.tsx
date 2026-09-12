@@ -13,7 +13,6 @@ import {
   PlusIcon,
   SearchIcon,
   SidebarMenuIcon,
-  UploadIcon,
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { ModalIcon } from "@/components/ModalIcon";
@@ -125,10 +124,28 @@ function ModalShell({ title, subtitle, icon = CheckIcon, children, onClose }: {
  * de boas-vindas seria a decepção mais cara que esta tela pode causar.
  */
 function SemContasBancarias({ onCadastrar }: { onCadastrar: () => void }) {
+  const [explicando, setExplicando] = useState(false);
+
+  /*
+   * Os ícones são os do desenho, em traço — os do catálogo Iconly vêm em caixa
+   * (o check dentro de um quadrado arredondado) e não são os mesmos.
+   */
   const passos = [
-    { icone: CardIcon, titulo: "Cadastre a conta", texto: "Escolha o banco, o tipo de conta e informe o saldo inicial." },
-    { icone: UploadIcon, titulo: "Importe o extrato", texto: "Envie o arquivo OFX ou CSV que o seu banco exporta." },
-    { icone: CheckIcon, titulo: "Confirme os pares", texto: "O GranaFy sugere as combinações; você revisa e confirma em lote." },
+    {
+      titulo: "Cadastre a conta",
+      texto: "Escolha o banco, o tipo de conta e informe o saldo inicial.",
+      icone: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>,
+    },
+    {
+      titulo: "Importe o extrato",
+      texto: "Envie o arquivo OFX ou CSV que o seu banco exporta.",
+      icone: <><path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.5 1.5" /><path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.5-1.5" /></>,
+    },
+    {
+      titulo: "Confirme os pares",
+      texto: "O GranaFy sugere as combinações; você só revisa e confirma em lote.",
+      icone: <path d="M20 6L9 17l-5-5" />,
+    },
   ];
 
   return (
@@ -164,9 +181,11 @@ function SemContasBancarias({ onCadastrar }: { onCadastrar: () => void }) {
 
       <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
         {passos.map((passo, indice) => (
-          <div key={passo.titulo} className="flex flex-col items-center gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-center">
+          <div key={passo.titulo} className="flex flex-col items-start gap-2.5 rounded-[16px] bg-[#F8FAF9] p-[18px] text-left">
             <span className="flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#DFF6EA] text-[#0A7A42]">
-              <passo.icone size={20} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {passo.icone}
+              </svg>
             </span>
             <span className="text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Passo {indice + 1}</span>
             <strong className="text-[14px] font-bold">{passo.titulo}</strong>
@@ -174,6 +193,35 @@ function SemContasBancarias({ onCadastrar }: { onCadastrar: () => void }) {
           </div>
         ))}
       </div>
+
+      {/* Não há página de ajuda; o link abre a explicação aqui mesmo. */}
+      <button
+        type="button"
+        onClick={() => setExplicando(atual => !atual)}
+        aria-expanded={explicando}
+        className="text-[13px] font-semibold text-[#0A7A42] hover:underline"
+      >
+        Como funciona a conciliação bancária {explicando ? "↑" : "→"}
+      </button>
+      {explicando && (
+        <div className="flex w-full max-w-[640px] flex-col gap-3 rounded-[16px] bg-[#F8FAF9] p-5 text-left text-[13px] leading-relaxed text-[#28382E]">
+          <p>
+            O extrato do banco diz o que <strong>entrou e saiu de verdade</strong>. Os lançamentos do
+            GranaFy dizem o que <strong>você registrou</strong>. Conciliar é casar um com o outro,
+            linha a linha, até que os dois contem a mesma história.
+          </p>
+          <p>
+            Para cada movimentação do extrato, o GranaFy procura um lançamento em aberto com o mesmo
+            valor, na mesma conta, em até três dias — e sugere o par. Você confirma os que estão certos,
+            corrige os que não estão, e cria na hora o lançamento de quem entrou no banco sem passar
+            por aqui.
+          </p>
+          <p>
+            No fim, o saldo da conta no GranaFy bate com o do banco, e o que ficou sem par é
+            exatamente a lista do que falta explicar.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
