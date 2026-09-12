@@ -14,6 +14,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { AuroraSurface } from "@/components/AuroraSurface";
+import { VisaoGeralSkeleton } from "@/components/PageSkeleton";
 import { BarrasFantasma, CartaoVazio, NadaPendente } from "@/components/CartaoVazio";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { greetingFor } from "@/lib/greeting";
@@ -23,7 +24,7 @@ import { usePreferences } from "@/contexts/PreferencesContext";
 import { CURRENCY_LOCALES, type DefaultPeriod } from "@shared/preferences";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
-import { useSemContas } from "@/hooks/useSemContas";
+import { usePanoramaDaConta } from "@/hooks/useSemContas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "@/lib/toast";
@@ -94,23 +95,32 @@ export default function Home() {
   const pendentes = (dashboard?.pendingPayable.count ?? 0) + (dashboard?.pendingReceivable.count ?? 0);
   const recebimentosHoje = dashboard?.dueToday.count ?? 0;
   const nadaPendente = Boolean(dashboard) && atrasadas === 0 && pendentes === 0 && recebimentosHoje === 0;
-  // Mesma consulta da sidebar; o react-query aproveita o cache.
-  const accountsQuery = trpc.organization.accountBalances.useQuery();
-  const accountCount = accountsQuery.data?.contas.length ?? 0;
-  const semContasRapido = useSemContas();
   /*
    * O primeiro acesso: nenhuma conta e nenhum lançamento.
    *
-   * O panorama da organização (que sabe quantos lançamentos cada conta tem e
-   * quantas categorias existem) só é buscado quando a lista de contas voltou
-   * vazia — é a única situação em que ele decide alguma coisa aqui, e quem já
-   * usa o sistema não paga essa consulta a cada abertura do painel.
+   * As duas respostas vêm da MESMA consulta — a dos saldos, que a barra
+   * lateral já faz em toda página —, então a decisão entre painel e primeiro
+   * acesso não custa consulta nenhuma e não pisca.
+   *
+   * O panorama da organização continua sendo buscado quando não há conta, mas
+   * só pelo número de categorias que a tela de primeiro acesso mostra: ele já
+   * não decide nada, e por isso a tela não espera por ele.
    */
-  const semContas = semContasRapido;
+  const panorama = usePanoramaDaConta();
+  const accountCount = panorama.contas.length;
+  const semContas = panorama.semContas;
   const overviewQuery = trpc.organization.overview.useQuery(undefined, { enabled: semContas });
   const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: semContas });
   const lancamentos = overviewQuery.data?.accounts.reduce((soma, conta) => soma + conta.transactionCount, 0) ?? 0;
-  const primeiroAcesso = semContas && lancamentos === 0;
+  const primeiroAcesso = semContas && panorama.semLancamentos;
+  /*
+   * A espera desenhada, que esta tela não tinha.
+   *
+   * Sem ela o painel nascia montado mostrando zero em tudo e trocava pelos
+   * números quando o dado chegava — a mesma parede de zeros que os estados
+   * vazios existem para não mostrar, só que por um segundo.
+   */
+  const carregando = !panorama.pronto || (!primeiroAcesso && dashboardQuery.isLoading);
   // Calculado no render: a página é recarregada muitas vezes ao dia e não
   // vale um timer só para virar a saudação com o relógio na tela.
   const greeting = greetingFor(new Date());
@@ -291,7 +301,9 @@ export default function Home() {
             <ProfileMenu />
           </header>
 
-          {primeiroAcesso && (
+          {carregando && <VisaoGeralSkeleton />}
+
+          {!carregando && primeiroAcesso && (
             <VisaoGeralVazia
               empresa={companyQuery.data?.legalName || null}
               categorias={overviewQuery.data ? overviewQuery.data.categories.length : null}
@@ -303,7 +315,7 @@ export default function Home() {
             />
           )}
 
-          {!primeiroAcesso && (<>
+          {!carregando && !primeiroAcesso && (<>
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
             <AuroraSurface className="min-h-[326px] rounded-[20px] p-5 sm:p-6">
               <div className="flex flex-1 flex-col gap-[18px]">
@@ -416,8 +428,8 @@ export default function Home() {
                             <span className="block">Saídas {formatMoney(month.outgoing)}</span>
                             <span className={`absolute top-full -mt-1 h-2 w-2 rotate-45 bg-[#12B85C] ${posicaoSeta}`} />
                           </span>
-                          <span className="flex-1 rounded-t-[5px] bg-[#12B85C] transition-all duration-200 group-hover:brightness-110" style={{ height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%` }} />
-                          <span className={`flex-1 rounded-t-[5px] transition-all duration-200 group-hover:brightness-95 ${index === months.length - 1 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%` }} />
+                          <span className="barra-do-grafico flex-1 rounded-t-[5px] bg-[#12B85C] transition-[filter] duration-200 group-hover:brightness-110" style={{ height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%`, animationDelay: `${index * 55}ms` }} />
+                          <span className={`barra-do-grafico flex-1 rounded-t-[5px] transition-[filter] duration-200 group-hover:brightness-95 ${index === months.length - 1 ? "bg-[#E5533D]" : "bg-[#F4A497]"}`} style={{ height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%`, animationDelay: `${index * 55 + 28}ms` }} />
                         </div>
                         );
                       })}

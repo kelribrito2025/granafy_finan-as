@@ -50,6 +50,24 @@ export function KpiRowSkeleton({ cards = 4, colunas = 4, className = "" }: {
   );
 }
 
+/**
+ * Um cartão largo, sozinho na linha.
+ *
+ * É a forma do topo de Contas e categorias: um cartão de largura inteira com
+ * o saldo consolidado, e não a fileira de indicadores que o esqueleto
+ * desenhava ali. Três cartões estreitos virando um largo é o pulo de layout
+ * que este arquivo existe para evitar.
+ */
+export function CartaoSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <section className={`flex min-h-[132px] flex-col gap-3 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3] ${className}`} aria-hidden="true">
+      <Barra className="h-2.5 w-32" />
+      <GranafyRing size={28} />
+      <Barra className="h-2 w-44 bg-[#F1F4F2]" />
+    </section>
+  );
+}
+
 /** O bloco de um gráfico que ainda está sendo calculado. */
 export function ChartSkeleton({ minHeight = 220, className = "" }: { minHeight?: number; className?: string }) {
   return (
@@ -118,5 +136,64 @@ export function TableSkeleton({ linhas = 4, className = "" }: { linhas?: number;
         </div>
       ))}
     </section>
+  );
+}
+
+/*
+ * A visão geral enquanto o painel não chegou.
+ *
+ * Era a única tela sem espera desenhada: o painel aparecia de uma vez, e até
+ * lá a página ficava com os cartões já montados mostrando zero — que é a
+ * mesma parede de zeros que os estados vazios existem para não mostrar.
+ *
+ * A forma é a da tela: o cartão do caixa à esquerda com 392px, os três
+ * indicadores e o gráfico à direita, e embaixo a lista larga com a coluna
+ * estreita ao lado. Copiar a GRADE é o que impede o pulo de layout quando o
+ * dado chega.
+ */
+export function VisaoGeralSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-hidden="true">
+      <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
+        <div className="flex min-h-[326px] flex-col gap-3 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">
+          <Barra className="h-2.5 w-28" />
+          <GranafyRing size={28} />
+          <Barra className="h-2 w-40 bg-[#F1F4F2]" />
+          <div className="mt-auto flex gap-5 border-t border-[#EDF2EE] pt-4">
+            {[0, 1].map(indice => (
+              <div key={indice} className="flex flex-1 flex-col gap-2">
+                <Barra className="h-2 w-20 bg-[#F1F4F2]" />
+                <Barra className="h-3 w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          <KpiRowSkeleton cards={3} colunas={3} />
+          <ChartSkeleton className="flex-1" minHeight={190} />
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_392px]">
+        <div className="flex min-h-[260px] flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+          <Barra className="h-3 w-40" />
+          <div className="flex flex-1 flex-col gap-2">
+            {[0, 1, 2, 3].map(indice => (
+              <Barra key={indice} className="h-[54px] w-full rounded-[14px] bg-[#F8FAF9]" />
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-1">
+          {[0, 1].map(indice => (
+            <div key={indice} className="flex flex-col gap-3 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
+              <Barra className="h-3 w-32" />
+              <GranafyRing size={22} />
+              <Barra className="h-2 w-36 bg-[#F1F4F2]" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

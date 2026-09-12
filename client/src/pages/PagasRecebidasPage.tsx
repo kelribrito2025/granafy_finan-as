@@ -626,7 +626,10 @@ export default function PagasRecebidasPage() {
           )}
           {!mesVazio && query.isPending && !query.error && (
             <>
-              <KpiRowSkeleton cards={6} />
+              {/* Quatro, que é o que a tela tem nos dois modos: o cartão
+                  escuro, recebido, pago e o quarto que troca de assunto.
+                  Seis desenhava uma segunda fileira que nunca chega. */}
+              <KpiRowSkeleton cards={4} />
               <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]">
                 <GranafyLoader label="Carregando títulos liquidados…" />
               </div>
