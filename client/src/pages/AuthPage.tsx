@@ -4,8 +4,10 @@ import {
   ChartIcon,
   CheckIcon,
   ChevronRightIcon,
+  LockIcon,
   ShowIcon,
   TrendUpIcon,
+  UsersIcon,
 } from "@/components/IconlyIcons";
 import { CaixaDeSelecao } from "@/components/SelectionCheckbox";
 import { GranafyLogo } from "@/components/GranafyLogo";
@@ -234,7 +236,13 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           ) : (
             <>
           <div>
-            <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.045em] sm:text-[38px]">
+            {/* O mesmo selo da redefinição de senha, que é a terceira tela
+                desta mesma coluna: o cadeado para entrar, a pessoa para
+                criar conta, o envelope para o código. */}
+            <span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-[#E5F7ED] text-[#0A7A42]">
+              {isSignup ? <UsersIcon size={22} /> : <LockIcon size={22} />}
+            </span>
+            <h1 className="mt-6 text-[34px] font-semibold leading-tight tracking-[-0.045em] sm:text-[38px]">
               {isSignup ? "Crie sua conta" : "Acesse sua conta"}
             </h1>
             <p className="mt-3 text-[15px] leading-6 text-[#718077]">
