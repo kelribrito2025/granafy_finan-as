@@ -103,7 +103,14 @@ function WideItem({ item, active, count, onSelect }: {
       disabled={disabled}
       title={disabled ? "Página em desenvolvimento" : undefined}
       onClick={() => onSelect(item)}
-      className={`flex w-full items-center gap-[11px] rounded-xl px-3 py-[9px] text-left text-[13px] transition active:scale-[.98] ${
+      /*
+       * A forma é a mesma do menu do admin do sistema — 12px de raio, 11px de
+       * altura interna, 13,5px de texto. `rounded-xl` NÃO servia: o projeto
+       * redefine a escala em `index.css` (`--radius-xl` é `--radius + 4px`),
+       * então ele vale 16px aqui, e o item da barra ficava mais arredondado
+       * que o do admin sem que a classe dissesse isso em lugar nenhum.
+       */
+      className={`flex w-full items-center gap-[11px] rounded-[12px] px-3 py-[11px] text-left text-[13.5px] transition active:scale-[.98] ${
         active
           ? "bg-[#12B85C] font-bold text-white"
           : disabled
@@ -114,7 +121,7 @@ function WideItem({ item, active, count, onSelect }: {
       <Icon size={16} />
       <span className="truncate">{label}</span>
       {count !== null && count > 0 && (
-        <span className={`ml-auto rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${active ? "bg-white/20 text-white" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
+        <span className={`ml-auto rounded-[6px] px-2 py-0.5 text-[11px] font-bold ${active ? "bg-white/20 text-white" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
           {count}
         </span>
       )}
@@ -139,7 +146,7 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
       title={tooltips ? undefined : disabled ? `${label} · em desenvolvimento` : label}
       aria-label={label}
       onClick={() => onSelect(item)}
-      className={`group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition active:scale-[.96] ${
+      className={`group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] transition active:scale-[.96] ${
         active
           ? "bg-[#12B85C] text-white"
           : disabled
@@ -278,7 +285,7 @@ export function AppSidebar({ open, onClose, footer }: {
       className="relative hidden shrink-0 xl:block"
     >
       <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-white px-4 py-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#12B85C]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
           <GranafySymbol size={22} tone="onDark" className="[&_circle]:stroke-white/40 [&_path]:stroke-white" />
         </span>
 
@@ -308,7 +315,7 @@ export function AppSidebar({ open, onClose, footer }: {
               aria-label="Expandir menu"
               title="Expandir menu"
               onClick={() => setCollapsed(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-[#4C6355] transition hover:bg-[#F1FBF6]"
+              className="flex h-11 w-11 items-center justify-center rounded-[12px] text-[#4C6355] transition hover:bg-[#F1FBF6]"
             >
               <PanelIcon size={18} />
             </button>
