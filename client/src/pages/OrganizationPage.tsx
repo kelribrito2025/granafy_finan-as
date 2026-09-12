@@ -519,7 +519,7 @@ function ContasVazias({ onCadastrar }: { onCadastrar: (tipo?: Account["accountTy
         <button
           type="button"
           onClick={() => onCadastrar()}
-          className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]"
+          className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white"
         >
           <PlusIcon size={16} />
           Cadastrar primeira conta
