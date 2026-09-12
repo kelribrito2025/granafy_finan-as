@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { ModalDeExclusao } from "./ModalDeExclusao";
+import { useMostrarAssinaturas } from "./preferencias";
 import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, SEM_ASSINATURA, Traco, cnpj, dataCurta, dataHora, haQuanto } from "./comum";
 
 const REGIME: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real", mei: "MEI", outro: "Outro" };
@@ -10,6 +11,8 @@ export default function AdminContaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [apagando, setApagando] = useState(false);
+  /* O cartão de assinatura some junto com a área dela. */
+  const assinaturas = useMostrarAssinaturas();
   const numero = Number(id);
   const consulta = trpc.admin.contas.detalhe.useQuery({ id: numero }, { enabled: Number.isInteger(numero) && numero > 0 });
   const d = consulta.data;
@@ -82,12 +85,14 @@ export default function AdminContaDetalhe() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <Cartao titulo="Assinatura">
-            <div className="grid grid-cols-2 gap-3">
-              <Kpi rotulo="Plano" valor={null} razao={SEM_ASSINATURA} />
-              <Kpi rotulo="Situação" valor={null} razao={SEM_ASSINATURA} />
-            </div>
-          </Cartao>
+          {assinaturas && (
+            <Cartao titulo="Assinatura">
+              <div className="grid grid-cols-2 gap-3">
+                <Kpi rotulo="Plano" valor={null} razao={SEM_ASSINATURA} />
+                <Kpi rotulo="Situação" valor={null} razao={SEM_ASSINATURA} />
+              </div>
+            </Cartao>
+          )}
 
           <Cartao titulo="Engajamento">
             <div className="grid grid-cols-2 gap-3">

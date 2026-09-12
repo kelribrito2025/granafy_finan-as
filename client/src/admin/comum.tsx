@@ -11,6 +11,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
+import { useMostrarAssinaturas } from "./preferencias";
 import { useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -80,6 +81,12 @@ const GRUPOS: Array<{ titulo: string; itens: Array<{ rotulo: string; icone: Icon
 function BarraDoAdmin({ local, nome }: { local: string; nome: string }) {
   const barra = trpc.admin.barra.useQuery(undefined, { staleTime: 60_000 });
   const ativo = (caminho: string) => (caminho === "/admin" ? local === "/admin" : local.startsWith(caminho));
+  /* Assinaturas some do menu enquanto não tiver fonte — ver `preferencias.ts`. */
+  const mostrarAssinaturas = useMostrarAssinaturas();
+  const grupos = GRUPOS.map(grupo => ({
+    ...grupo,
+    itens: grupo.itens.filter(item => mostrarAssinaturas || item.caminho !== "/admin/assinaturas"),
+  })).filter(grupo => grupo.itens.length > 0);
   return (
     <aside className="hidden w-[232px] shrink-0 flex-col gap-5 self-start overflow-y-auto rounded-[20px] bg-[#0B1F14] px-3 py-5 text-white lg:sticky lg:top-5 lg:flex lg:h-[calc(100vh-40px)] lg:min-h-0">
       <div className="flex items-center gap-2.5 px-1.5">
@@ -92,7 +99,7 @@ function BarraDoAdmin({ local, nome }: { local: string; nome: string }) {
         </div>
       </div>
 
-      {GRUPOS.map(grupo => (
+      {grupos.map(grupo => (
         <div key={grupo.titulo} className="flex flex-col gap-[3px]">
           <span className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[.1em] text-[#5E7A6B]">{grupo.titulo}</span>
           {grupo.itens.map(item => {
@@ -227,6 +234,27 @@ export function Avatar({ nome, tom = "claro" }: { nome: string; tom?: "claro" | 
 export function Pilula({ tom, children }: { tom: "bom" | "neutro" | "ruim" | "aviso"; children: ReactNode }) {
   const cor = { bom: "bg-[#DFF6EA] text-[#0A7A42]", neutro: "bg-[#F1F4F2] text-[#4C6355]", ruim: "bg-[#FDECEA] text-[#8E1F16]", aviso: "bg-[#FFF3E6] text-[#8A4B00]" }[tom];
   return <span className={`inline-flex rounded-[7px] px-2 py-[3px] text-[11px] font-bold ${cor}`}>{children}</span>;
+}
+
+/**
+ * Um interruptor que liga alguma coisa de verdade.
+ *
+ * As telas de exemplo têm um desenho parecido que não liga nada; este tem
+ * `role="switch"`, teclado e foco visível, porque é botão e não enfeite.
+ */
+export function Interruptor({ ligado, rotulo, onAlternar }: { ligado: boolean; rotulo: string; onAlternar: (valor: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={ligado}
+      aria-label={rotulo}
+      onClick={() => onAlternar(!ligado)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition outline-none focus-visible:ring-2 focus-visible:ring-[#12B85C] focus-visible:ring-offset-2 ${ligado ? "bg-[#12B85C]" : "bg-[#C9D4CD]"}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${ligado ? "left-[18px]" : "left-0.5"}`} />
+    </button>
+  );
 }
 
 /* ── Formatação ─────────────────────────────────────────────────────────── */

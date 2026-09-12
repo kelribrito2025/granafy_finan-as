@@ -1,8 +1,11 @@
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, SEM_ASSINATURA, Traco, haQuanto } from "./comum";
+import { useMostrarAssinaturas } from "./preferencias";
 
 export default function AdminVisaoGeral() {
+  /* A coluna "Plano" some junto com a área de Assinaturas — ver `preferencias.ts`. */
+  const assinaturas = useMostrarAssinaturas();
   const resumo = trpc.admin.resumo.useQuery();
   const r = resumo.data;
   const atualizado = r ? new Date(r.atualizadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : null;
@@ -23,7 +26,7 @@ export default function AdminVisaoGeral() {
         <Cartao titulo="Últimos cadastros" acao={<Link href="/admin/contas" className="text-[12.5px] font-semibold text-[#0A7A42] hover:underline">Ver todas as contas</Link>}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-left">
-              <thead><tr className="text-[11px] uppercase tracking-[.08em] text-[#8A968D]"><th className="pb-2 pr-3 font-semibold">Empresa</th><th className="pb-2 pr-3 font-semibold">Plano</th><th className="pb-2 pr-3 font-semibold">Situação</th><th className="pb-2 pr-3 text-right font-semibold">Cadastro</th></tr></thead>
+              <thead><tr className="text-[11px] uppercase tracking-[.08em] text-[#8A968D]"><th className="pb-2 pr-3 font-semibold">Empresa</th>{assinaturas && <th className="pb-2 pr-3 font-semibold">Plano</th>}<th className="pb-2 pr-3 font-semibold">Situação</th><th className="pb-2 pr-3 text-right font-semibold">Cadastro</th></tr></thead>
               <tbody>
                 {(r?.ultimosCadastros ?? []).map(c => {
                   const nome = c.tradeName || c.legalName || "Empresa sem nome";
@@ -35,7 +38,7 @@ export default function AdminVisaoGeral() {
                           <span className="flex min-w-0 flex-col"><span className="truncate text-[13.5px] font-semibold">{nome}</span><span className="truncate text-[12px] text-[#8A968D]">{c.titular || c.email}</span></span>
                         </Link>
                       </td>
-                      <td className="py-2.5 pr-3 text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>
+                      {assinaturas && <td className="py-2.5 pr-3 text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>}
                       <td className="py-2.5 pr-3">{c.isActive ? <Pilula tom="bom">Ativa</Pilula> : <Pilula tom="neutro">Arquivada</Pilula>}</td>
                       <td className="py-2.5 text-right text-[13px] text-[#4C6355]">{haQuanto(c.createdAt)}</td>
                     </tr>

@@ -1,4 +1,7 @@
 import { AdminHeader, AdminShell, Cartao, Kpi, SEM_ASSINATURA } from "./comum";
+import { useMostrarAssinaturas } from "./preferencias";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 /*
  * Assinaturas ainda não têm fonte: não há plano, teste nem cobrança no banco.
@@ -6,6 +9,19 @@ import { AdminHeader, AdminShell, Cartao, Kpi, SEM_ASSINATURA } from "./comum";
  * verdade na próxima sentada, com a tabela de assinaturas.
  */
 export default function AdminAssinaturas() {
+  /*
+   * Escondida no menu quer dizer escondida também pelo endereço: deixar a
+   * rota viva daria um item invisível que ainda responde, e quem chegasse
+   * aqui por um link antigo veria uma tela que o admin decidiu tirar do ar.
+   * O caminho de volta é o interruptor em Configurações.
+   */
+  const mostrar = useMostrarAssinaturas();
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (!mostrar) setLocation("/admin", { replace: true });
+  }, [mostrar, setLocation]);
+  if (!mostrar) return null;
+
   return (
     <AdminShell>
       <AdminHeader titulo="Assinaturas" subtitulo="sem fonte ainda · a tabela de assinaturas chega na próxima sentada" />

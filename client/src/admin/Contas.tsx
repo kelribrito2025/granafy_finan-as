@@ -2,10 +2,13 @@ import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { Link } from "wouter";
 import { AdminHeader, AdminShell, Avatar, Busca, Cartao, Pilula, SEM_ASSINATURA, Segmentos, Traco, cnpj, haQuanto } from "./comum";
+import { useMostrarAssinaturas } from "./preferencias";
 
 type Situacao = "todas" | "ativas" | "arquivadas";
 
 export default function AdminContas() {
+  /* As colunas "Plano" e "MRR" somem junto com a área de Assinaturas. */
+  const assinaturas = useMostrarAssinaturas();
   const [busca, setBusca] = useState("");
   const [situacao, setSituacao] = useState<Situacao>("todas");
   const lista = trpc.admin.contas.listar.useQuery({ busca, situacao }, { placeholderData: anterior => anterior });
@@ -28,9 +31,9 @@ export default function AdminContas() {
           <table className="w-full min-w-[900px] text-left">
             <thead>
               <tr className="text-[11px] uppercase tracking-[.08em] text-[#8A968D]">
-                <th className="pb-2 pr-3 font-semibold">Empresa</th><th className="pb-2 pr-3 font-semibold">CNPJ</th><th className="pb-2 pr-3 font-semibold">Plano</th>
+                <th className="pb-2 pr-3 font-semibold">Empresa</th><th className="pb-2 pr-3 font-semibold">CNPJ</th>{assinaturas && <th className="pb-2 pr-3 font-semibold">Plano</th>}
                 <th className="pb-2 pr-3 text-right font-semibold">Usu.</th><th className="pb-2 pr-3 text-right font-semibold">Contas</th><th className="pb-2 pr-3 text-right font-semibold">Lançamentos</th>
-                <th className="pb-2 pr-3 font-semibold">Situação</th><th className="pb-2 pr-3 text-right font-semibold">MRR</th><th className="pb-2 pr-3 text-right font-semibold">Último acesso</th>
+                <th className="pb-2 pr-3 font-semibold">Situação</th>{assinaturas && <th className="pb-2 pr-3 text-right font-semibold">MRR</th>}<th className="pb-2 pr-3 text-right font-semibold">Último acesso</th>
               </tr>
             </thead>
             <tbody>
@@ -45,12 +48,12 @@ export default function AdminContas() {
                       </Link>
                     </td>
                     <td className="py-2.5 pr-3 text-[12.5px] text-[#4C6355]">{c.taxId ? cnpj(c.taxId) : <Traco razao="sem CNPJ no cadastro" />}</td>
-                    <td className="py-2.5 pr-3 text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>
+                    {assinaturas && <td className="py-2.5 pr-3 text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>}
                     <td className="py-2.5 pr-3 text-right text-[13px]">{c.usuarios}</td>
                     <td className="py-2.5 pr-3 text-right text-[13px]">{c.contasFinanceiras}</td>
                     <td className="py-2.5 pr-3 text-right text-[13px]">{c.lancamentos.toLocaleString("pt-BR")}</td>
                     <td className="py-2.5 pr-3">{c.isActive ? <Pilula tom="bom">Ativa</Pilula> : <Pilula tom="neutro">Arquivada</Pilula>}</td>
-                    <td className="py-2.5 pr-3 text-right text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>
+                    {assinaturas && <td className="py-2.5 pr-3 text-right text-[13px]"><Traco razao={SEM_ASSINATURA} /></td>}
                     <td className="py-2.5 text-right text-[13px] text-[#4C6355]">{haQuanto(c.ultimoAcesso)}</td>
                   </tr>
                 );
@@ -59,7 +62,7 @@ export default function AdminContas() {
             </tbody>
           </table>
         </div>
-        {d && <p className="text-[12px] text-[#8A968D]">{d.itens.length} de {d.total} contas · MRR das listadas: <Traco razao={SEM_ASSINATURA} /></p>}
+        {d && <p className="text-[12px] text-[#8A968D]">{d.itens.length} de {d.total} contas{assinaturas && <> · MRR das listadas: <Traco razao={SEM_ASSINATURA} /></>}</p>}
       </Cartao>
     </AdminShell>
   );

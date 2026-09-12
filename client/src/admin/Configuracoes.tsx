@@ -2,7 +2,8 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "@/lib/toast";
 import { DESCONTO_ANUAL, DIAS_DE_TESTE, PLANOS, PLANO_DO_TESTE } from "@shared/planos";
 import { useState } from "react";
-import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, Traco, dataCurta, haQuanto } from "./comum";
+import { AdminHeader, AdminShell, Avatar, Cartao, Interruptor, Kpi, Pilula, Traco, dataCurta, haQuanto } from "./comum";
+import { definirMostrarAssinaturas, useMostrarAssinaturas } from "./preferencias";
 
 /*
  * As configurações do sistema, com fonte de verdade.
@@ -21,6 +22,7 @@ export function AdminConfiguracoes() {
   const d = consulta.data;
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
+  const mostrarAssinaturas = useMostrarAssinaturas();
 
   const recarregar = async () => {
     await Promise.all([utils.admin.configuracoes.invalidate(), utils.admin.usuarios.listar.invalidate()]);
@@ -64,7 +66,25 @@ export function AdminConfiguracoes() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Cartao titulo="Planos e preços" acao={<span className="text-[12px] text-[#8A968D]">anual −{Math.round(DESCONTO_ANUAL * 100)}%</span>}>
+        <Cartao titulo="Menu do admin">
+          <div className="flex items-start gap-3 rounded-[14px] bg-[#F8FAF9] p-3.5">
+            <Interruptor ligado={mostrarAssinaturas} rotulo="Mostrar Assinaturas e Planos" onAlternar={definirMostrarAssinaturas} />
+            <span className="flex flex-col gap-0.5">
+              <strong className="text-[13.5px]">Mostrar Assinaturas e Planos</strong>
+              <span className="text-[12.5px] leading-relaxed text-[#4C6355]">
+                Desligado, a área de Assinaturas some da barra lateral e o cartão de planos some desta
+                tela. Nada é apagado: a tela continua existindo e volta quando você religar.
+              </span>
+            </span>
+          </div>
+          <p className="text-[12px] leading-relaxed text-[#8A968D]">
+            Esta escolha vale <strong>neste navegador</strong>. Não há tabela de configuração do sistema
+            ainda, e criar uma custa migração — então ela não atravessa para outro computador nem para o
+            outro admin. Quando a tabela de assinaturas chegar, esta preferência vai junto para o banco.
+          </p>
+        </Cartao>
+
+        {mostrarAssinaturas && <Cartao titulo="Planos e preços" acao={<span className="text-[12px] text-[#8A968D]">anual −{Math.round(DESCONTO_ANUAL * 100)}%</span>}>
           {PLANOS.map(plano => (
             <div key={plano.chave} className="flex items-center gap-3 rounded-[14px] border border-[#E3EBE6] p-3.5">
               <span className="flex min-w-0 flex-1 flex-col">
@@ -84,7 +104,7 @@ export function AdminConfiguracoes() {
             Os preços moram em <code className="rounded bg-[#F1F4F2] px-1 py-0.5 text-[11.5px]">shared/planos.ts</code> e já são os definitivos.
             Quantas empresas estão em cada um só dá para dizer quando a assinatura tiver tabela — até lá, traço.
           </p>
-        </Cartao>
+        </Cartao>}
 
         <Cartao titulo="Equipe do admin" acao={<span className="text-[12px] text-[#8A968D]">quem tem role = admin agora</span>}>
           {consulta.isPending && <p className="text-[13px] text-[#8A968D]">carregando…</p>}
