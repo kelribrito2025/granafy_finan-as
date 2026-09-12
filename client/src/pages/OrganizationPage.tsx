@@ -479,7 +479,8 @@ function ImportPlanModal({ pending, onClose, onSave }: {
  * A lista vazia com o cabeçalho de colunas dizia "nenhuma conta ativa" como
  * se fosse um filtro. Sem conta nenhuma — nem arquivada — o que a pessoa
  * precisa é entender o que é uma conta aqui e cadastrar a primeira, já pelo
- * tipo certo: os quatro cartões abrem o modal com o tipo escolhido.
+ * tipo certo: os quatro cartões abrem o modal com o tipo escolhido. O cartão
+ * do saldo consolidado não entra: saldo é coisa de quem tem conta.
  */
 const TIPOS_DE_CONTA: Array<{ tipo: Account["accountType"]; titulo: string; texto: string; icone: ReactNode }> = [
   { tipo: "corrente", titulo: "Conta corrente", texto: "Banco, agência e saldo inicial", icone: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></> },
@@ -494,18 +495,6 @@ function ContasVazias({ onCadastrar }: { onCadastrar: (tipo?: Account["accountTy
   );
   return (
     <>
-      <AuroraSurface className="rounded-[20px] p-6">
-        <div className="flex flex-1 flex-col gap-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8FB39E]">Saldo consolidado</span>
-            <span className="ml-auto rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-[#C5DACE]">Sem contas</span>
-          </div>
-          <strong className="text-[38px] font-bold leading-none tracking-[-.03em] text-[#8FB39E]">R$ 0,00</strong>
-          <div className="h-2.5 rounded-full bg-[#1F3D2B]" />
-          <span className="text-[12px] text-[#8FB39E]">A distribuição por conta aparece aqui assim que a primeira conta for cadastrada.</span>
-        </div>
-      </AuroraSurface>
-
       <section className="flex flex-1 flex-col items-center justify-center gap-7 rounded-[20px] bg-white px-6 py-14 text-center ring-1 ring-[#E1E8E3] sm:px-10">
         {/* Uma conta em rascunho, uma cadastrada, e o sinal de somar. */}
         <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
