@@ -464,6 +464,16 @@ html.tema-clareando::view-transition-old(root) {
 }
 html.tema-clareando::view-transition-new(root) { z-index: 0; }
 
+/* A cortina de reserva da troca de tema, para navegador sem View Transitions
+   (ver cortinaDeReserva no ThemeContext). Mesmo tempo e curva do recorte. */
+.tema-cortina {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  transition: clip-path 620ms cubic-bezier(.4, 0, .2, 1);
+}
+
 /* O loader sobre fundo escuro: a trilha some no fundo e o arco escuro vira branco. */
 .dark .gf-loader-trilha { stroke: #1F3D2B; }
 .dark .gf-loader-arco { stroke: #FFFFFF; }

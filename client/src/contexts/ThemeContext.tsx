@@ -71,8 +71,9 @@ interface ThemeProviderProps {
  * inteira antes de a animação começar — é o "pisca" que aparecia antes de
  * o retângulo crescer.
  *
- * Onde a API não existe (Firefox e Safari antigos), ou quando o sistema pede
- * menos movimento, o `setTheme` normal acontece e a tela troca de uma vez.
+ * Onde a API não existe (Firefox e Safari antigos, Chrome muito antigo) entra a
+ * cortina de reserva, abaixo. Quando o sistema pede menos movimento, nem uma
+ * nem outra: o `setTheme` normal acontece e a tela troca de uma vez.
  */
 
 /** Quanto o retângulo passa de cada beirada, para os cantos saírem da tela. */
@@ -110,6 +111,64 @@ function themeClipBounds() {
     card: `inset(${box.top}px ${view.w - box.right}px ${view.h - box.bottom}px ${box.left}px ${round})`,
     full: `inset(${-OVERSHOOT}px ${round})`,
   };
+}
+
+/** O fundo de página de cada tema — a cor da cortina. */
+const FUNDO: Record<Theme, string> = { light: "#E9EEEB", dark: "#0D1812" };
+const CORTINA_MS = 620;
+
+/*
+ * A cortina de reserva, para navegador sem View Transitions.
+ *
+ * Sem a API não há foto da tela nova para revelar. O que dá para fazer é
+ * cobrir a tela com a COR do tema escuro, no mesmo retângulo e no mesmo
+ * tempo, e trocar o tema embaixo enquanto ninguém vê:
+ *
+ *   escurecendo — a cortina escura nasce no cartão, cresce até passar das
+ *   beiradas, o tema troca por baixo, e a cortina some num fade curto
+ *   (o fundo dela é o fundo do tema novo, então o fade só revela conteúdo);
+ *
+ *   clareando — a cortina escura cobre a tela inteira (indistinguível do
+ *   fundo escuro que já estava lá), o tema troca por baixo, e ela encolhe
+ *   de volta ao cartão, levando o escuro embora.
+ *
+ * É o mesmo movimento do efeito com a API, só sem o conteúdo dentro do
+ * retângulo durante o trajeto.
+ */
+function cortinaDeReserva(escurecendo: boolean, trocar: () => void) {
+  const { card, full } = themeClipBounds();
+  const cortina = document.createElement("div");
+  cortina.className = "tema-cortina";
+  cortina.setAttribute("aria-hidden", "true");
+  cortina.style.background = FUNDO.dark;
+  cortina.style.clipPath = escurecendo ? card : full;
+  document.body.appendChild(cortina);
+
+  const encerrar = () => cortina.remove();
+  const proximoQuadro = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn));
+
+  if (escurecendo) {
+    proximoQuadro(() => {
+      cortina.style.clipPath = full;
+      window.setTimeout(() => {
+        trocar();
+        proximoQuadro(() => {
+          cortina.style.transition = "opacity 220ms ease-out";
+          cortina.style.opacity = "0";
+          window.setTimeout(encerrar, 260);
+        });
+      }, CORTINA_MS + 20);
+    });
+    return;
+  }
+
+  proximoQuadro(() => {
+    trocar();
+    proximoQuadro(() => {
+      cortina.style.clipPath = card;
+      window.setTimeout(encerrar, CORTINA_MS + 40);
+    });
+  });
 }
 
 export function ThemeProvider({
@@ -171,10 +230,14 @@ export function ThemeProvider({
     const resolvido = resolveTheme(next, systemPrefersDark());
     const doc = document as ViewTransitionDocument;
     const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!doc.startViewTransition || quieto || resolvido === themeRef.current) {
+    if (quieto || resolvido === themeRef.current) {
       // Trocar de "escuro" para "auto" num sistema escuro não muda pixel
       // nenhum: animar a revelação de uma tela idêntica só pisca à toa.
       setPreferenceState(next);
+      return;
+    }
+    if (!doc.startViewTransition) {
+      cortinaDeReserva(resolvido === "dark", () => flushSync(() => setPreferenceState(next)));
       return;
     }
 
