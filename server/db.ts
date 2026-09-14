@@ -552,12 +552,7 @@ export async function updateTransaction(escopo: Escopo, id: number, values: Tran
 }
 
 export async function deleteTransaction(escopo: Escopo, id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database is not available");
-
-  return db
-    .delete(financialTransactions)
-    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.id, id)));
+  return deleteTransactions(escopo, [id]);
 }
 
 export const TRANSACTION_DELETE_CHUNK_SIZE = 500;
@@ -600,8 +595,100 @@ export async function deleteTransactions(escopo: Escopo, ids: number[]) {
   if (chunks.length === 0) return 0;
 
   return db.transaction(async tx => {
-    let deletedCount = 0;
+    /*
+     * Primeiro reduzimos a entrada aos lançamentos que realmente pertencem ao
+     * escopo. Sem isto, um id de outra empresa poderia alcançar um vínculo
+     * corrompido antes de o DELETE do razão (que já era protegido) ignorá-lo.
+     */
+    const ownedIds: number[] = [];
     for (const chunk of chunks) {
+      const rows = await tx
+        .select({ id: financialTransactions.id })
+        .from(financialTransactions)
+        .where(and(
+          eq(financialTransactions.userId, escopo.userId),
+          eq(financialTransactions.companyId, escopo.companyId),
+          inArray(financialTransactions.id, chunk),
+        ));
+      ownedIds.push(...rows.map(row => row.id));
+    }
+    if (ownedIds.length === 0) return 0;
+
+    let deletedCount = 0;
+    for (const chunk of chunkTransactionIds(ownedIds)) {
+      /*
+       * Um lançamento pode estar ligado a várias movimentações, e uma
+       * movimentação pode estar dividida entre vários lançamentos. Guardamos o
+       * estado anterior antes de remover os vínculos para só devolver a
+       * movimentação a `sem_par` quando nenhum outro vínculo sobreviver.
+       */
+      const linkedMovements = await tx
+        .select({ movementId: reconciliationLinks.movementId, previousStatus: bankMovements.status })
+        .from(reconciliationLinks)
+        .innerJoin(bankMovements, and(
+          eq(bankMovements.id, reconciliationLinks.movementId),
+          eq(bankMovements.userId, escopo.userId),
+          eq(bankMovements.companyId, escopo.companyId),
+        ))
+        .where(and(
+          eq(reconciliationLinks.userId, escopo.userId),
+          eq(reconciliationLinks.companyId, escopo.companyId),
+          inArray(reconciliationLinks.transactionId, chunk),
+        ));
+
+      await tx
+        .delete(reconciliationLinks)
+        .where(and(
+          eq(reconciliationLinks.userId, escopo.userId),
+          eq(reconciliationLinks.companyId, escopo.companyId),
+          inArray(reconciliationLinks.transactionId, chunk),
+        ));
+
+      const previousStatusByMovement = new Map(
+        linkedMovements.map(row => [row.movementId, row.previousStatus]),
+      );
+      const movementIds = [...previousStatusByMovement.keys()];
+      if (movementIds.length > 0) {
+        const remainingLinks = await tx
+          .select({ movementId: reconciliationLinks.movementId })
+          .from(reconciliationLinks)
+          .where(and(
+            eq(reconciliationLinks.userId, escopo.userId),
+            eq(reconciliationLinks.companyId, escopo.companyId),
+            inArray(reconciliationLinks.movementId, movementIds),
+          ));
+        const stillLinked = new Set(remainingLinks.map(row => row.movementId));
+        const unlinkedIds = movementIds.filter(movementId => !stillLinked.has(movementId));
+
+        for (const movementChunk of chunkTransactionIds(unlinkedIds)) {
+          await tx
+            .update(bankMovements)
+            .set({
+              status: "sem_par",
+              classification: null,
+              classificationNote: "",
+              relatedMovementId: null,
+              reconciledAt: null,
+              reconciledBy: null,
+            })
+            .where(and(
+              eq(bankMovements.userId, escopo.userId),
+              eq(bankMovements.companyId, escopo.companyId),
+              inArray(bankMovements.id, movementChunk),
+            ));
+
+          await tx.insert(reconciliationAudit).values(movementChunk.map(movementId => ({
+            userId: escopo.userId,
+            companyId: escopo.companyId,
+            movementId,
+            action: "desfazer",
+            previousStatus: previousStatusByMovement.get(movementId) ?? "conciliado",
+            newStatus: "sem_par",
+            detail: "Conciliação desfeita porque o lançamento vinculado foi excluído.",
+          })));
+        }
+      }
+
       const result = await tx
         .delete(financialTransactions)
         .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), inArray(financialTransactions.id, chunk)));
@@ -1318,12 +1405,8 @@ export async function updateTransferPair(
 }
 
 export async function deleteTransferGroup(escopo: Escopo, transferGroupId: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database is not available");
-  const result = await db
-    .delete(financialTransactions)
-    .where(and(eq(financialTransactions.userId, escopo.userId), eq(financialTransactions.companyId, escopo.companyId), eq(financialTransactions.transferGroupId, transferGroupId)));
-  return Number(result[0].affectedRows ?? 0);
+  const group = await getTransferGroup(escopo, transferGroupId);
+  return deleteTransactions(escopo, group.map(transaction => transaction.id));
 }
 
 /**
@@ -2355,22 +2438,51 @@ export async function createImportBatch(escopo: Escopo, input: {
      * empresa registrou e o que o banco diz. Elas nascem já vinculadas porque
      * uma veio da outra; o que a tela de conciliação procura são os casos em
      * que só existe um dos lados.
-     */
+    */
     for (const chunk of chunkImportRows(input.transactions)) {
-      await tx.insert(bankMovements).values(chunk.map(transaction => ({
-        userId: escopo.userId,
-        companyId: escopo.companyId,
-        accountId: input.accountId,
-        movementDate: transaction.transactionDate,
-        description: transaction.description,
-        contact: transaction.contact ?? "",
-        amount: transaction.amount,
-        status: "conciliado" as const,
-        importBatchId: input.id,
-        externalId: transaction.externalId ?? null,
-        fingerprint: transaction.fingerprint!,
-        reconciledAt: new Date(),
-      })));
+      await tx
+        .insert(bankMovements)
+        .values(chunk.map(transaction => ({
+          userId: escopo.userId,
+          companyId: escopo.companyId,
+          accountId: input.accountId,
+          movementDate: transaction.transactionDate,
+          description: transaction.description,
+          contact: transaction.contact ?? "",
+          amount: transaction.amount,
+          status: "conciliado" as const,
+          importBatchId: input.id,
+          externalId: transaction.externalId ?? null,
+          fingerprint: transaction.fingerprint!,
+          reconciledAt: new Date(),
+        })))
+        /*
+         * Reimportar uma linha cujo lançamento foi removido reaproveita o lado
+         * imutável do extrato em vez de falhar no índice por fingerprint. Os
+         * valores vêm da própria linha que colidiu; userId, companyId e id não
+         * entram no SET para uma digital nunca mover dado entre empresas.
+         *
+         * `importBatchId` é indispensável: a leitura logo abaixo monta os
+         * vínculos filtrando pelo lote atual. Sem atualizá-lo, a importação
+         * pareceria concluir, mas deixaria o novo lançamento sem conciliação.
+         */
+        .onDuplicateKeyUpdate({
+          set: {
+            accountId: sql`VALUES(${bankMovements.accountId})`,
+            movementDate: sql`VALUES(${bankMovements.movementDate})`,
+            description: sql`VALUES(${bankMovements.description})`,
+            contact: sql`VALUES(${bankMovements.contact})`,
+            amount: sql`VALUES(${bankMovements.amount})`,
+            status: "conciliado",
+            classification: null,
+            classificationNote: "",
+            relatedMovementId: null,
+            importBatchId: sql`VALUES(${bankMovements.importBatchId})`,
+            externalId: sql`VALUES(${bankMovements.externalId})`,
+            reconciledAt: sql`VALUES(${bankMovements.reconciledAt})`,
+            reconciledBy: null,
+          },
+        });
     }
 
     // Os ids saem de leitura, não do insertId: o autoincrement do TiDB é

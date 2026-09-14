@@ -5,6 +5,7 @@ import {
   closeReconciliationPeriod,
   createImportBatch,
   createTransactionsForMovement,
+  deleteTransaction,
   esquecerBancoDeTeste,
   getBankMovement,
   getReconciliationPeriod,
@@ -377,6 +378,148 @@ describe.runIf(temBancoDeTeste())("isolamento da conciliação entre empresas", 
     const movimentos = await listBankMovements(anaA, empresaA().conta, "2026-09-01", "2026-09-30");
     expect(movimentos.filter(m => m.importBatchId === "lote-a")).toHaveLength(1);
     expect(await listBankMovements(anaB, empresaA().conta, "2026-09-01", "2026-09-30")).toEqual([]);
+  });
+
+  it("reimportar depois de apagar o lançamento reaproveita a movimentação e recria o vínculo", async () => {
+    const row = {
+      type: "entrada" as const,
+      transactionDate: "2026-09-11",
+      description: "Reimportável",
+      category: "Vendas",
+      amount: "73.00",
+      account: "Conta A",
+      accountId: empresaA().conta,
+      status: "Pago" as const,
+      recurring: false,
+      fingerprint: "fp-reimportavel",
+    };
+
+    await createImportBatch(anaA, {
+      id: "lote-reimportacao-1", fileName: "primeiro.ofx", format: "ofx",
+      accountId: empresaA().conta, duplicateCount: 0, statementBalance: null,
+      transactions: [row],
+    });
+
+    const [primeira] = await c.query<(RowDataPacket & { transactionId: number; movementId: number })[]>(
+      `SELECT t.id AS transactionId, m.id AS movementId
+         FROM transactions t
+         JOIN bankMovements m ON m.userId = t.userId AND m.companyId = t.companyId AND m.fingerprint = t.fingerprint
+        WHERE t.userId = ? AND t.companyId = ? AND t.fingerprint = ?`,
+      [ANA, EMPRESA_A, row.fingerprint],
+    );
+    expect(primeira).toHaveLength(1);
+
+    expect(await deleteTransaction(anaA, primeira[0]!.transactionId)).toBe(1);
+
+    const [orfao] = await c.query<(RowDataPacket & { status: string; links: number })[]>(
+      `SELECT m.status, COUNT(l.id) AS links
+         FROM bankMovements m
+         LEFT JOIN reconciliationLinks l
+           ON l.userId = m.userId AND l.companyId = m.companyId AND l.movementId = m.id
+        WHERE m.userId = ? AND m.companyId = ? AND m.id = ?
+        GROUP BY m.id, m.status`,
+      [ANA, EMPRESA_A, primeira[0]!.movementId],
+    );
+    expect(orfao).toHaveLength(1);
+    expect(orfao[0]!.status).toBe("sem_par");
+    expect(Number(orfao[0]!.links)).toBe(0);
+
+    await createImportBatch(anaA, {
+      id: "lote-reimportacao-2", fileName: "segundo.ofx", format: "ofx",
+      accountId: empresaA().conta, duplicateCount: 0, statementBalance: null,
+      transactions: [{ ...row, description: "Reimportada" }],
+    });
+
+    const [depois] = await c.query<(RowDataPacket & {
+      transactionId: number; movementId: number; linkId: number; importBatchId: string; status: string;
+    })[]>(
+      `SELECT t.id AS transactionId, m.id AS movementId, l.id AS linkId, m.importBatchId, m.status
+         FROM transactions t
+         JOIN bankMovements m ON m.userId = t.userId AND m.companyId = t.companyId AND m.fingerprint = t.fingerprint
+         JOIN reconciliationLinks l
+           ON l.userId = t.userId AND l.companyId = t.companyId
+          AND l.transactionId = t.id AND l.movementId = m.id
+        WHERE t.userId = ? AND t.companyId = ? AND t.fingerprint = ?`,
+      [ANA, EMPRESA_A, row.fingerprint],
+    );
+    expect(depois).toHaveLength(1);
+    expect(depois[0]!.movementId).toBe(primeira[0]!.movementId);
+    expect(depois[0]!.transactionId).not.toBe(primeira[0]!.transactionId);
+    expect(depois[0]!.importBatchId).toBe("lote-reimportacao-2");
+    expect(depois[0]!.status).toBe("conciliado");
+  });
+
+  it("duas empresas do mesmo dono importam a mesma digital sem compartilhar movimentação ou vínculo", async () => {
+    const importarNa = async (escopo: typeof anaA, companyId: number, accountId: number, lote: string, conta: string) => {
+      await createImportBatch(escopo, {
+        id: lote, fileName: "mesmo-extrato.ofx", format: "ofx",
+        accountId, duplicateCount: 0, statementBalance: null,
+        transactions: [{
+          type: "entrada", transactionDate: "2026-09-13", description: `Mesmo extrato ${companyId}`,
+          category: "Vendas", amount: "81.00", account: conta, accountId,
+          status: "Pago", recurring: false, fingerprint: "digital-compartilhada",
+        }],
+      });
+    };
+
+    await importarNa(anaA, EMPRESA_A, empresaA().conta, "lote-mesmo-a", "Conta A");
+    await importarNa(anaB, EMPRESA_B, empresaB().conta, "lote-mesmo-b", "Conta B");
+
+    const [linhas] = await c.query<(RowDataPacket & { companyId: number; movements: number; links: number })[]>(
+      `SELECT t.companyId, COUNT(DISTINCT m.id) AS movements, COUNT(DISTINCT l.id) AS links
+         FROM transactions t
+         JOIN bankMovements m ON m.userId = t.userId AND m.companyId = t.companyId AND m.fingerprint = t.fingerprint
+         JOIN reconciliationLinks l
+           ON l.userId = t.userId AND l.companyId = t.companyId
+          AND l.transactionId = t.id AND l.movementId = m.id
+        WHERE t.userId = ? AND t.fingerprint = ? AND t.companyId IN (?, ?)
+        GROUP BY t.companyId
+        ORDER BY t.companyId`,
+      [ANA, "digital-compartilhada", EMPRESA_A, EMPRESA_B],
+    );
+    expect(linhas.map(linha => ({
+      companyId: linha.companyId,
+      movements: Number(linha.movements),
+      links: Number(linha.links),
+    }))).toEqual([
+      { companyId: EMPRESA_A, movements: 1, links: 1 },
+      { companyId: EMPRESA_B, movements: 1, links: 1 },
+    ]);
+  });
+
+  it("apagar uma parte de uma divisão mantém a movimentação conciliada até o último vínculo sair", async () => {
+    const movementId = empresaA().semPar;
+    await createTransactionsForMovement(anaA, {
+      movementId,
+      previousStatus: "sem_par",
+      detail: "divisão para provar o N:N",
+      parts: [
+        {
+          type: "entrada", transactionDate: "2026-09-12", description: "Parte N:N 1",
+          category: "Vendas", amount: "60.00", account: "Conta A", accountId: empresaA().conta,
+          status: "Pago", recurring: false, linkAmount: "60.00",
+        },
+        {
+          type: "entrada", transactionDate: "2026-09-12", description: "Parte N:N 2",
+          category: "Vendas", amount: "40.00", account: "Conta A", accountId: empresaA().conta,
+          status: "Pago", recurring: false, linkAmount: "40.00",
+        },
+      ],
+    });
+
+    const [parts] = await c.query<(RowDataPacket & { id: number })[]>(
+      "SELECT id FROM transactions WHERE userId = ? AND companyId = ? AND description LIKE 'Parte N:N %' ORDER BY id",
+      [ANA, EMPRESA_A],
+    );
+    expect(parts).toHaveLength(2);
+
+    expect(await deleteTransaction(anaA, parts[0]!.id)).toBe(1);
+    expect((await getBankMovement(anaA, movementId))!.status).toBe("conciliado");
+    expect(await listReconciliationLinks(anaA, [movementId])).toHaveLength(1);
+
+    expect(await deleteTransaction(anaA, parts[1]!.id)).toBe(1);
+    expect((await getBankMovement(anaA, movementId))!.status).toBe("sem_par");
+    expect(await listReconciliationLinks(anaA, [movementId])).toHaveLength(0);
   });
 
   it("os índices da conciliação incluem a empresa, e as duas guardas voltaram a valer", async () => {
