@@ -1,10 +1,10 @@
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, SEM_ASSINATURA, Traco, haQuanto } from "./comum";
-import { useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 
 export default function AdminVisaoGeral() {
-  /* A coluna "Plano" some junto com a área de Assinaturas — ver `preferencias.ts`. */
+  /* A coluna "Plano" some junto com a área de Assinaturas — ver `@/lib/sistema`. */
   const assinaturas = useMostrarAssinaturas();
   const resumo = trpc.admin.resumo.useQuery();
   const r = resumo.data;

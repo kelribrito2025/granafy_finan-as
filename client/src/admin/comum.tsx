@@ -11,7 +11,7 @@ import {
   type IconlyIcon,
 } from "@/components/IconlyIcons";
 import { trpc } from "@/lib/trpc";
-import { useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 import { useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -81,7 +81,7 @@ const GRUPOS: Array<{ titulo: string; itens: Array<{ rotulo: string; icone: Icon
 function BarraDoAdmin({ local, nome }: { local: string; nome: string }) {
   const barra = trpc.admin.barra.useQuery(undefined, { staleTime: 60_000 });
   const ativo = (caminho: string) => (caminho === "/admin" ? local === "/admin" : local.startsWith(caminho));
-  /* Assinaturas some do menu enquanto não tiver fonte — ver `preferencias.ts`. */
+  /* Assinaturas some do menu quando o admin desliga — ver `@/lib/sistema`. */
   const mostrarAssinaturas = useMostrarAssinaturas();
   const grupos = GRUPOS.map(grupo => ({
     ...grupo,

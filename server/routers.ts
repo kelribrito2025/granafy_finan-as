@@ -15,6 +15,7 @@ import {
   verifyPasswordResetCode,
   verifyPasswordResetToken,
 } from "./auth";
+import { lerConfiguracaoDoSistema } from "./configuracaoDoSistema";
 import * as db from "./db";
 import {
   isPasswordResetEmailConfigured,
@@ -62,6 +63,19 @@ const strongPasswordSchema = credentialsSchema.shape.password.refine(
 
 export const appRouter = router({
   system: systemRouter,
+
+  /**
+   * O que o admin decidiu para o sistema inteiro, para quem desenha a tela.
+   *
+   * Pública, e por dois motivos. O primeiro é que não há o que proteger: a
+   * resposta é um booleano sobre a existência de um item de menu, não dado de
+   * ninguém — a mesma natureza de `auth.options`, logo abaixo. O segundo é
+   * prático: `protectedProcedure` exige empresa ativa, e esta resposta precisa
+   * valer também para quem está na escolha de empresa e para o admin, que olha
+   * o sistema sem olhar pela janela de uma empresa.
+   */
+  configuracaoDoSistema: publicProcedure.query(() => lerConfiguracaoDoSistema()),
+
   admin: adminRouter,
   balanceSheet: balanceSheetRouter,
   cashflow: cashflowRouter,

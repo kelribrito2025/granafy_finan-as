@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { Link } from "wouter";
 import { AdminHeader, AdminShell, Avatar, Busca, Cartao, Pilula, SEM_ASSINATURA, Segmentos, Traco, cnpj, haQuanto } from "./comum";
-import { useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 
 type Situacao = "todas" | "ativas" | "arquivadas";
 

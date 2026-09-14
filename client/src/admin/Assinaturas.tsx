@@ -1,5 +1,5 @@
 import { AdminHeader, AdminShell, Cartao, Kpi, SEM_ASSINATURA } from "./comum";
-import { useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 

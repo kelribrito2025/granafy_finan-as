@@ -717,6 +717,29 @@ export const balanceSheetSnapshots = mysqlTable("balanceSheetSnapshots", {
   index("balance_sheet_snapshots_company_idx").on(table.companyId),
 ]);
 
+/*
+ * A configuração do sistema inteiro. Chave e valor, uma linha por decisão.
+ *
+ * É a única tabela daqui SEM `userId` e SEM `companyId`, e isso é o ponto: o
+ * que mora nela não é de ninguém em particular. O interruptor de Assinaturas
+ * vivia no `localStorage` do navegador do admin e por isso não chegava ao
+ * cliente — nenhum outro navegador podia lê-lo. Aqui ele chega.
+ *
+ * Chave/valor, e não uma coluna por decisão, porque a próxima configuração não
+ * deve custar migração. O preço é o valor ser texto; a conversão fica em
+ * `shared/sistema.ts`, num lugar só e com teste.
+ *
+ * `updatedByUserId` é carimbo, não chave estrangeira: se o admin que desligou
+ * for excluído depois, a decisão dele continua valendo e a linha não pode cair
+ * junto.
+ */
+export const systemSettings = mysqlTable("systemSettings", {
+  settingKey: varchar("settingKey", { length: 64 }).primaryKey(),
+  settingValue: varchar("settingValue", { length: 255 }).notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type UserRecord = typeof users.$inferSelect;
 export type User = Omit<UserRecord, "passwordHash" | "categoryDefaultsVersion">;
 export type InsertUser = typeof users.$inferInsert;
@@ -746,3 +769,5 @@ export type PatrimonialItemRecord = typeof patrimonialItems.$inferSelect;
 export type InsertPatrimonialItem = typeof patrimonialItems.$inferInsert;
 export type BalanceSheetSnapshotRecord = typeof balanceSheetSnapshots.$inferSelect;
 export type InsertBalanceSheetSnapshot = typeof balanceSheetSnapshots.$inferInsert;
+export type SystemSettingRecord = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;

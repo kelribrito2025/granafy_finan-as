@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { ModalDeExclusao } from "./ModalDeExclusao";
-import { useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 import { AdminHeader, AdminShell, Avatar, Cartao, Kpi, Pilula, SEM_ASSINATURA, Traco, cnpj, dataCurta, dataHora, haQuanto } from "./comum";
 
 const REGIME: Record<string, string> = { simples: "Simples Nacional", presumido: "Lucro Presumido", real: "Lucro Real", mei: "MEI", outro: "Outro" };

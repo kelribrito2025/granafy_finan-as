@@ -13,6 +13,8 @@ import {
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { AssinaturaPanel, PlanosPanel } from "@/components/PlanoCobranca";
+import { useAssinaturasLiberadas } from "@/lib/sistema";
+import { ehAbaDeAssinatura } from "@shared/sistema";
 import { PrimeiroAcessoPanel } from "@/components/onboarding/PrimeiroAcessoPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { trpc } from "@/lib/trpc";
@@ -136,6 +138,19 @@ export default function SettingsPage() {
     if (pedida) setTab(pedida);
   }, [busca]);
 
+  const assinaturasLiberadas = useAssinaturasLiberadas();
+  const abas = ABAS.filter(aba => assinaturasLiberadas || !ehAbaDeAssinatura(aba.value));
+  /*
+   * Com o interruptor desligado, "/configuracoes?aba=planos" cai na Empresa.
+   *
+   * O link continua respondendo — em vez de 404 — porque ele pode estar num
+   * e-mail antigo ou no histórico de quem já viu a tela: quebrar na cara do
+   * cliente seria pior do que abrir a primeira aba. O endereço não é corrigido
+   * na barra de propósito; religar o interruptor faz o mesmo link voltar a
+   * levar onde levava.
+   */
+  const abaEfetiva: SettingsTab = assinaturasLiberadas || !ehAbaDeAssinatura(tab) ? tab : "company";
+
   const utils = trpc.useUtils();
   const companyQuery = trpc.settings.company.useQuery();
   const preferencesQuery = trpc.settings.preferences.useQuery();
@@ -159,7 +174,7 @@ export default function SettingsPage() {
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">Configurações</h1>
-              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{SUBTITULO_POR_ABA[tab]}</p>
+              <p className="mt-0.5 text-[12.5px] text-[#8A968D]">{SUBTITULO_POR_ABA[abaEfetiva]}</p>
             </div>
             <ProfileMenu />
           </header>
@@ -168,7 +183,7 @@ export default function SettingsPage() {
             {/* `self-start` porque numa linha flex o padrão é esticar: sem ele o
                 cartão de duas abas descia até o pé da página. */}
             <nav className="flex shrink-0 gap-1.5 overflow-x-auto rounded-[16px] bg-white p-2 ring-1 ring-[#E1E8E3] xl:w-[212px] xl:flex-col xl:self-start xl:overflow-visible">
-              {ABAS.map(({ value, label, icon: Icon }) => (
+              {abas.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
                   type="button"
@@ -179,28 +194,28 @@ export default function SettingsPage() {
                     // nada — a busca continuaria a mesma.
                     setLocation(`/configuracoes?aba=${PARAMETRO_POR_ABA[value]}`, { replace: true });
                   }}
-                  aria-current={tab === value ? "page" : undefined}
+                  aria-current={abaEfetiva === value ? "page" : undefined}
                   className={`flex items-center gap-2.5 whitespace-nowrap rounded-[12px] px-3.5 py-2.5 text-left text-[13.5px] transition ${
-                    tab === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
+                    abaEfetiva === value ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"
                   }`}
                 >
-                  <Icon size={17} className={tab === value ? "" : "text-[#8A968D]"} />
+                  <Icon size={17} className={abaEfetiva === value ? "" : "text-[#8A968D]"} />
                   {label}
                 </button>
               ))}
             </nav>
 
             <div className="min-w-0 flex-1">
-              {tab === "onboarding" ? (
+              {abaEfetiva === "onboarding" ? (
                 <PrimeiroAcessoPanel />
-              ) : tab === "plans" ? (
+              ) : abaEfetiva === "plans" ? (
                 <PlanosPanel />
-              ) : tab === "subscription" ? (
+              ) : abaEfetiva === "subscription" ? (
                 <AssinaturaPanel onVerPlanos={() => {
                   setTab("plans");
                   setLocation("/configuracoes?aba=planos", { replace: true });
                 }} />
-              ) : tab === "company" ? (
+              ) : abaEfetiva === "company" ? (
                 <CompanyForm
                   initial={companyQuery.data}
                   loading={companyQuery.isLoading}

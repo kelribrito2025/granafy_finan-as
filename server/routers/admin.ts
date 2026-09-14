@@ -3,6 +3,7 @@ import { adminProcedure, router } from "../_core/trpc";
 import * as consultas from "../admin/consultas";
 import * as exclusoes from "../admin/exclusoes";
 import * as papeis from "../admin/papeis";
+import { definirMostrarAssinaturas } from "../configuracaoDoSistema";
 
 /*
  * O admin do sistema. Tudo passa pelo `adminProcedure`, que recusa quem não
@@ -12,6 +13,18 @@ import * as papeis from "../admin/papeis";
 export const adminRouter = router({
   resumo: adminProcedure.query(() => consultas.resumoDoSistema()),
   configuracoes: adminProcedure.query(() => consultas.configuracoesDoSistema()),
+  /*
+   * O interruptor de Planos e Assinatura.
+   *
+   * Vivia no `localStorage` do navegador do admin, e por isso escondia só o
+   * menu DELE: o cliente continuava vendo as duas telas, que é justamente o
+   * contrário do que a tela prometia. Agora a decisão é do sistema, gravada
+   * em `systemSettings` e lida por todo mundo — inclusive pelo outro admin,
+   * no outro computador.
+   */
+  definirMostrarAssinaturas: adminProcedure
+    .input(z.object({ mostrar: z.boolean() }))
+    .mutation(({ ctx, input }) => definirMostrarAssinaturas(input.mostrar, ctx.user.id)),
   barra: adminProcedure.query(() => consultas.contadoresDaBarra()),
   contas: router({
     listar: adminProcedure

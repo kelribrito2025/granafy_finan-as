@@ -11,6 +11,7 @@ import { ModalIcon } from "@/components/ModalIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CaixaDeSelecao } from "@/components/SelectionCheckbox";
 import { GranafyRing } from "@/components/GranafyLoader";
+import { useAssinaturasLiberadas } from "@/lib/sistema";
 import { companyInitials } from "@shared/companies";
 import { trpc } from "@/lib/trpc";
 import { useCallback, useRef, useState } from "react";
@@ -630,6 +631,8 @@ export function ProfileMenu() {
   const companyQuery = trpc.settings.company.useQuery(undefined, { enabled: open || switcher, staleTime: 60_000 });
   /* A lista só é buscada quando o seletor abre — o menu do perfil não precisa dela. */
   const companiesQuery = trpc.companies.list.useQuery(undefined, { enabled: switcher, staleTime: 60_000 });
+  /* Sem o interruptor ligado, "Assinatura" nem entra no menu — ver `@/lib/sistema`. */
+  const assinaturasLiberadas = useAssinaturasLiberadas();
 
   const company = companyQuery.data;
   /*
@@ -714,15 +717,17 @@ export function ProfileMenu() {
               <ChevronRightIcon size={15} className="text-[#8A968D]" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => { setOpen(false); setLocation("/configuracoes?aba=assinatura"); }}
-              className="mt-0.5 flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left text-[14px] text-[#28382E] hover:bg-[#F1FBF6]"
-            >
-              <CardIcon size={16} className="text-[#4C6355]" />
-              <span className="flex-1">Assinatura</span>
-              <ChevronRightIcon size={15} className="text-[#8A968D]" />
-            </button>
+            {assinaturasLiberadas && (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setLocation("/configuracoes?aba=assinatura"); }}
+                className="mt-0.5 flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left text-[14px] text-[#28382E] hover:bg-[#F1FBF6]"
+              >
+                <CardIcon size={16} className="text-[#4C6355]" />
+                <span className="flex-1">Assinatura</span>
+                <ChevronRightIcon size={15} className="text-[#8A968D]" />
+              </button>
+            )}
 
             {user?.role === "admin" && (
               <button

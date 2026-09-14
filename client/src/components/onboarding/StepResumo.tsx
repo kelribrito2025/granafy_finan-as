@@ -2,6 +2,7 @@ import { ArrowsUpDownIcon, BuildingIcon, ChevronRightIcon, TagIcon, WalletIcon, 
 import { OnboardingLateral, OnboardingRodape } from "@/components/onboarding/OnboardingStepper";
 import { formatMoney } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
+import { useAssinaturasLiberadas } from "@/lib/sistema";
 import type { OpeningComparison } from "@shared/openingBalance";
 import { useLocation } from "wouter";
 
@@ -55,6 +56,7 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
   const [, setLocation] = useLocation();
   const empresa = trpc.settings.company.useQuery();
   const organizacao = trpc.organization.overview.useQuery();
+  const assinaturasLiberadas = useAssinaturasLiberadas();
 
   const conta = organizacao.data?.accounts[0];
   const categorias = organizacao.data?.categories.length ?? 0;
@@ -166,7 +168,10 @@ export function StepResumo({ nome, criadoEm, importados, divergencia, onFinish, 
       </div>
 
       <OnboardingLateral>
-        {fimDoTeste && (
+        {/* O cartão do teste é o convite para a tela de Planos: com o
+            interruptor desligado ele some junto com ela, senão o primeiro
+            acesso terminaria oferecendo um botão que não leva a lugar nenhum. */}
+        {assinaturasLiberadas && fimDoTeste && (
           <div className="flex flex-col gap-2 rounded-[16px] bg-[#0B1F14] p-5 text-white">
             <strong className="text-[14px]">Seu teste vai até {dataCurta(fimDoTeste)}</strong>
             <span className="text-[12.5px] leading-relaxed text-[#C5DACE]">

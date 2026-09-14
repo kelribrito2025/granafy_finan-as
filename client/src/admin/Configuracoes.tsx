@@ -3,7 +3,7 @@ import { toast } from "@/lib/toast";
 import { DESCONTO_ANUAL, DIAS_DE_TESTE, PLANOS, PLANO_DO_TESTE } from "@shared/planos";
 import { useState } from "react";
 import { AdminHeader, AdminShell, Avatar, Cartao, Interruptor, Kpi, Pilula, Traco, dataCurta, haQuanto } from "./comum";
-import { definirMostrarAssinaturas, useMostrarAssinaturas } from "./preferencias";
+import { useMostrarAssinaturas } from "@/lib/sistema";
 
 /*
  * As configurações do sistema, com fonte de verdade.
@@ -23,6 +23,19 @@ export function AdminConfiguracoes() {
   const utils = trpc.useUtils();
   const [email, setEmail] = useState("");
   const mostrarAssinaturas = useMostrarAssinaturas();
+  const alternarAssinaturas = trpc.admin.definirMostrarAssinaturas.useMutation({
+    onSuccess: async resultado => {
+      toast.success(resultado.mostrarAssinaturas ? "Planos e Assinatura ligados" : "Planos e Assinatura desligados", {
+        description: resultado.mostrarAssinaturas
+          ? "As duas telas voltaram para o menu do admin e para os clientes."
+          : "As duas telas sumiram do menu do admin e dos clientes.",
+      });
+      /* Todo mundo lê a mesma consulta: invalidar aqui redesenha a barra
+         lateral e o cartão abaixo no mesmo instante. */
+      await utils.configuracaoDoSistema.invalidate();
+    },
+    onError: erro => toast.error("Não deu para mudar", { description: erro.message }),
+  });
 
   const recarregar = async () => {
     await Promise.all([utils.admin.configuracoes.invalidate(), utils.admin.usuarios.listar.invalidate()]);
@@ -66,21 +79,32 @@ export function AdminConfiguracoes() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Cartao titulo="Menu do admin">
+        <Cartao titulo="Planos e Assinatura">
           <div className="flex items-start gap-3 rounded-[14px] bg-[#F8FAF9] p-3.5">
-            <Interruptor ligado={mostrarAssinaturas} rotulo="Mostrar Assinaturas e Planos" onAlternar={definirMostrarAssinaturas} />
+            <Interruptor
+              ligado={mostrarAssinaturas}
+              rotulo="Mostrar Assinaturas e Planos"
+              onAlternar={mostrar => {
+                /* Um clique por vez: sem isto, dois cliques seguidos mandam
+                   duas gravações e a última a chegar é que vale — nem sempre
+                   a última clicada. */
+                if (!alternarAssinaturas.isPending) alternarAssinaturas.mutate({ mostrar });
+              }}
+            />
             <span className="flex flex-col gap-0.5">
               <strong className="text-[13.5px]">Mostrar Assinaturas e Planos</strong>
               <span className="text-[12.5px] leading-relaxed text-[#4C6355]">
-                Desligado, a área de Assinaturas some da barra lateral e o cartão de planos some desta
-                tela. Nada é apagado: a tela continua existindo e volta quando você religar.
+                Desligado, as abas <strong>Planos</strong> e <strong>Assinatura</strong> somem das
+                Configurações do cliente e do menu do perfil dele, a área de Assinaturas some da barra
+                lateral do admin e o cartão de planos some desta tela. Nada é apagado: tudo volta
+                quando você religar.
               </span>
             </span>
           </div>
           <p className="text-[12px] leading-relaxed text-[#8A968D]">
-            Esta escolha vale <strong>neste navegador</strong>. Não há tabela de configuração do sistema
-            ainda, e criar uma custa migração — então ela não atravessa para outro computador nem para o
-            outro admin. Quando a tabela de assinaturas chegar, esta preferência vai junto para o banco.
+            Esta escolha vale para o <strong>sistema inteiro</strong>: fica gravada no banco e alcança
+            todos os clientes, os outros admins e os outros computadores. Quem já estiver com a tela
+            aberta vê a mudança no próximo carregamento.
           </p>
         </Cartao>
 

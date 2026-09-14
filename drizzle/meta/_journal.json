@@ -176,6 +176,13 @@
       "when": 1789014333850,
       "tag": "0024_condemned_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1789400092139,
+      "tag": "0025_lowly_silver_sable",
+      "breakpoints": true
     }
   ]
 }
