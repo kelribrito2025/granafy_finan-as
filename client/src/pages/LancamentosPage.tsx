@@ -672,8 +672,8 @@ export default function LancamentosPage() {
       utils.dre.invalidate(),
     ]);
   };
-  const createMutation = trpc.transactions.create.useMutation({ onSuccess: refresh });
-  const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });
+  const createMutation = trpc.transactions.create.useMutation();
+  const updateMutation = trpc.transactions.update.useMutation();
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
   const [seriesPrompt, setSeriesPrompt] = useState<
@@ -782,11 +782,14 @@ export default function LancamentosPage() {
           ? `${result.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
           : "Lançamento salvo no banco");
       }
+      void refresh().catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
       setModalOpen(false);
       setEditing(null);
       setSeriesPrompt(null);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+      return false;
     }
   };
 
@@ -795,9 +798,9 @@ export default function LancamentosPage() {
     // silenciosamente meses que o usuário não estava olhando.
     if (editing?.recurrenceGroupId) {
       setSeriesPrompt({ action: "save", transaction: editing, input });
-      return;
+      return false;
     }
-    await commitSave(input, editing, "single");
+    return commitSave(input, editing, "single");
   };
 
   const duplicate = async (transaction: Transaction) => {
@@ -1202,7 +1205,7 @@ export default function LancamentosPage() {
         </section>
       </div>
 
-      {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {modalOpen && user?.id && user.activeCompanyId && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} draftScope={{ userId: user.id, companyId: user.activeCompanyId }} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
       {excluindoLote && (
         <ModalDeConfirmacao
           titulo={selected.length === 1 ? "Excluir este lançamento?" : `Excluir ${selected.length.toLocaleString("pt-BR")} lançamentos?`}

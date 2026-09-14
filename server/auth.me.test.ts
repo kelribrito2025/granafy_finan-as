@@ -17,6 +17,6 @@ describe("auth.me", () => {
   it("returns the current authenticated user", async () => {
     const caller = appRouter.createCaller(createContext(user));
 
-    await expect(caller.auth.me()).resolves.toEqual(user);
+    await expect(caller.auth.me()).resolves.toEqual({ ...user, activeCompanyId: 1 });
   });
 });

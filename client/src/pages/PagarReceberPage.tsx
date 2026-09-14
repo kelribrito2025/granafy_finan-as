@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
 import { TransactionModal } from "@/components/TransactionModal";
@@ -494,6 +495,7 @@ export default function PagarReceberPage() {
   // Assina o modo discreto: o valor mascarado sai de um módulo, e sem esta
   // assinatura a página não redesenha quando o olhinho é ligado.
   usePrivacy();
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date());
   // Duas colunas por padrão: a pergunta da tela é "o que entra contra o que
@@ -635,15 +637,17 @@ export default function PagarReceberPage() {
   };
 
   const salvarEdicao = async (input: TransactionInput) => {
-    if (!editando) return;
+    if (!editando) return false;
     try {
       /* `single`: só este título. Série recorrente se edita inteira em Lançamentos, onde a pergunta é feita. */
       await updateMutation.mutateAsync({ id: editando.id, scope: "single", ...input });
-      await recarregar();
+      void recarregar().catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
       toast.success("Lançamento atualizado");
       setEditando(null);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+      return false;
     }
   };
 
@@ -663,13 +667,15 @@ export default function PagarReceberPage() {
   const salvarLancamento = async (input: TransactionInput) => {
     try {
       const resultado = await createMutation.mutateAsync(input);
-      await recarregar();
+      void recarregar().catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
       toast.success(resultado.monthCount > 1
         ? `${resultado.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
         : "Lançamento salvo");
       setNovoLancamento(null);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+      return false;
     }
   };
 
@@ -892,10 +898,11 @@ export default function PagarReceberPage() {
           )}
         </section>
       </div>
-      {editando && (
+      {editando && user?.id && user.activeCompanyId && (
         <TransactionModal
           transaction={editando}
           defaultDate={today()}
+          draftScope={{ userId: user.id, companyId: user.activeCompanyId }}
           pending={updateMutation.isPending}
           options={organizationOptions}
           onManageOrganization={() => setLocation("/organizacao")}
@@ -927,10 +934,11 @@ export default function PagarReceberPage() {
           </div>
         </div>
       )}
-      {novoLancamento && (
+      {novoLancamento && user?.id && user.activeCompanyId && (
         <TransactionModal
           defaultType={novoLancamento}
           defaultDate={today()}
+          draftScope={{ userId: user.id, companyId: user.activeCompanyId }}
           pending={createMutation.isPending}
           options={organizationOptions}
           onManageOrganization={() => setLocation("/organizacao")}

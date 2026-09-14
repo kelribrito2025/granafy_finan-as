@@ -11,13 +11,23 @@ import { SelectionCheckbox } from "@/components/SelectionCheckbox";
 import { formatDate } from "@/lib/appFormat";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
+import {
+  hasMeaningfulTransactionDraft,
+  readTransactionDraft,
+  removeTransactionDraft,
+  transactionDraftDefaults,
+  transactionDraftKey,
+  transactionDraftValues,
+  writeTransactionDraft,
+  type TransactionDraftValues,
+} from "@/lib/transactionDraft";
 import type {
   OrganizationOptions,
   Transaction,
   TransactionInput,
   TransactionType,
 } from "@/lib/transactionTypes";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 
 /*
@@ -91,20 +101,46 @@ function fileToBase64(file: File) {
 const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FAF9] px-3.5 text-[14px] outline-none focus:border-[#12B85C]";
 const fieldLabelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
-export function TransactionModal({ transaction, defaultType, defaultDate, pending, options, onManageOrganization, onClose, onSave }: { transaction?: Transaction | null; /** Natureza já escolhida por quem abriu — "nova despesa" não deveria abrir em entrada. */ defaultType?: TransactionType; defaultDate: string; pending: boolean; options: OrganizationOptions; onManageOrganization: () => void; onClose: () => void; onSave: (transaction: TransactionInput) => Promise<void> }) {
-  const [type, setType] = useState<TransactionType>(transaction?.type ?? defaultType ?? "entrada");
-  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? defaultDate);
-  const [description, setDescription] = useState(transaction?.description ?? "");
-  const [contact, setContact] = useState(transaction?.contact ?? "");
-  const [category, setCategory] = useState(transaction?.category ?? "");
-  const [categoryId, setCategoryId] = useState<number | null>(transaction?.categoryId ?? null);
-  const [amount, setAmount] = useState(transaction ? formatCurrencyValue(Math.abs(transaction.amount)) : "0,00");
-  const [account, setAccount] = useState(transaction?.account ?? "");
-  const [accountId, setAccountId] = useState<number | null>(transaction?.accountId ?? null);
-  const [destinationAccountId, setDestinationAccountId] = useState<number | null>(null);
-  const [costCenter, setCostCenter] = useState(transaction?.costCenter ?? "");
-  const [costCenterId, setCostCenterId] = useState<number | null>(transaction?.costCenterId ?? null);
-  const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? "Pendente");
+export function TransactionModal({ transaction, defaultType, defaultDate, draftScope, pending, options, onManageOrganization, onClose, onSave }: {
+  transaction?: Transaction | null;
+  /** Natureza já escolhida por quem abriu — "nova despesa" não deveria abrir em entrada. */
+  defaultType?: TransactionType;
+  defaultDate: string;
+  draftScope: { userId: number; companyId: number };
+  pending: boolean;
+  options: OrganizationOptions;
+  onManageOrganization: () => void;
+  onClose: () => void;
+  onSave: (transaction: TransactionInput) => Promise<boolean>;
+}) {
+  const initialType = transaction?.type ?? defaultType ?? "entrada";
+  const draftDefaults = useMemo(
+    () => transactionDraftDefaults(initialType, defaultDate),
+    [defaultDate, initialType],
+  );
+  const isNewTransaction = !transaction;
+  const draftKey = isNewTransaction
+    ? transactionDraftKey(draftScope.userId, draftScope.companyId)
+    : null;
+  const restoredDraft = useMemo(
+    () => draftKey ? readTransactionDraft(draftKey) : null,
+    [draftKey],
+  );
+  const initialDraftValues = restoredDraft ? transactionDraftValues(restoredDraft) : draftDefaults;
+
+  const [type, setType] = useState<TransactionType>(transaction?.type ?? initialDraftValues.type);
+  const [transactionDate, setTransactionDate] = useState(transaction?.transactionDate ?? initialDraftValues.transactionDate);
+  const [description, setDescription] = useState(transaction?.description ?? initialDraftValues.description);
+  const [contact, setContact] = useState(transaction?.contact ?? initialDraftValues.contact);
+  const [category, setCategory] = useState(transaction?.category ?? initialDraftValues.category);
+  const [categoryId, setCategoryId] = useState<number | null>(transaction?.categoryId ?? initialDraftValues.categoryId);
+  const [amount, setAmount] = useState(transaction ? formatCurrencyValue(Math.abs(transaction.amount)) : initialDraftValues.amount);
+  const [account, setAccount] = useState(transaction?.account ?? initialDraftValues.account);
+  const [accountId, setAccountId] = useState<number | null>(transaction?.accountId ?? initialDraftValues.accountId);
+  const [destinationAccountId, setDestinationAccountId] = useState<number | null>(initialDraftValues.destinationAccountId);
+  const [costCenter, setCostCenter] = useState(transaction?.costCenter ?? initialDraftValues.costCenter);
+  const [costCenterId, setCostCenterId] = useState<number | null>(transaction?.costCenterId ?? initialDraftValues.costCenterId);
+  const [status, setStatus] = useState<Transaction["status"]>(transaction?.status ?? initialDraftValues.status);
   /*
    * A data em que o dinheiro se moveu.
    *
@@ -112,13 +148,89 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
    * caminho de um clique. Quem quita com atraso informa a data aqui, e é isso
    * que dá sentido ao prazo médio da tela de pagas e recebidas.
    */
-  const [settledAt, setSettledAt] = useState(transaction?.settledAt ?? "");
-  const [recurring, setRecurring] = useState(transaction?.recurring ?? false);
-  const [recurringMonths, setRecurringMonths] = useState(transaction?.recurringMonths ?? 12);
-  const [recurrenceStart, setRecurrenceStart] = useState<"este_mes" | "proximo_mes">("este_mes");
-  const [attachmentKey, setAttachmentKey] = useState(transaction?.attachmentKey ?? null);
-  const [attachmentName, setAttachmentName] = useState(transaction?.attachmentName ?? null);
+  const [settledAt, setSettledAt] = useState(transaction?.settledAt ?? initialDraftValues.settledAt);
+  const [recurring, setRecurring] = useState(transaction?.recurring ?? initialDraftValues.recurring);
+  const [recurringMonths, setRecurringMonths] = useState(transaction?.recurringMonths ?? initialDraftValues.recurringMonths);
+  const [recurrenceStart, setRecurrenceStart] = useState<"este_mes" | "proximo_mes">(initialDraftValues.recurrenceStart);
+  const [attachmentKey, setAttachmentKey] = useState(transaction?.attachmentKey ?? initialDraftValues.attachmentKey);
+  const [attachmentName, setAttachmentName] = useState(transaction?.attachmentName ?? initialDraftValues.attachmentName);
+  const draftRestored = Boolean(restoredDraft);
+  const draftDisabled = useRef(false);
   const uploadAttachment = trpc.transactions.uploadAttachment.useMutation();
+
+  const draftValues = useMemo<TransactionDraftValues>(() => ({
+    type,
+    transactionDate,
+    description,
+    contact,
+    category,
+    categoryId,
+    amount,
+    account,
+    accountId,
+    destinationAccountId,
+    costCenter,
+    costCenterId,
+    status,
+    settledAt,
+    recurring,
+    recurringMonths,
+    recurrenceStart,
+    attachmentKey,
+    attachmentName,
+  }), [
+    account,
+    accountId,
+    amount,
+    attachmentKey,
+    attachmentName,
+    category,
+    categoryId,
+    contact,
+    costCenter,
+    costCenterId,
+    description,
+    destinationAccountId,
+    recurrenceStart,
+    recurring,
+    recurringMonths,
+    settledAt,
+    status,
+    transactionDate,
+    type,
+  ]);
+
+  const persistDraft = () => {
+    if (!draftKey || draftDisabled.current) return;
+    if (hasMeaningfulTransactionDraft(draftValues, draftDefaults)) {
+      writeTransactionDraft(draftKey, draftValues);
+    } else {
+      removeTransactionDraft(draftKey);
+    }
+  };
+
+  /** Salva enquanto a pessoa digita; fechar no backdrop também força a última gravação. */
+  useEffect(() => {
+    if (!isNewTransaction || !draftKey || draftDisabled.current) return;
+    const timer = window.setTimeout(persistDraft, 250);
+    return () => window.clearTimeout(timer);
+  }, [draftDefaults, draftKey, draftValues, isNewTransaction]);
+
+  const closeKeepingDraft = () => {
+    persistDraft();
+    onClose();
+  };
+
+  const discardDraft = () => {
+    draftDisabled.current = true;
+    if (draftKey) removeTransactionDraft(draftKey);
+    onClose();
+  };
+
+  const manageOrganizationKeepingDraft = () => {
+    persistDraft();
+    onManageOrganization();
+  };
 
   const isTransfer = type === "transferencia";
   const editingTransfer = Boolean(transaction?.transferGroupId);
@@ -182,7 +294,16 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
       return toast.error("Selecione uma categoria");
     }
 
-    await onSave({
+    /*
+     * O pai fecha o modal assim que o servidor confirma. Limpamos antes da
+     * chamada para não depender de uma continuação em um componente já
+     * desmontado; se o servidor recusar, restauramos imediatamente o rascunho.
+     */
+    if (isNewTransaction && draftKey) {
+      draftDisabled.current = true;
+      removeTransactionDraft(draftKey);
+    }
+    const saved = await onSave({
       type,
       transactionDate,
       description,
@@ -203,6 +324,10 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
       attachmentKey,
       attachmentName,
     });
+    if (!saved && isNewTransaction && draftKey) {
+      draftDisabled.current = false;
+      writeTransactionDraft(draftKey, draftValues);
+    }
   };
 
   const selectAccount = (value: string, apply: (id: number | null, name: string) => void) => {
@@ -211,7 +336,7 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 p-3 backdrop-blur-[3px] sm:p-4" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby="launch-title" className="drawer-backdrop-enter fixed inset-0 z-[80] flex justify-end bg-[#07150d]/45 p-3 backdrop-blur-[3px] sm:p-4" onMouseDown={event => event.target === event.currentTarget && closeKeepingDraft()}>
       <form onSubmit={submit} className="drawer-enter flex h-full w-full max-w-[452px] flex-col overflow-hidden rounded-[20px] bg-white text-[#0B1F14] shadow-[0_24px_60px_rgba(11,31,20,.22)]">
         <div className="flex shrink-0 items-center gap-3 border-b border-[#EDF1EE] px-6 py-5">
           <ModalIcon icon={DocumentIcon} />
@@ -221,12 +346,20 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
             </h2>
             <p className="text-[12.5px] text-[#8A968D]">Entra no extrato de {monthLabel}</p>
           </div>
-          <button type="button" aria-label="Fechar modal" onClick={onClose} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]">
+          <button type="button" aria-label="Fechar modal e manter rascunho" onClick={closeKeepingDraft} className="ml-auto flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] bg-[#F1F4F2] text-[#28382E] hover:bg-[#E7ECE9]">
             <CloseIcon size={16} />
           </button>
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+        {draftRestored && (
+          <div className="flex items-center gap-2.5 rounded-[12px] bg-[#F1FBF6] px-3.5 py-2.5 text-[12px] text-[#0A7A42]">
+            <span className="min-w-0 flex-1 font-semibold">Seu rascunho anterior foi recuperado.</span>
+            <button type="button" onClick={discardDraft} className="flex shrink-0 items-center gap-1 font-bold hover:text-[#075E34]">
+              <DeleteIcon size={13} /> Descartar
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           {TYPE_OPTIONS.map(option => {
             const active = type === option.value;
@@ -427,7 +560,7 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
         )}
 
         {(options.accounts.length === 0 || (!isTransfer && options.categories.length === 0)) && (
-          <button type="button" onClick={onManageOrganization} className="rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-left text-[11px] font-bold text-[#725517]">
+          <button type="button" onClick={manageOrganizationKeepingDraft} className="rounded-xl bg-[#FFF8E8] px-3 py-2.5 text-left text-[11px] font-bold text-[#725517]">
             Cadastre uma conta e uma categoria para continuar
           </button>
         )}
@@ -440,7 +573,7 @@ export function TransactionModal({ transaction, defaultType, defaultDate, pendin
         </div>
 
         <div className="flex shrink-0 gap-3 border-t border-[#EDF1EE] px-6 py-4">
-          <button type="button" onClick={onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">Cancelar</button>
+          <button type="button" onClick={isNewTransaction ? discardDraft : onClose} className="h-12 flex-1 rounded-xl border border-[#E3EAE5] text-[14px] font-semibold text-[#28382E] hover:bg-[#F8FAF9]">{isNewTransaction ? "Descartar" : "Cancelar"}</button>
           <button type="submit" disabled={pending || uploadAttachment.isPending} className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-xl bg-[#12B85C] text-[14px] font-bold text-white hover:bg-[#0F9E4E] disabled:cursor-wait disabled:opacity-60">
             {pending ? "Salvando..." : "Salvar lançamento"}
           </button>
