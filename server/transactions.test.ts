@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TransactionRecord } from "../drizzle/schema";
 import { chunkTransactionIds, TRANSACTION_DELETE_CHUNK_SIZE } from "./db";
 import { umLancamento } from "./fixtures";
-import { bulkUpdateChangesSchema, isOpenInWindow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
+import { bulkUpdateChangesSchema, isOpenInWindow, MAX_BULK_DELETE_IDS, MAX_BULK_UPDATE_IDS, periodBounds, rebaseSeriesDate, selectSeriesTargets, seriesDateForUpdate, seriesTargetsNeedNormalization, shouldMaterializeRecurrence, signedAmount, summarize } from "./routers/transactions";
 
 function record(amount: string): TransactionRecord {
   return umLancamento({ amount, type: Number(amount) >= 0 ? "entrada" : "saida" });
@@ -76,6 +76,73 @@ describe("transactions helpers", () => {
       { recurrenceGroupId: null, transferGroupId: "transfer" },
       { recurring: true, recurringMonths: 12 },
     )).toBe(false);
+  });
+
+  it("reanchors every following installment when the first date is corrected", () => {
+    const clicked = umLancamento({ id: 10, transactionDate: "2026-11-05", recurrenceIndex: 1 });
+    const second = umLancamento({ id: 11, transactionDate: "2026-12-05", recurrenceIndex: 2 });
+    const third = umLancamento({ id: 12, transactionDate: "2027-01-05", recurrenceIndex: 3 });
+
+    expect(rebaseSeriesDate(clicked, clicked, "2026-10-05")).toBe("2026-10-05");
+    expect(rebaseSeriesDate(clicked, second, "2026-10-05")).toBe("2026-11-05");
+    expect(rebaseSeriesDate(clicked, third, "2026-10-05")).toBe("2026-12-05");
+  });
+
+  it("preserves the anchor day while rebasing a series across shorter months", () => {
+    const clicked = umLancamento({ id: 20, transactionDate: "2026-03-31", recurrenceIndex: 1 });
+    const second = umLancamento({ id: 21, transactionDate: "2026-04-30", recurrenceIndex: 2 });
+    const third = umLancamento({ id: 22, transactionDate: "2026-05-31", recurrenceIndex: 3 });
+
+    expect(rebaseSeriesDate(clicked, second, "2026-01-31")).toBe("2026-02-28");
+    expect(rebaseSeriesDate(clicked, third, "2026-01-31")).toBe("2026-03-31");
+  });
+
+  it("moves both legs of the clicked recurring transfer to the same date", () => {
+    const clicked = umLancamento({ id: 25, transactionDate: "2026-11-05", recurrenceIndex: 1, transferGroupId: "pair-1" });
+    const counterpart = umLancamento({ id: 26, transactionDate: "2026-11-05", recurrenceIndex: 1, transferGroupId: "pair-1" });
+
+    expect(rebaseSeriesDate(clicked, counterpart, "2026-10-05")).toBe("2026-10-05");
+  });
+
+  it("selects following installments by recurrence index even when dates already contain a gap", () => {
+    const groupId = "broken-series";
+    const clicked = umLancamento({ id: 30, transactionDate: "2026-10-05", recurrenceGroupId: groupId, recurrenceIndex: 1 });
+    const following = umLancamento({ id: 31, transactionDate: "2026-12-05", recurrenceGroupId: groupId, recurrenceIndex: 2 });
+    const paid = umLancamento({ id: 32, transactionDate: "2027-01-05", recurrenceGroupId: groupId, recurrenceIndex: 3, status: "Pago" });
+
+    expect(selectSeriesTargets([clicked, following, paid], clicked).map(item => item.id)).toEqual([30, 31]);
+  });
+
+  it("does not include a paid clicked installment in a following-series update", () => {
+    const groupId = "paid-anchor";
+    const clicked = umLancamento({ id: 40, transactionDate: "2026-10-05", recurrenceGroupId: groupId, recurrenceIndex: 1, status: "Pago" });
+    const following = umLancamento({ id: 41, transactionDate: "2026-11-05", recurrenceGroupId: groupId, recurrenceIndex: 2 });
+
+    expect(selectSeriesTargets([clicked, following], clicked).map(item => item.id)).toEqual([41]);
+  });
+
+  it("keeps installments after a paid barrier on their original dates", () => {
+    const clicked = umLancamento({ id: 50, transactionDate: "2026-10-05", recurrenceIndex: 1 });
+    const paid = umLancamento({ id: 51, transactionDate: "2026-11-05", recurrenceIndex: 2, status: "Pago" });
+    const following = umLancamento({ id: 52, transactionDate: "2026-12-05", recurrenceIndex: 3 });
+
+    expect(seriesDateForUpdate([clicked, paid, following], clicked, following, "2026-09-05"))
+      .toBe("2026-12-05");
+  });
+
+  it("detects a missing month but accepts the normal shortening at the end of February", () => {
+    const broken = [
+      umLancamento({ transactionDate: "2026-10-05", recurrenceIndex: 1 }),
+      umLancamento({ transactionDate: "2026-12-05", recurrenceIndex: 2 }),
+    ];
+    const monthEnd = [
+      umLancamento({ transactionDate: "2026-01-31", recurrenceIndex: 1 }),
+      umLancamento({ transactionDate: "2026-02-28", recurrenceIndex: 2 }),
+      umLancamento({ transactionDate: "2026-03-31", recurrenceIndex: 3 }),
+    ];
+
+    expect(seriesTargetsNeedNormalization(broken, broken)).toBe(true);
+    expect(seriesTargetsNeedNormalization(monthEnd, monthEnd)).toBe(false);
   });
 });
 

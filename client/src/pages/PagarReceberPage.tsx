@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { CartaoVazio } from "@/components/CartaoVazio";
 import { Hint } from "@/components/Hint";
+import { SeriesScopeDialog } from "@/components/SeriesScopeDialog";
 import { TransactionModal } from "@/components/TransactionModal";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
@@ -26,7 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatDate, formatMoney, today } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import { useSemContas } from "@/hooks/useSemContas";
-import type { TransactionInput, TransactionType } from "@/lib/transactionTypes";
+import type { SeriesScope, Transaction, TransactionInput, TransactionType } from "@/lib/transactionTypes";
 import { STATUS_LABELS, type Title, type TitleStatus } from "@shared/payables";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
@@ -612,6 +613,7 @@ export default function PagarReceberPage() {
   const deleteMutation = trpc.transactions.delete.useMutation();
   /* O lançamento inteiro, buscado só quando alguém pede para editar: a lista só tem a projeção. */
   const [editando, setEditando] = useState<Parameters<typeof TransactionModal>[0]["transaction"]>(null);
+  const [edicaoRecorrente, setEdicaoRecorrente] = useState<{ transaction: Transaction; input: TransactionInput } | null>(null);
   const [excluindo, setExcluindo] = useState<Title | null>(null);
   const [buscandoEdicao, setBuscandoEdicao] = useState(false);
 
@@ -636,19 +638,31 @@ export default function PagarReceberPage() {
     }
   };
 
-  const salvarEdicao = async (input: TransactionInput) => {
-    if (!editando) return false;
+  const concluirEdicao = async (input: TransactionInput, scope: SeriesScope) => {
+    const target = edicaoRecorrente?.transaction ?? editando;
+    if (!target) return false;
     try {
-      /* `single`: só este título. Série recorrente se edita inteira em Lançamentos, onde a pergunta é feita. */
-      await updateMutation.mutateAsync({ id: editando.id, scope: "single", ...input });
+      const result = await updateMutation.mutateAsync({ id: target.id, scope, ...input });
       void recarregar().catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
-      toast.success("Lançamento atualizado");
+      toast.success(result.updatedCount > 1
+        ? `${result.updatedCount} parcelas atualizadas`
+        : "Lançamento atualizado");
       setEditando(null);
+      setEdicaoRecorrente(null);
       return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
       return false;
     }
+  };
+
+  const salvarEdicao = async (input: TransactionInput) => {
+    if (!editando) return false;
+    if (editando.recurrenceGroupId) {
+      setEdicaoRecorrente({ transaction: editando, input });
+      return false;
+    }
+    return concluirEdicao(input, "single");
   };
 
   const confirmarExclusao = async () => {
@@ -908,6 +922,15 @@ export default function PagarReceberPage() {
           onManageOrganization={() => setLocation("/organizacao")}
           onClose={() => setEditando(null)}
           onSave={salvarEdicao}
+        />
+      )}
+      {edicaoRecorrente && (
+        <SeriesScopeDialog
+          action="save"
+          transaction={edicaoRecorrente.transaction}
+          pending={updateMutation.isPending}
+          onCancel={() => setEdicaoRecorrente(null)}
+          onConfirm={scope => void concluirEdicao(edicaoRecorrente.input, scope)}
         />
       )}
       {buscandoEdicao && (

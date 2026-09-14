@@ -11,7 +11,7 @@ import * as db from "../db";
 import { settlementDateFor } from "../settlement";
 import { userToday } from "../userToday";
 import { assertPeriodsOpen } from "../periodLock";
-import { buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
+import { addMonthsAnchored, buildRecurrenceDates, MAX_RECURRENCE_MONTHS, type RecurrenceStart } from "../recurrence";
 import { storageGetSignedUrl, storagePut } from "../storage";
 
 /** Categoria fixa das duas pernas da transferência: não é receita nem despesa. */
@@ -323,14 +323,81 @@ async function buildRowsForCreate(escopo: Escopo, input: TransactionValuesInput,
  * As linhas alcançadas por uma ação de escopo "following": a clicada, as pernas
  * da mesma transferência, e as parcelas posteriores ainda não pagas.
  */
-function selectSeriesTargets(group: TransactionRecord[], clicked: TransactionRecord) {
-  return group.filter(record =>
-    record.id === clicked.id ||
-    (clicked.transferGroupId != null && record.transferGroupId === clicked.transferGroupId) ||
-    (record.transactionDate > clicked.transactionDate && record.status !== "Pago")
-  );
+export function selectSeriesTargets(group: TransactionRecord[], clicked: TransactionRecord) {
+  return group.filter(record => {
+    const clickedInstallment = record.id === clicked.id ||
+      (clicked.transferGroupId != null && record.transferGroupId === clicked.transferGroupId);
+    if (clickedInstallment) return clicked.status !== "Pago";
+    return ((clicked.recurrenceIndex != null && record.recurrenceIndex != null
+      ? record.recurrenceIndex > clicked.recurrenceIndex
+      : record.transactionDate > clicked.transactionDate) && record.status !== "Pago");
+  });
 }
 
+/**
+ * Reancora o calendário a partir da parcela editada.
+ *
+ * Exemplo: uma série criada em novembro tem 05/11, 05/12, 05/01. Se a
+ * primeira parcela for corrigida para outubro com alcance "esta e as próximas",
+ * as datas passam a 05/10, 05/11, 05/12 — sem deixar um buraco em novembro.
+ * Séries legadas sem índice mantêm a data original das parcelas seguintes.
+ */
+export function rebaseSeriesDate(
+  clicked: Pick<TransactionRecord, "id" | "transactionDate" | "recurrenceIndex">,
+  target: Pick<TransactionRecord, "id" | "transactionDate" | "recurrenceIndex">,
+  newClickedDate: string,
+) {
+  if (target.id === clicked.id || (
+    clicked.recurrenceIndex != null && target.recurrenceIndex === clicked.recurrenceIndex
+  )) return newClickedDate;
+  if (clicked.recurrenceIndex == null || target.recurrenceIndex == null) return target.transactionDate;
+  const offset = target.recurrenceIndex - clicked.recurrenceIndex;
+  return offset > 0 ? addMonthsAnchored(newClickedDate, offset) : target.transactionDate;
+}
+
+/**
+ * Uma parcela paga é uma barreira histórica: as parcelas posteriores continuam
+ * com suas datas originais, em vez de atravessarem a data já liquidada.
+ */
+export function seriesDateForUpdate(
+  group: Pick<TransactionRecord, "id" | "status" | "transactionDate" | "recurrenceIndex">[],
+  clicked: Pick<TransactionRecord, "id" | "transactionDate" | "recurrenceIndex">,
+  target: Pick<TransactionRecord, "id" | "transactionDate" | "recurrenceIndex">,
+  newClickedDate: string,
+) {
+  if (target.id === clicked.id || (
+    clicked.recurrenceIndex != null && target.recurrenceIndex === clicked.recurrenceIndex
+  )) return newClickedDate;
+  if (clicked.recurrenceIndex != null && target.recurrenceIndex != null) {
+    const paidBarrier = group.some(record =>
+      record.status === "Pago" &&
+      record.recurrenceIndex != null &&
+      record.recurrenceIndex > clicked.recurrenceIndex! &&
+      record.recurrenceIndex <= target.recurrenceIndex!
+    );
+    if (paidBarrier) return target.transactionDate;
+  }
+  return rebaseSeriesDate(clicked, target, newClickedDate);
+}
+
+/** Detecta lacunas sem confundir o ajuste natural de 31/01 para 28/02. */
+export function seriesTargetsNeedNormalization(
+  group: Pick<TransactionRecord, "transactionDate" | "recurrenceIndex">[],
+  targets: Pick<TransactionRecord, "transactionDate" | "recurrenceIndex">[],
+) {
+  const indexed = group
+    .filter((record): record is typeof record & { recurrenceIndex: number } => record.recurrenceIndex != null)
+    .sort((left, right) => left.recurrenceIndex - right.recurrenceIndex);
+  const origin = indexed[0];
+  if (!origin) return false;
+  return targets.some(target => {
+    if (target.recurrenceIndex == null) return false;
+    return target.transactionDate !== addMonthsAnchored(
+      origin.transactionDate,
+      target.recurrenceIndex - origin.recurrenceIndex,
+    );
+  });
+}
 const MAX_BULK_DELETE_IDS = 20_000;
 const MAX_BULK_UPDATE_IDS = 20_000;
 
@@ -499,6 +566,10 @@ export const transactionsRouter = router({
     // pernas vinculadas.
     if (shouldMaterializeRecurrence(existing, values)) {
       const rows = await buildRowsForCreate(escopoDe(ctx), values, todayIso);
+      await assertPeriodsOpen(escopoDe(ctx), rows.map(row => ({
+        accountId: row.accountId ?? null,
+        date: row.transactionDate,
+      })));
       const records = await db.materializeTransactionSeries(escopoDe(ctx), id, rows);
       if (records.length !== rows.length) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Não foi possível criar todas as parcelas" });
@@ -513,12 +584,56 @@ export const transactionsRouter = router({
       });
     }
 
-    // Cada parcela guarda a própria data e a própria situação: alcançar as
-    // seguintes muda o conteúdo do lançamento, não o calendário nem o que já
-    // foi quitado.
+    // Cada parcela guarda a própria situação. Ao alcançar as seguintes, a data
+    // digitada vira a nova âncora do calendário — corrigir novembro para outubro
+    // precisa trazer dezembro para novembro, janeiro para dezembro, e assim por
+    // diante. Parcelas anteriores e meses já pagos continuam intocados.
     const seriesId = scope === "following" ? existing.recurrenceGroupId : null;
     const group = seriesId ? await db.getRecurrenceGroup(escopoDe(ctx), seriesId) : [];
     const targets = seriesId ? selectSeriesTargets(group, existing) : [existing];
+    const shouldRebaseDates = scope === "following" && existing.status !== "Pago" && (
+      values.transactionDate !== existing.transactionDate ||
+      seriesTargetsNeedNormalization(group, targets)
+    );
+    const dateFor = (target: TransactionRecord) => shouldRebaseDates
+      ? seriesDateForUpdate(group, existing, target, values.transactionDate)
+      : target.id === existing.id ? values.transactionDate : target.transactionDate;
+
+    const targetIds = new Set(targets.map(target => target.id));
+    const protectedPaidDates = new Set(group
+      .filter(record => record.status === "Pago" && !targetIds.has(record.id))
+      .map(record => `${record.recurrenceIndex ?? "legacy"}:${record.transactionDate}`));
+    const dateCollision = targets.some(target => Array.from(protectedPaidDates).some(entry => {
+      const [paidIndex, paidDate] = entry.split(":");
+      return paidDate === dateFor(target) && paidIndex !== String(target.recurrenceIndex ?? "legacy");
+    }));
+    if (dateCollision) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "A nova sequência encontra uma parcela já paga nessa data. Ajuste somente esta parcela ou escolha outra data.",
+      });
+    }
+
+    if (wasTransfer && scope === "single") {
+      const currentPair = existing.transferGroupId
+        ? await db.getTransferGroup(escopoDe(ctx), existing.transferGroupId)
+        : [];
+      await assertPeriodsOpen(escopoDe(ctx), [
+        ...currentPair.map(record => ({ accountId: record.accountId, date: record.transactionDate })),
+        { accountId: values.accountId ?? null, date: values.transactionDate },
+        { accountId: values.destinationAccountId ?? null, date: values.transactionDate },
+      ]);
+    }
+
+    if (scope === "following") {
+      const destinationAccounts = values.type === "transferencia"
+        ? [values.accountId ?? null, values.destinationAccountId ?? null]
+        : [values.accountId ?? existing.accountId];
+      await assertPeriodsOpen(escopoDe(ctx), targets.flatMap(target => [
+        { accountId: target.accountId, date: target.transactionDate },
+        ...destinationAccounts.map(accountId => ({ accountId, date: dateFor(target) })),
+      ]));
+    }
 
     if (wasTransfer) {
       const legs = await buildTransferLegs(escopoDe(ctx), values);
@@ -529,7 +644,7 @@ export const transactionsRouter = router({
         const month = targets.find(record => record.transferGroupId === transferGroupId)!;
         const isClicked = transferGroupId === existing.transferGroupId;
         const shared = {
-          transactionDate: isClicked ? values.transactionDate : month.transactionDate,
+          transactionDate: dateFor(month),
           status: isClicked ? values.status : month.status,
           // A liquidação acompanha o status de cada mês. Alcançar "as
           // seguintes" muda o conteúdo do lançamento, não o que já foi quitado.
@@ -565,7 +680,7 @@ export const transactionsRouter = router({
       const isClicked = target.id === existing.id;
       await db.updateTransaction(escopoDe(ctx), target.id, {
         ...normalized,
-        transactionDate: isClicked ? values.transactionDate : target.transactionDate,
+        transactionDate: dateFor(target),
         status: isClicked ? values.status : target.status,
         settledAt: isClicked
           ? settlementDateFor({ status: values.status, informed: values.settledAt, existing: target.settledAt, todayIso })
