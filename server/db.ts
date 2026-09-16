@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
@@ -720,11 +720,13 @@ export async function getAccountBalances(escopo: Escopo, throughDate?: string) {
       total: sql<string>`SUM(${financialTransactions.amount})`,
     })
     .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
     .where(and(
       eq(financialTransactions.userId, escopo.userId),
       eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pago"),
       isNotNull(financialTransactions.accountId),
+      aposOSaldoInicial,
       ...(throughDate ? [lte(financialTransactions.transactionDate, throughDate)] : [])
     ))
     .groupBy(financialTransactions.accountId);
@@ -744,10 +746,12 @@ export async function sumTransactionsBefore(escopo: Escopo, date: string) {
   const [row] = await db
     .select({ total: sql<string>`SUM(${financialTransactions.amount})` })
     .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
     .where(and(
       eq(financialTransactions.userId, escopo.userId),
       eq(financialTransactions.companyId, escopo.companyId),
-      lt(financialTransactions.transactionDate, date)
+      lt(financialTransactions.transactionDate, date),
+      aposOSaldoInicial
     ));
   return Number(row?.total ?? 0);
 }
@@ -795,10 +799,12 @@ export async function sumPaidTransactions(escopo: Escopo) {
   const [row] = await db
     .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
     .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
     .where(and(
       eq(financialTransactions.userId, escopo.userId),
       eq(financialTransactions.companyId, escopo.companyId),
-      eq(financialTransactions.status, "Pago")
+      eq(financialTransactions.status, "Pago"),
+      aposOSaldoInicial
     ));
   return Number(row?.total ?? 0);
 }
@@ -981,6 +987,27 @@ export function getTransactionStatsByCostCenter(escopo: Escopo) {
   return statsPorColuna(escopo, financialTransactions.costCenterId, false);
 }
 
+/*
+ * A regra do saldo inicial COM DATA.
+ *
+ * "Saldo inicial" passou a significar "saldo NESTA data". O que veio até ela
+ * já está dentro do número que a pessoa digitou — então só o que veio DEPOIS
+ * soma. Sem isso, quem digita o saldo de hoje e importa os quinze dias
+ * anteriores vê o mesmo dinheiro duas vezes, e nada na tela denuncia.
+ *
+ * Conta sem data (as que existiam antes da coluna) continua como antes: tudo
+ * soma. Lançamento sem conta não tem corte: passa. Por isso o JOIN é LEFT e a
+ * condição começa por `isNull`.
+ *
+ * É uma constante, e não uma função por chamada, para as cinco somas de saldo
+ * usarem exatamente a mesma frase — um `>=` num lugar e `>` em outro é o tipo
+ * de deriva que faz dois saldos da mesma conta discordarem na mesma tela.
+ */
+const aposOSaldoInicial = or(
+  isNull(financialAccounts.initialBalanceDate),
+  gt(financialTransactions.transactionDate, financialAccounts.initialBalanceDate),
+);
+
 /**
  * O saldo de abertura, somado no banco.
  *
@@ -994,12 +1021,14 @@ export async function sumPaidBefore(escopo: Escopo, date: string) {
   const [row] = await db
     .select({ total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
     .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
     .where(and(
       eq(financialTransactions.userId, escopo.userId),
       eq(financialTransactions.companyId, escopo.companyId),
       eq(financialTransactions.status, "Pago"),
       sql`${financialTransactions.type} <> 'transferencia'`,
-      lt(financialTransactions.transactionDate, date)
+      lt(financialTransactions.transactionDate, date),
+      aposOSaldoInicial
     ));
   return Number(row?.total ?? 0);
 }
@@ -1043,11 +1072,13 @@ export async function saldosDeCaixaPorEmpresa(userId: number, amanha: string) {
         total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)`,
       })
       .from(financialTransactions)
+      .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
       .where(and(
         eq(financialTransactions.userId, userId),
         eq(financialTransactions.status, "Pago"),
         sql`${financialTransactions.type} <> 'transferencia'`,
         lt(financialTransactions.transactionDate, amanha),
+        aposOSaldoInicial,
       ))
       .groupBy(financialTransactions.companyId),
   ]);

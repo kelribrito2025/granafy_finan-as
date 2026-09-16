@@ -5,6 +5,7 @@ import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory"
 import { trpc } from "@/lib/trpc";
 import {
   compareOpeningBalance,
+  derivedBalanceAt,
   derivedOpeningBalance,
   openingMismatchReason,
   type OpeningComparison,
@@ -42,12 +43,16 @@ type Prévia = {
  * saldo com que o arquivo termina, a pessoa informou o saldo de hoje, e usá-lo
  * como ponto de partida conta o mesmo dinheiro duas vezes.
  */
-function AvisoDeDivergencia({ comparacao, motivo, dataInformada, fechamento, onUsarDoArquivo, onManter, pending }: {
+function AvisoDeDivergencia({ comparacao, motivo, dataInformada, ultimaData, fechamento, onUsarDoArquivo, onAjustarData, onManter, pending }: {
   comparacao: OpeningComparison;
   motivo: "saldo_de_hoje" | "digitado_maior" | "digitado_menor";
   dataInformada: string;
+  /** A última movimentação do arquivo: a data a que o saldo final se refere. */
+  ultimaData: string | null;
   fechamento: number;
   onUsarDoArquivo: () => void;
+  /** Mantém o valor digitado e muda a data dele para a do fim do arquivo. */
+  onAjustarData: () => void;
   onManter: () => void;
   pending: boolean;
 }) {
@@ -55,30 +60,37 @@ function AvisoDeDivergencia({ comparacao, motivo, dataInformada, fechamento, onU
   const botaoManter = "h-[46px] rounded-[12px] border border-[#E3EBE6] px-5 text-[13.5px] font-semibold text-[#4C6355] transition hover:bg-[#F8FAF9] disabled:opacity-50";
 
   if (motivo === "saldo_de_hoje") {
+    /*
+     * O valor está certo; a DATA é que está antes das movimentações. Com a
+     * regra do saldo inicial com data, basta mover a data para o fim do
+     * arquivo: o que está nele deixa de somar de novo, e o número fica o que
+     * a pessoa vê no banco. É a saída recomendada porque não muda o valor
+     * que ela digitou.
+     */
     return (
       <div className="rounded-[14px] bg-[#FFF3E6] p-5">
         <strong className="text-[15px] font-bold text-[#8A4B00]">
-          Esse parece ser o saldo de hoje, não o de antes do extrato
+          Esse é o saldo com que o arquivo termina — mas a data informada é anterior
         </strong>
         <p className="mt-2 text-[13px] leading-relaxed text-[#8A4B00]">
-          Você informou <strong className="font-bold">{formatMoney(comparacao.informed)}</strong>, que é exatamente
-          o saldo com que este arquivo termina — o que o banco mostra hoje.
+          Você informou <strong className="font-bold">{formatMoney(comparacao.informed)}</strong> em {dataCurta(dataInformada)}.
+          É exatamente o saldo do arquivo{ultimaData ? <> em <strong className="font-bold">{dataCurta(ultimaData)}</strong></> : null}.
         </p>
         <p className="mt-2 text-[13px] leading-relaxed text-[#8A4B00]">
-          O GranaFy soma o extrato a partir do saldo inicial. Se eu partir de {formatMoney(fechamento)} e
-          somar as movimentações de novo, o mesmo dinheiro entra duas vezes e o painel abre com o dobro
-          do que você tem.
-        </p>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#8A4B00]">
-          Pelas contas do arquivo, o saldo antes da primeira movimentação era{" "}
-          <strong className="font-bold">{formatMoney(comparacao.derived)}</strong>.
+          Com a data em {dataCurta(dataInformada)}, as movimentações do arquivo depois dela seriam somadas em cima
+          de um saldo que já as inclui — o mesmo dinheiro duas vezes.
         </p>
         <div className="mt-4 flex flex-wrap gap-2.5">
-          <button type="button" disabled={pending} onClick={onUsarDoArquivo} className={botaoArquivo}>
-            Usar {formatMoney(comparacao.derived)} (recomendado)
+          {ultimaData && (
+            <button type="button" disabled={pending} onClick={onAjustarData} className={botaoArquivo}>
+              Manter {formatMoney(comparacao.informed)} e usar a data {dataCurta(ultimaData)} (recomendado)
+            </button>
+          )}
+          <button type="button" disabled={pending} onClick={onUsarDoArquivo} className={ultimaData ? botaoManter : botaoArquivo}>
+            Usar {formatMoney(comparacao.derived)} em {dataCurta(dataInformada)}
           </button>
           <button type="button" disabled={pending} onClick={onManter} className={botaoManter}>
-            Manter {formatMoney(comparacao.informed)}
+            Manter como está
           </button>
         </div>
       </div>
@@ -175,9 +187,15 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
 
   const comparacao = useMemo(() => {
     if (!previa?.statementBalance || saldoInformado === null) return null;
-    const derivado = derivedOpeningBalance(previa.statementBalance.balance, previa.rows.map(r => r.amount));
+    /*
+     * Com data: o arquivo implica um saldo NAQUELA data, e é com ele que o
+     * digitado se compara. Sem data (a pessoa pulou), vale a abertura clássica.
+     */
+    const derivado = dataInformada
+      ? derivedBalanceAt(previa.statementBalance.balance, previa.rows, dataInformada)
+      : derivedOpeningBalance(previa.statementBalance.balance, previa.rows.map(r => r.amount));
     return compareOpeningBalance(saldoInformado, derivado);
-  }, [previa, saldoInformado]);
+  }, [previa, saldoInformado, dataInformada]);
 
   const motivo = comparacao && previa?.statementBalance
     ? openingMismatchReason(comparacao, previa.statementBalance.balance)
@@ -246,6 +264,23 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
       setDecidido(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível ajustar o saldo");
+    }
+  };
+
+  const ajustarData = async () => {
+    if (!comparacao || !conta || !periodo) return;
+    try {
+      await atualizarConta.mutateAsync({
+        id: conta.id, name: conta.name, institution: conta.institution,
+        accountType: (conta as { accountType?: "corrente" }).accountType ?? "corrente",
+        color: conta.color, initialBalance: comparacao.informed,
+        initialBalanceDate: periodo.ate,
+      });
+      await utils.organization.invalidate();
+      setMantida(null);
+      setDecidido(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível ajustar a data");
     }
   };
 
@@ -356,6 +391,8 @@ export function StepExtrato({ contaId, saldoInformado, dataInformada, onDone, on
           dataInformada={dataInformada}
           fechamento={previa.statementBalance.balance}
           pending={pending}
+          ultimaData={periodo?.ate ?? null}
+          onAjustarData={ajustarData}
           onUsarDoArquivo={usarDoArquivo}
           onManter={() => { setMantida(comparacao); setDecidido(true); }}
         />

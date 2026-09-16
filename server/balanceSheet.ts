@@ -136,12 +136,16 @@ export function calculateFinancialPositions(
   referenceDate: string
 ) {
   const moved = new Map<number, number>();
+  // A mesma regra de `aposOSaldoInicial` no db.ts: até a data do saldo inicial, não soma.
+  const corte = new Map(accounts.map(account => [account.id, account.initialBalanceDate]));
   transactions.forEach(transaction => {
     if (
       transaction.status !== "Pago" ||
       !transaction.accountId ||
       transaction.transactionDate > referenceDate
     ) return;
+    const dataDoSaldoInicial = corte.get(transaction.accountId);
+    if (dataDoSaldoInicial && transaction.transactionDate <= dataDoSaldoInicial) return;
     moved.set(transaction.accountId, (moved.get(transaction.accountId) ?? 0) + Number(transaction.amount));
   });
   return summarizeAccountPositions(accounts, moved);

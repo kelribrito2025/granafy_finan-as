@@ -169,3 +169,18 @@ describe("balance sheet calculations", () => {
     }
   });
 });
+
+describe("saldo inicial com data, no caminho em memória", () => {
+  it("lançamentos até a data do saldo inicial não somam — a mesma regra do SUM do banco", () => {
+    const conta = umaConta({ id: 1, accountType: "corrente", initialBalance: "10000.00", initialBalanceDate: "2026-09-15" });
+    const lancamentos = [
+      umLancamento({ id: 1, accountId: 1, status: "Pago", transactionDate: "2026-09-10", amount: "5000.00" }),
+      umLancamento({ id: 2, accountId: 1, status: "Pago", transactionDate: "2026-09-15", amount: "-200.00" }),
+      umLancamento({ id: 3, accountId: 1, status: "Pago", transactionDate: "2026-09-16", amount: "300.00" }),
+    ];
+    expect(calculateFinancialPositions([conta], lancamentos, "2026-09-30").cashAndEquivalents).toBe(10_300);
+    // Sem data, tudo soma: é o comportamento das contas que já existiam.
+    const semData = umaConta({ id: 1, accountType: "corrente", initialBalance: "10000.00", initialBalanceDate: null });
+    expect(calculateFinancialPositions([semData], lancamentos, "2026-09-30").cashAndEquivalents).toBe(15_100);
+  });
+});

@@ -2,6 +2,7 @@ import { CheckIcon, SearchIcon } from "@/components/IconlyIcons";
 import { CartaoDeApoio, OnboardingLateral } from "@/components/onboarding/OnboardingStepper";
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { trpc } from "@/lib/trpc";
+import { todayIso } from "@/lib/period";
 import { useMemo, useState } from "react";
 import { toast } from "@/lib/toast";
 
@@ -51,7 +52,8 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<(typeof TIPOS)[number][0]>("corrente");
   const [saldo, setSaldo] = useState("");
-  const [data, setData] = useState("");
+  // Hoje, de saída: o saldo que a pessoa está vendo no banco é o de hoje.
+  const [data, setData] = useState(todayIso());
   const [busca, setBusca] = useState("");
 
   /* Sem busca, os seis mais comuns; com busca, o que casa com o que se digitou. */
@@ -211,8 +213,8 @@ export function StepConta({ onDone, onSkip, renderFooter }: {
             que a tela promete agora, é conferir por subtração no passo seguinte.
           */}
           {[
-            <>Informe o saldo do <strong className="font-semibold">dia anterior à primeira movimentação</strong> do extrato que você vai importar.</>,
-            <>O extrato é somado a esse ponto de partida — assim o saldo de hoje é calculado, não digitado duas vezes.</>,
+            <>Informe o saldo que o banco mostra e <strong className="font-semibold">a data dele</strong> — pode ser o de hoje.</>,
+            <>Lançamentos até essa data não somam de novo: eles já estão dentro desse saldo. Só o que vier depois mexe no número.</>,
             <>No próximo passo eu confiro esse número contra o próprio arquivo e aviso se houver diferença.</>,
           ].map((linha, indice) => (
             <span key={indice} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-[#4C6355]">
