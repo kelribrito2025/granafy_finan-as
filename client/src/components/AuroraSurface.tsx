@@ -17,13 +17,12 @@ export const AURORA_BACKGROUND = [
 /**
  * Superfície escura com o gradiente aurora; o conteúdo vai por cima.
  *
- * O `data-theme-origin` é o ponto de onde o modo escuro se abre em círculo: é
- * o único bloco que já é escuro no tema claro, então a troca parece nascer
- * dele em vez de piscar a tela inteira.
+ * Ela carregava um `data-theme-origin`, de onde a animação de troca de tema
+ * partia. A animação saiu — a troca agora é seca — e o atributo foi junto.
  */
 export function AuroraSurface({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
-    <div data-theme-origin="" className={`relative isolate overflow-hidden bg-[#06120B] text-white ${className}`}>
+    <div className={`relative isolate overflow-hidden bg-[#06120B] text-white ${className}`}>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ background: AURORA_BACKGROUND }} />
       <div className="relative z-10 flex h-full flex-col">{children}</div>
     </div>

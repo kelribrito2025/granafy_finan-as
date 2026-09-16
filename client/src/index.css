@@ -452,54 +452,10 @@
   box-shadow: 0 0 0 1000px #192a20 inset !important;
 }
 
-/*
- * Troca de tema saindo do cartão escuro (ThemeContext).
- *
- * A View Transitions API faz um cross-fade por conta própria; ele é desligado
- * porque quem anima é o recorte. Sem o `animation: none` as duas coisas rodam
- * juntas e o retângulo aparece lavado por cima de um fade.
- *
- * As duas pontas do recorte chegam em `--tema-de` e `--tema-para`, postas na
- * raiz pelo ThemeContext antes de a transição começar. Declarar a animação
- * aqui, e não por `element.animate()` depois de `ready`, é o que evita o
- * quadro em que a tela nova aparece inteira antes de o retângulo crescer.
- */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-@keyframes tema-recorte {
-  from { clip-path: var(--tema-de); }
-  to { clip-path: var(--tema-para); }
-}
-
-html.tema-escurecendo::view-transition-new(root) {
-  animation: tema-recorte 620ms cubic-bezier(.4, 0, .2, 1) both;
-}
-
-/* Clareando, quem se move é a foto antiga encolhendo — então ela vai por cima. */
-html.tema-clareando::view-transition-old(root) {
-  z-index: 1;
-  animation: tema-recorte 620ms cubic-bezier(.4, 0, .2, 1) both;
-}
-html.tema-clareando::view-transition-new(root) { z-index: 0; }
-
 /* As notificações (lib/toast.tsx): o li do sonner fica transparente e o
    cartão escuro desenha tudo; o "+N" da pilha some quando o mouse expande. */
 [data-sonner-toast].toast-granafy { width: var(--width); background: transparent; box-shadow: none; }
 [data-sonner-toast][data-expanded="true"] .toast-pilha { display: none; }
-
-/* A cortina de reserva da troca de tema, para navegador sem View Transitions
-   (ver cortinaDeReserva no ThemeContext). Mesmo tempo e curva do recorte. */
-.tema-cortina {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483000;
-  pointer-events: none;
-  transition: clip-path 620ms cubic-bezier(.4, 0, .2, 1);
-}
 
 /* O loader sobre fundo escuro: a trilha some no fundo e o arco escuro vira branco. */
 .dark .gf-loader-trilha { stroke: #1F3D2B; }
