@@ -51,6 +51,10 @@ export function useAuth(options?: UseAuthOptions) {
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
+      /** O que a pessoa é na empresa aberta. Null sem sessão ou sem empresa. */
+      papel: meQuery.data?.papel ?? null,
+      /** Contador na empresa aberta: vê tudo, não muda nada. */
+      somenteLeitura: meQuery.data?.papel === "contador",
     }),
     [
       meQuery.data,

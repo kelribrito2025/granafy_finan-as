@@ -25,6 +25,30 @@ export function ownsAttachment(userId: number, key: string) {
   return ATTACHMENT_FOLDERS.some(folder => key.startsWith(attachmentPrefix(userId, folder)));
 }
 
+/**
+ * O contador pode abrir o anexo? — Fase D do acesso do contador.
+ *
+ * A chave carrega o `userId` do DONO, e o contador não é o dono. Relaxar o
+ * prefixo para "o dono da empresa aberta" daria ao contador liberado para a
+ * empresa A o comprovante da empresa B do mesmo dono, porque as duas moram na
+ * mesma pasta. Este é o risco 1 do plano — o maior.
+ *
+ * O caminho certo resolve o anexo até a LINHA (lançamento ou bem) e confere
+ * a empresa dela contra as que o ator pode ver. A chave continua como está;
+ * nenhum arquivo muda de lugar.
+ */
+export function podeLerAnexo(dados: {
+  atorId: number;
+  key: string;
+  /** A empresa da linha que aponta para esta chave; null quando nenhuma aponta. */
+  empresaDoAnexo: number | null;
+  /** As empresas que o ator pode abrir (ctx.companies). */
+  empresasVisiveis: readonly number[];
+}) {
+  if (ownsAttachment(dados.atorId, dados.key)) return true;
+  return dados.empresaDoAnexo !== null && dados.empresasVisiveis.includes(dados.empresaDoAnexo);
+}
+
 /** A chave aponta para a área de anexos de alguém. */
 export function isAttachmentKey(key: string) {
   return ATTACHMENT_FOLDERS.some(folder => key.startsWith(`${folder}/`));

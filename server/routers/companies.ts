@@ -110,10 +110,25 @@ export const companiesRouter = router({
      * que o painel usa, e a razão de o saldo do modal bater com o dele.
      */
     const hoje = await userToday(ctx.user.id);
-    const [empresas, saldos] = await Promise.all([
-      db.listCompanies(ctx.user.id),
-      db.saldosDeCaixaPorEmpresa(ctx.user.id, diaSeguinte(hoje)),
-    ]);
+    /*
+     * A lista é a do contexto — as VISÍVEIS, não só as próprias. É a Fase D:
+     * o contador precisa ver a empresa do cliente no seletor, senão o vínculo
+     * não serve para nada.
+     *
+     * O saldo vem por DONO: `saldosDeCaixaPorEmpresa` agrega todas as empresas
+     * de um login, então para as liberadas ela é chamada com o id do dono da
+     * empresa e filtrada para as que este ator pode ver. Sem o filtro, o
+     * contador liberado para a empresa A veria o caixa da empresa B do mesmo
+     * dono — é o risco 3 do plano, e é aqui que ele se fecha.
+     */
+    const empresas = ctx.companies;
+    const donos = Array.from(new Set(empresas.map(empresa => empresa.userId)));
+    const saldosPorDono = await Promise.all(donos.map(dono => db.saldosDeCaixaPorEmpresa(dono, diaSeguinte(hoje))));
+    const saldos = new Map<number, number>();
+    empresas.forEach(empresa => {
+      const doDono = saldosPorDono[donos.indexOf(empresa.userId)];
+      saldos.set(empresa.id, doDono?.get(empresa.id) ?? 0);
+    });
     const noCookie = escolhaNoCookie(ctx);
     return empresas.map(empresa => ({
       id: empresa.id,
@@ -146,7 +161,9 @@ export const companiesRouter = router({
        * isso não é estimativa. Ter a DATA custa uma coluna e uma escrita no
        * `gravarEscolha`.
        */
-      papel: "Administradora" as const,
+      papel: empresa.userId === ctx.user.id ? "Administradora" as const : "Somente leitura" as const,
+      /** Só o dono renomeia, arquiva e convida. A tela esconde o menu; o servidor recusa de todo jeito. */
+      podeGerir: empresa.userId === ctx.user.id,
       /*
        * A última que esta pessoa escolheu NESTE navegador — o cookie, não a
        * padrão. Falso para todas quando ainda não houve escolha, que é

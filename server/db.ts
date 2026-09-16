@@ -3010,3 +3010,28 @@ export async function revogarAcesso(atorId: number, dados: { contadorId: number;
       ));
   });
 }
+
+/**
+ * De que empresa é este anexo — pela linha que aponta para a chave.
+ *
+ * Lançamentos e bens guardam `attachmentKey`; a chave é única por upload
+ * (carimbo de tempo mais nome), então a primeira linha que casar decide.
+ * Null quando nenhuma linha aponta: um anexo enviado e nunca gravado numa
+ * linha só o dono alcança, pelo prefixo.
+ */
+export async function empresaDoAnexo(key: string): Promise<number | null> {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [lancamento] = await db
+    .select({ companyId: financialTransactions.companyId })
+    .from(financialTransactions)
+    .where(eq(financialTransactions.attachmentKey, key))
+    .limit(1);
+  if (lancamento) return lancamento.companyId;
+  const [bem] = await db
+    .select({ companyId: patrimonialItems.companyId })
+    .from(patrimonialItems)
+    .where(eq(patrimonialItems.attachmentKey, key))
+    .limit(1);
+  return bem?.companyId ?? null;
+}

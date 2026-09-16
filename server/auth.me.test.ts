@@ -17,6 +17,7 @@ describe("auth.me", () => {
   it("returns the current authenticated user", async () => {
     const caller = appRouter.createCaller(createContext(user));
 
-    await expect(caller.auth.me()).resolves.toEqual({ ...user, activeCompanyId: 1 });
+    // `papel` vai junto desde a Fase D: é o que a tela usa para esconder a escrita do contador.
+    await expect(caller.auth.me()).resolves.toEqual({ ...user, activeCompanyId: 1, papel: "dono" });
   });
 });

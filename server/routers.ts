@@ -92,8 +92,14 @@ export const appRouter = router({
   settings: settingsRouter,
   transactions: transactionsRouter,
   auth: router({
+    /*
+     * `papel` vai junto: é o que a tela usa para esconder o que o contador
+     * não pode fazer. Esconder é cortesia — a recusa de verdade é a
+     * `escritaProcedure` no servidor —, mas botão que só falha é pior que
+     * botão que não existe.
+     */
     me: publicProcedure.query(opts => opts.ctx.user
-      ? { ...opts.ctx.user, activeCompanyId: opts.ctx.activeCompanyId }
+      ? { ...opts.ctx.user, activeCompanyId: opts.ctx.activeCompanyId, papel: opts.ctx.papel }
       : null),
 
     /** O que a tela de entrada precisa saber antes de alguém estar logado. */

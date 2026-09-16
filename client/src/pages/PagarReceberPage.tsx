@@ -36,6 +36,7 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 type Arrangement = "lista" | "colunas";
 type Tab = "tudo" | "receber" | "pagar" | "atrasados";
@@ -252,6 +253,8 @@ const LIST_GRID = "grid grid-cols-[26px_minmax(0,1fr)_auto] gap-3 lg:grid-cols-[
 
 function SettleButton({ title, onSettle, pending }: { title: Title; onSettle: (id: number) => void; pending: boolean }) {
   const label = title.side === "receber" ? "Marcar como recebido" : "Marcar como pago";
+  // O contador vê o título; liquidar é do dono. O span mantém a coluna da grade.
+  if (useSomenteLeitura()) return <span aria-hidden="true" />;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -283,6 +286,8 @@ function TitleMenu({ title, onEditar, onExcluir }: { title: Title; onEditar: (ti
   const [aberto, setAberto] = useState(false);
   const caixa = useRef<HTMLDivElement | null>(null);
   useDismissOnOutside(aberto, caixa, useCallback(() => setAberto(false), []));
+  const somenteLeitura = useSomenteLeitura();
+  if (somenteLeitura) return <span aria-hidden="true" />;
   return (
     <div ref={caixa} className="relative justify-self-end">
       <button
@@ -406,6 +411,7 @@ function SideColumn({ side, titles, total, warning, onSettle, pending, onNew, on
   onEditar: (title: Title) => void;
   onExcluir: (title: Title) => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   const receiving = side === "receber";
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-[20px] bg-white px-5 pb-6 pt-5 ring-1 ring-[#E1E8E3] sm:px-6">
@@ -461,6 +467,7 @@ function SideColumn({ side, titles, total, warning, onSettle, pending, onNew, on
         ))
       )}
 
+      {podeEscrever && (
       <button
         type="button"
         onClick={onNew}
@@ -469,6 +476,7 @@ function SideColumn({ side, titles, total, warning, onSettle, pending, onNew, on
         <PlusIcon size={14} />
         {receiving ? "Nova cobrança" : "Nova despesa"}
       </button>
+      )}
     </div>
   );
 }
@@ -608,6 +616,7 @@ export default function PagarReceberPage() {
     if (!new URLSearchParams(window.location.search).has("novo")) return;
     window.history.replaceState(null, "", "/a-pagar-e-receber");
   }, []);
+  const podeEscrever = !useSomenteLeitura();
   const createMutation = trpc.transactions.create.useMutation();
   const updateMutation = trpc.transactions.update.useMutation();
   const deleteMutation = trpc.transactions.delete.useMutation();
@@ -750,6 +759,7 @@ export default function PagarReceberPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar títulos" onClick={exportCsv} disabled={mesVazio} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
+            {podeEscrever && (
             <button
               type="button"
               onClick={() => setNovoLancamento("entrada")}
@@ -759,6 +769,7 @@ export default function PagarReceberPage() {
               <PlusIcon size={15} />
               Nova conta
             </button>
+            )}
             <ProfileMenu />
           </header>
 
