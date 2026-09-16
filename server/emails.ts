@@ -212,6 +212,31 @@ export function emailDeBoasVindas({ nome }: { nome: string | null }) {
   };
 }
 
+export function emailDeConvite({ nomeDoDono, emailConvidado, empresas, token, validade }: {
+  nomeDoDono: string;
+  emailConvidado: string;
+  empresas: string[];
+  token: string;
+  validade: string;
+}) {
+  const lista = empresas.map(escapar).join(", ");
+  const plural = empresas.length > 1;
+  return {
+    assunto: `${nomeDoDono} liberou o acesso a ${plural ? "empresas" : "uma empresa"} no GranaFy`,
+    html: layoutDeEmail({
+      assunto: `${nomeDoDono} liberou o acesso no GranaFy`,
+      previa: `Você foi convidado para ver ${plural ? "as empresas" : "a empresa"} ${empresas.join(", ")} em modo leitura.`,
+      rotulo: "Convite de acesso",
+      titulo: `${nomeDoDono} liberou o acesso para você`,
+      corpo: `Você foi convidado como <strong style="color:#28382E;">contador</strong> ${plural ? "das empresas" : "da empresa"} <strong style="color:#28382E;">${lista}</strong>. O acesso é somente leitura: você vê lançamentos, conciliação, DRE e balanço, e não altera nada.`,
+      blocos: [
+        blocoDeBotao("Aceitar convite", `/convite/${token}`),
+        blocoDeNota(`O convite vale por <strong style="color:#28382E;">${escapar(validade)}</strong> e só funciona com o e-mail <strong style="color:#28382E;">${escapar(emailConvidado)}</strong>. Se você já tem conta no GranaFy com esse e-mail, entre com a senha de sempre; se não tem, cria a senha ao aceitar.<br><br><strong style="color:#28382E;">Não conhece ${escapar(nomeDoDono)}?</strong> Ignore este e-mail — sem clicar, nada acontece.`),
+      ],
+    }),
+  };
+}
+
 /* ── O envio ────────────────────────────────────────────────────────────── */
 
 export function envioDeEmailConfigurado() {

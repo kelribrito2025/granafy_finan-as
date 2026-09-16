@@ -5,6 +5,7 @@ import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 import AuthPage from "@/pages/AuthPage";
 import BalanceSheetPage from "@/pages/BalanceSheetPage";
 import ConciliacaoPage from "@/pages/ConciliacaoPage";
+import ConvitePage from "@/pages/ConvitePage";
 import DrePage from "@/pages/DrePage";
 import FluxoCaixaPage from "@/pages/FluxoCaixaPage";
 import LancamentosPage from "@/pages/LancamentosPage";
@@ -92,6 +93,8 @@ function Router() {
     <Switch>
       <Route path="/login"><AuthPage mode="login" /></Route>
       <Route path="/cadastro"><AuthPage mode="signup" /></Route>
+      {/* O aceite do convite de acesso. Fora dos portões: quem chega ainda pode não ter login. */}
+      <Route path="/convite/:token"><ConvitePage /></Route>
       <Route path="/escolher-empresa"><ApenasAutenticado><EscolherEmpresaPage /></ApenasAutenticado></Route>
       <Route path="/termos"><LegalPage document="termos" /></Route>
       <Route path="/privacidade"><LegalPage document="privacidade" /></Route>

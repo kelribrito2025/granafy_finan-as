@@ -808,5 +808,47 @@ export type BalanceSheetSnapshotRecord = typeof balanceSheetSnapshots.$inferSele
 export type InsertBalanceSheetSnapshot = typeof balanceSheetSnapshots.$inferInsert;
 export type SystemSettingRecord = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+/**
+ * O convite que vira vínculo — Fase C do acesso do contador.
+ *
+ * Uma linha por (convite, empresa), e não uma linha com a lista de empresas:
+ * um convite libera "as empresas A e C", e a forma relacional disso é duas
+ * linhas com o mesmo `lote`. JSON daria uma linha só, mas MariaDB devolve JSON
+ * como texto e TiDB como objeto — o arreio e a produção leriam coisas
+ * diferentes da mesma coluna, e essa é a divergência que a suíte existe para
+ * não ter.
+ *
+ * `tokenHash`, nunca o token: é o mesmo desenho do código de redefinição. O
+ * token viaja no e-mail uma vez e não é guardado. Reenviar carimba `revokedAt`
+ * nas linhas anteriores e cria um lote novo, então nunca há dois convites
+ * vivos para o mesmo par (dono, e-mail).
+ *
+ * Aceitar carimba `acceptedAt` e grava `companyAccess`. O convite continua na
+ * tabela como histórico — quem convidou quem, quando — que é o que a Fase E
+ * vai querer ler.
+ */
+export const companyInvites = mysqlTable("companyInvites", {
+  id: int("id").autoincrement().primaryKey(),
+  /** O agrupador: as linhas de um convite compartilham o mesmo lote. */
+  lote: varchar("lote", { length: 36 }).notNull(),
+  /** O e-mail convidado, normalizado. O aceite só vale para uma conta com ele. */
+  email: varchar("email", { length: 320 }).notNull(),
+  companyId: int("companyId").notNull(),
+  role: mysqlEnum("role", ["contador"]).default("contador").notNull(),
+  /** O dono que convidou — e o único que pode cancelar ou reenviar. */
+  invitedBy: int("invitedBy").notNull(),
+  tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  index("company_invites_token_idx").on(table.tokenHash),
+  index("company_invites_inviter_idx").on(table.invitedBy, table.revokedAt),
+  index("company_invites_lote_idx").on(table.lote),
+]);
+
 export type CompanyAccessRecord = typeof companyAccess.$inferSelect;
 export type InsertCompanyAccess = typeof companyAccess.$inferInsert;
+export type CompanyInviteRecord = typeof companyInvites.$inferSelect;
+export type InsertCompanyInvite = typeof companyInvites.$inferInsert;

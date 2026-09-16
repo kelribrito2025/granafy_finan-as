@@ -6,7 +6,7 @@
  * que é o remetente de todos os e-mails, não só o da redefinição) vivem no
  * `.env` e no ambiente de produção — nunca no repositório.
  */
-import { emailDeAtivacao, emailDeBoasVindas, emailDeRedefinicao, enviarEmail, envioDeEmailConfigurado } from "./emails";
+import { emailDeAtivacao, emailDeBoasVindas, emailDeConvite, emailDeRedefinicao, enviarEmail, envioDeEmailConfigurado } from "./emails";
 
 export function isPasswordResetEmailConfigured() {
   return envioDeEmailConfigurado();
@@ -37,4 +37,25 @@ export async function sendWelcomeEmail({ to, name = null }: { to: string; name?:
     console.error("[resend] boas-vindas não enviadas:", error instanceof Error ? error.message : error);
     return false;
   }
+}
+
+/**
+ * O convite de acesso do contador. `false` quando o envio não está
+ * configurado — e nesse caso o router devolve o link para o dono mandar por
+ * outro caminho, então a falta de e-mail não trava o convite.
+ */
+export async function sendCompanyInvite(dados: {
+  to: string;
+  nomeDoDono: string;
+  empresas: string[];
+  token: string;
+}) {
+  const { assunto, html } = emailDeConvite({
+    nomeDoDono: dados.nomeDoDono,
+    emailConvidado: dados.to,
+    empresas: dados.empresas,
+    token: dados.token,
+    validade: "7 dias",
+  });
+  return enviarEmail({ to: dados.to, assunto, html });
 }

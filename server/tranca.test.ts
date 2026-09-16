@@ -29,6 +29,10 @@ const DIR = path.resolve(import.meta.dirname, "routers");
  * na linha, a mutação provavelmente é escrita e o lugar dela é na tranca.
  */
 const FORA_DA_TRANCA: Record<string, Record<string, string>> = {
+  "acessos.ts": {
+    aceitar: "grava o vínculo do PRÓPRIO ator; a empresa vem do convite, não da ativa — e o e-mail tem que bater",
+    aceitarCriandoConta: "pública por definição: quem aceita ainda não tem login; o e-mail é o do convite",
+  },
   "admin.ts": {
     "*": "router inteiro é adminProcedure — o admin olha o sistema, não a janela de uma empresa",
   },

@@ -6,6 +6,7 @@ import {
   balanceSheetSnapshots,
   categoryRules,
   companyAccess,
+  companyInvites,
   companyProfiles,
   costCenters,
   type InsertCategoryRule,
@@ -2727,4 +2728,254 @@ export async function deleteBalanceSheetSnapshot(escopo: Escopo, id: number) {
   return db
     .delete(balanceSheetSnapshots)
     .where(and(eq(balanceSheetSnapshots.userId, escopo.userId), eq(balanceSheetSnapshots.companyId, escopo.companyId), eq(balanceSheetSnapshots.id, id)));
+}
+
+/* ── Acessos: convites e vínculos — Fase C do acesso do contador ─────────────
+ *
+ * Todas por ATOR, e todas conferem a posse de cada empresa contra
+ * `companyProfiles.userId` antes de tocar em qualquer linha. O convite é do
+ * dono para VÁRIAS empresas dele, então não cabe num `Escopo` — que é uma
+ * empresa só. É por isso que recebem `atorId` e constam na lista fechada do
+ * `guardas.test.ts`, com o motivo escrito lá.
+ */
+
+export class EmpresaNaoEDoAtor extends Error {
+  constructor() { super("Uma das empresas não é sua."); }
+}
+export class ConviteInvalido extends Error {
+  constructor(message = "Este convite não vale mais.") { super(message); }
+}
+export class ConviteDeOutroEmail extends Error {
+  constructor(public readonly emailConvidado: string) {
+    super(`Este convite foi enviado para ${emailConvidado}. Entre com essa conta para aceitá-lo.`);
+  }
+}
+
+/** As empresas do ator entre as pedidas — e só elas. Vazio quando alguma não é dele. */
+async function empresasProprias(tx: Pick<Awaited<ReturnType<typeof getDb>> & object, "select">, atorId: number, companyIds: readonly number[]) {
+  if (companyIds.length === 0) return [];
+  const proprias = await tx
+    .select({ id: companyProfiles.id })
+    .from(companyProfiles)
+    .where(and(eq(companyProfiles.userId, atorId), inArray(companyProfiles.id, [...companyIds])));
+  return proprias.map(e => e.id);
+}
+
+/**
+ * Cria um convite: uma linha por empresa, mesmo lote, mesmo hash.
+ *
+ * Reenviar é criar de novo: as linhas vivas anteriores do mesmo par
+ * (dono, e-mail) ganham `revokedAt` na mesma transação, então nunca há dois
+ * convites valendo para a mesma pessoa. Quem clicar no e-mail antigo recebe
+ * "este convite não vale mais" — e o novo funciona.
+ */
+export async function criarConvite(atorId: number, dados: {
+  email: string;
+  companyIds: readonly number[];
+  lote: string;
+  tokenHash: string;
+  expiresAt: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const ids = Array.from(new Set(dados.companyIds));
+  if (ids.length === 0) throw new EmpresaNaoEDoAtor();
+
+  await db.transaction(async tx => {
+    const proprias = await empresasProprias(tx, atorId, ids);
+    if (proprias.length !== ids.length) throw new EmpresaNaoEDoAtor();
+
+    await tx
+      .update(companyInvites)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(companyInvites.invitedBy, atorId),
+        eq(companyInvites.email, dados.email),
+        isNull(companyInvites.acceptedAt),
+        isNull(companyInvites.revokedAt),
+      ));
+
+    await tx.insert(companyInvites).values(ids.map(companyId => ({
+      lote: dados.lote,
+      email: dados.email,
+      companyId,
+      invitedBy: atorId,
+      tokenHash: dados.tokenHash,
+      expiresAt: dados.expiresAt,
+    })));
+  });
+}
+
+/** Os convites do dono ainda em aberto, com o nome de cada empresa. */
+export async function listarConvitesPendentes(atorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      lote: companyInvites.lote,
+      email: companyInvites.email,
+      companyId: companyInvites.companyId,
+      legalName: companyProfiles.legalName,
+      tradeName: companyProfiles.tradeName,
+      expiresAt: companyInvites.expiresAt,
+      createdAt: companyInvites.createdAt,
+    })
+    .from(companyInvites)
+    .innerJoin(companyProfiles, eq(companyProfiles.id, companyInvites.companyId))
+    .where(and(
+      eq(companyInvites.invitedBy, atorId),
+      eq(companyProfiles.userId, atorId),
+      isNull(companyInvites.acceptedAt),
+      isNull(companyInvites.revokedAt),
+      gt(companyInvites.expiresAt, new Date()),
+    ))
+    .orderBy(desc(companyInvites.createdAt), asc(companyInvites.companyId));
+}
+
+/** Cancela um convite em aberto. Só o dono que convidou alcança o lote. */
+export async function revogarConvite(atorId: number, lote: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db
+    .update(companyInvites)
+    .set({ revokedAt: new Date() })
+    .where(and(
+      eq(companyInvites.invitedBy, atorId),
+      eq(companyInvites.lote, lote),
+      isNull(companyInvites.acceptedAt),
+      isNull(companyInvites.revokedAt),
+    ));
+}
+
+/**
+ * As linhas de um token, em qualquer estado, com o que a tela de aceite mostra.
+ *
+ * Devolve inclusive aceitas e revogadas: é o router que decide, com
+ * `conviteValido`, e é `motivoDaRecusa` que explica. Filtrar aqui faria "já
+ * aceito" e "token errado" virarem a mesma resposta vazia.
+ */
+export async function convitePorToken(tokenHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: companyInvites.id,
+      lote: companyInvites.lote,
+      email: companyInvites.email,
+      companyId: companyInvites.companyId,
+      invitedBy: companyInvites.invitedBy,
+      expiresAt: companyInvites.expiresAt,
+      acceptedAt: companyInvites.acceptedAt,
+      revokedAt: companyInvites.revokedAt,
+      legalName: companyProfiles.legalName,
+      tradeName: companyProfiles.tradeName,
+      nomeDoDono: users.name,
+    })
+    .from(companyInvites)
+    .innerJoin(companyProfiles, eq(companyProfiles.id, companyInvites.companyId))
+    .innerJoin(users, eq(users.id, companyInvites.invitedBy))
+    .where(eq(companyInvites.tokenHash, tokenHash))
+    .orderBy(asc(companyInvites.companyId));
+}
+
+/**
+ * Aceita o convite: grava o vínculo do ATOR em cada empresa e carimba o aceite.
+ *
+ * Tudo numa transação, e a validade é conferida DENTRO dela: dois cliques
+ * simultâneos no mesmo link não podem gerar dois vínculos. O e-mail do ator
+ * tem que ser o convidado — é a única prova de que o link chegou a quem devia.
+ *
+ * Um vínculo vivo que já exista para o par (ator, empresa) não é duplicado; o
+ * aceite ainda vale, porque o convite pode cobrir uma empresa nova e uma que
+ * a pessoa já via.
+ */
+export async function aceitarConvite(atorId: number, dados: { tokenHash: string; email: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const agora = new Date();
+
+  return db.transaction(async tx => {
+    const linhas = await tx
+      .select()
+      .from(companyInvites)
+      .where(eq(companyInvites.tokenHash, dados.tokenHash))
+      .for("update");
+
+    const vivas = linhas.filter(l => l.acceptedAt === null && l.revokedAt === null && l.expiresAt.getTime() > agora.getTime());
+    if (linhas.length === 0 || vivas.length !== linhas.length) throw new ConviteInvalido();
+    if (linhas[0]!.email !== dados.email) throw new ConviteDeOutroEmail(linhas[0]!.email);
+    if (linhas[0]!.invitedBy === atorId) throw new ConviteInvalido("Você é o dono destas empresas — não precisa de convite.");
+
+    const companyIds = Array.from(new Set(linhas.map(l => l.companyId)));
+    const existentes = await tx
+      .select({ companyId: companyAccess.companyId })
+      .from(companyAccess)
+      .where(and(eq(companyAccess.userId, atorId), inArray(companyAccess.companyId, companyIds), isNull(companyAccess.revokedAt)));
+    const jaTem = new Set(existentes.map(e => e.companyId));
+
+    const novos = companyIds.filter(id => !jaTem.has(id));
+    if (novos.length > 0) {
+      await tx.insert(companyAccess).values(novos.map(companyId => ({
+        userId: atorId,
+        companyId,
+        role: "contador" as const,
+        grantedBy: linhas[0]!.invitedBy,
+      })));
+    }
+
+    await tx
+      .update(companyInvites)
+      .set({ acceptedAt: agora })
+      .where(and(eq(companyInvites.tokenHash, dados.tokenHash), isNull(companyInvites.acceptedAt)));
+
+    return { companyIds };
+  });
+}
+
+/**
+ * Quem tem acesso às empresas do dono: um vínculo vivo por linha, com quem é a
+ * pessoa e qual é a empresa. A tela agrupa por pessoa.
+ */
+export async function listarAcessos(atorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: companyAccess.id,
+      contadorId: companyAccess.userId,
+      nome: users.name,
+      email: users.email,
+      companyId: companyAccess.companyId,
+      legalName: companyProfiles.legalName,
+      tradeName: companyProfiles.tradeName,
+      role: companyAccess.role,
+      desde: companyAccess.createdAt,
+    })
+    .from(companyAccess)
+    .innerJoin(companyProfiles, eq(companyProfiles.id, companyAccess.companyId))
+    .innerJoin(users, eq(users.id, companyAccess.userId))
+    .where(and(eq(companyProfiles.userId, atorId), isNull(companyAccess.revokedAt)))
+    .orderBy(asc(users.email), asc(companyAccess.companyId));
+}
+
+/**
+ * Tira o acesso de uma pessoa a UMA empresa do dono. Revogar é carimbar: a
+ * linha fica, com `revokedAt`, e `empresasVisiveisPara` deixa de devolvê-la
+ * no request seguinte.
+ */
+export async function revogarAcesso(atorId: number, dados: { contadorId: number; companyId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.transaction(async tx => {
+    const proprias = await empresasProprias(tx, atorId, [dados.companyId]);
+    if (proprias.length !== 1) throw new EmpresaNaoEDoAtor();
+    await tx
+      .update(companyAccess)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(companyAccess.companyId, dados.companyId),
+        eq(companyAccess.userId, dados.contadorId),
+        isNull(companyAccess.revokedAt),
+      ));
+  });
 }
