@@ -342,14 +342,8 @@ export function PlanosPanel() {
             </>
           );
 
-          /*
-           * O plano assinado usa a mesma superfície do "Caixa disponível".
-           *
-           * Não é só enfeite: é o `AuroraSurface` de verdade, com o
-           * `data-theme-origin` que o modo escuro usa como ponto de partida do
-           * círculo. Nesta tela só um painel aparece por vez — Planos e
-           * Assinatura são abas —, então nunca há duas origens disputando.
-           */
+          /* O plano assinado usa a mesma superfície do "Caixa disponível":
+             é o `AuroraSurface` de verdade, não uma imitação. */
           return atual ? (
             <AuroraSurface key={plano.id} className="rounded-[20px] p-5">
               <div className="flex flex-1 flex-col gap-3.5">{conteudo}</div>
