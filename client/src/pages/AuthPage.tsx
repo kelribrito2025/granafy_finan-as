@@ -41,11 +41,7 @@ function BrandPanel() {
       </div>
 
       <div className="relative z-10 my-auto max-w-[540px] py-12">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#12B85C]/14 px-3 py-1.5 text-[11px] font-semibold text-[#7EE2A8] ring-1 ring-[#12B85C]/20">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#12B85C]" />
-          Controle com clareza
-        </span>
-        <h1 className="mt-6 max-w-[500px] text-[40px] font-semibold leading-[1.08] tracking-[-0.045em] xl:text-[48px]">
+        <h1 className="max-w-[500px] text-[40px] font-semibold leading-[1.08] tracking-[-0.045em] xl:text-[48px]">
           Sua operação financeira, simples de entender.
         </h1>
         <p className="mt-5 max-w-[460px] text-[15px] leading-7 text-[#A9C1B2]">
