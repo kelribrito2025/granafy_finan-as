@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   ArchiveIcon,
+  BuildingIcon,
   CardIcon,
   ChevronRightIcon,
   CloseIcon,
@@ -690,14 +691,14 @@ export function ProfileMenu() {
               className="flex w-full items-center gap-3 rounded-[12px] bg-[#F1FBF6] p-2.5 text-left hover:bg-[#DFF6EA]"
             >
               {/*
-                Enquanto espera, o anel no lugar das iniciais: "CA", de
-                "Carregando", seria uma sigla plausível de empresa e a pessoa
-                não teria como saber que não é a dela.
+                Um ícone de empresa, não a sigla: o nome já está ao lado, e a
+                sigla repetia a informação com menos clareza. Enquanto carrega,
+                o anel — ícone fixo daria a impressão de que já resolveu.
               */}
-              <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] text-[13px] font-bold ${
+              <span className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[11px] ${
                 carregandoEmpresa ? "bg-[#EDF2EE]" : "bg-[#12B85C] text-white"
               }`}>
-                {carregandoEmpresa ? <GranafyRing size={16} /> : companyInitials(companyName)}
+                {carregandoEmpresa ? <GranafyRing size={16} /> : <BuildingIcon size={18} />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-[14px] font-semibold ${carregandoEmpresa ? "text-[#8A968D]" : "text-[#0A7A42]"}`}>{companyName}</span>
