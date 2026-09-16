@@ -2,6 +2,8 @@ import type { Connection, RowDataPacket } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   aceitarConvite,
+  createLocalUser,
+  ensureDefaultCompany,
   ConviteDeOutroEmail,
   ConviteInvalido,
   convitePorToken,
@@ -186,6 +188,30 @@ describe.runIf(temBancoDeTeste())("acessos: convites e vínculos", () => {
       expect(linhas[0]!.legalName).toBe("Padaria");
       expect(linhas[0]!.nomeDoDono).toBe("Ana");
       expect(await convitePorToken(HASH(42))).toEqual([]);
+    });
+  });
+
+  describe("a empresa padrão e o contador", () => {
+    it("com vínculo vivo, o login não recria empresa própria para a contadora", async () => {
+      await c.query("INSERT INTO companyAccess (userId, companyId, role, grantedBy) VALUES (?, ?, 'contador', ?)", [CLARA, PADARIA_DA_ANA, ANA]);
+      expect(await ensureDefaultCompany(CLARA)).toBeNull();
+      expect((await empresasVisiveisPara(CLARA)).map(e => e.id)).toEqual([PADARIA_DA_ANA]);
+    });
+
+    it("sem vínculo, a regra de sempre: toda conta tem uma empresa", async () => {
+      const criada = await ensureDefaultCompany(CLARA);
+      expect(criada).not.toBeNull();
+      expect((await empresasVisiveisPara(CLARA)).map(e => e.id)).toEqual([criada]);
+    });
+
+    it("a conta nascida pelo convite não ganha empresa própria", async () => {
+      const email = "nova-9900004@example.com";
+      const user = await createLocalUser({ email, name: "Nova", passwordHash: null, semEmpresaPadrao: true });
+      try {
+        expect(await empresasVisiveisPara(user.id)).toEqual([]);
+      } finally {
+        await c.query("DELETE FROM users WHERE id = ?", [user.id]);
+      }
     });
   });
 
