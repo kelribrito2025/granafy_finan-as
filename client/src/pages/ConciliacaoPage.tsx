@@ -1641,11 +1641,6 @@ export default function ConciliacaoPage() {
 
                 </aside>
               </section>
-
-              <p className="text-[12px] text-[#4C6355]">
-                Sugestão só aparece com o valor batendo ao centavo, na mesma conta e com no máximo três
-                dias de diferença. Nada é conciliado sem confirmação.
-              </p>
             </>
           )}
         </section>
