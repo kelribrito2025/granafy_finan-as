@@ -91,3 +91,51 @@ export function buildCategoryTree(categories: readonly FlatCategory[]): Category
   roots.sort((left, right) => Math.abs(right.subtotal) - Math.abs(left.subtotal));
   return roots;
 }
+
+/**
+ * Uma linha de um menu `<select>`: a categoria e a profundidade dela.
+ *
+ * `category` é nula só para o pai que não está cadastrado ("A/B" sem "A"):
+ * ele aparece como rótulo desabilitado, para os filhos não ficarem recuados
+ * sob nada — é a mesma decisão que a página de Categorias toma ao desenhar
+ * o nó de agrupamento.
+ */
+export type CategoryOption = {
+  category: FlatCategory | null;
+  /** 0 para a raiz, 1 para a filha, e assim por diante. */
+  depth: number;
+  /** Só o último trecho do caminho, que é o que se lê na linha. */
+  label: string;
+  /** O caminho inteiro, para a chave do React e para quem precisar. */
+  path: string;
+};
+
+/**
+ * A árvore vira lista, em profundidade, para caber num `<select>` nativo.
+ *
+ * O `<select>` não tem árvore; tem uma lista. O que ele consegue mostrar é
+ * a ordem e um recuo no texto — e é isso que preserva a hierarquia: o pai
+ * vem antes, as filhas logo abaixo, cada nível um passo à direita. Um
+ * `<optgroup>` faria o recuo sozinho, mas deixaria o pai não selecionável,
+ * e o pai é uma categoria como qualquer outra, com id e lançamentos seus.
+ */
+export function flattenCategoryTree(roots: readonly CategoryNode[]): CategoryOption[] {
+  const linhas: CategoryOption[] = [];
+  const percorrer = (node: CategoryNode, depth: number) => {
+    linhas.push({ category: node.category, depth, label: node.label, path: node.path });
+    for (const child of node.children) percorrer(child, depth + 1);
+  };
+  roots.forEach(root => percorrer(root, 0));
+  return linhas;
+}
+
+/**
+ * O recuo de uma linha do menu, em espaços que o `<select>` não engole.
+ *
+ * Espaço comum na frente de um `<option>` é descartado pelo navegador. O
+ * não separável (U+00A0) fica — e três por nível dá o passo que se lê
+ * como "filha de", sem virar uma coluna vazia.
+ */
+export function categoryOptionIndent(depth: number) {
+  return " ".repeat(depth * 3);
+}

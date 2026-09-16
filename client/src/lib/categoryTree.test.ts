@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCategoryTree, type FlatCategory } from "./categoryTree";
+import { buildCategoryTree, categoryOptionIndent, flattenCategoryTree, type FlatCategory } from "./categoryTree";
 
 let proximoId = 1;
 const cat = (name: string, total = 0, count = 0, type: FlatCategory["type"] = "saida"): FlatCategory => ({
@@ -112,5 +112,74 @@ describe("buildCategoryTree", () => {
       cat("Raiz", 10), cat("Raiz/Um", 20), cat("Raiz/Dois", 30), cat("Raiz/Dois/Fundo", 40),
     ]);
     expect(arvore[0].subtotal).toBe(100);
+  });
+});
+
+describe("flattenCategoryTree", () => {
+  /*
+   * A ordem é o que o `<select>` tem para mostrar hierarquia: pai antes,
+   * filhas logo depois, e só então o próximo pai. Se o achatador puser as
+   * filhas de um pai depois do outro pai, o menu mente sobre quem é de quem.
+   */
+  it("põe cada pai seguido das próprias filhas, em profundidade", () => {
+    const linhas = flattenCategoryTree(buildCategoryTree([
+      cat("Despesas Fixas"),
+      cat("Despesas Fixas/Aluguel"),
+      cat("Despesas Fixas/Salários"),
+      cat("Despesas Variáveis"),
+      cat("Despesas Variáveis/Comissões"),
+    ]));
+    expect(linhas.map(l => `${l.depth}:${l.label}`)).toEqual([
+      "0:Despesas Fixas", "1:Aluguel", "1:Salários",
+      "0:Despesas Variáveis", "1:Comissões",
+    ]);
+  });
+
+  it("mostra só o último trecho do nome, não o caminho inteiro", () => {
+    const [pai, filha] = flattenCategoryTree(buildCategoryTree([
+      cat("Custos Operacionais"),
+      cat("Custos Operacionais/Matéria-Prima e Insumos"),
+    ]));
+    expect(pai.label).toBe("Custos Operacionais");
+    expect(filha.label).toBe("Matéria-Prima e Insumos");
+    // O caminho inteiro continua disponível para quem precisar dele.
+    expect(filha.path).toBe("Custos Operacionais/Matéria-Prima e Insumos");
+  });
+
+  /*
+   * O pai não cadastrado vira uma linha sem categoria — rótulo, não escolha.
+   * Descartá-lo deixaria a filha recuada sob nada; promovê-la à raiz
+   * esconderia a hierarquia que o próprio nome dela declara.
+   */
+  it("mantém o pai não cadastrado como rótulo sem categoria, com a filha recuada", () => {
+    const linhas = flattenCategoryTree(buildCategoryTree([cat("Descontos/Abatimentos")]));
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0]).toMatchObject({ depth: 0, label: "Descontos", category: null });
+    expect(linhas[1]).toMatchObject({ depth: 1, label: "Abatimentos" });
+    expect(linhas[1].category).not.toBeNull();
+  });
+
+  it("desce mais de um nível", () => {
+    const linhas = flattenCategoryTree(buildCategoryTree([
+      cat("A"), cat("A/B"), cat("A/B/C"),
+    ]));
+    expect(linhas.map(l => l.depth)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("categoryOptionIndent", () => {
+  it("raiz não recua e cada nível soma três espaços não separáveis", () => {
+    expect(categoryOptionIndent(0)).toBe("");
+    expect(categoryOptionIndent(1)).toBe("   ");
+    expect(categoryOptionIndent(2)).toHaveLength(6);
+  });
+
+  /*
+   * O motivo de existir: espaço comum na frente de um `<option>` o navegador
+   * joga fora. Se alguém "simplificar" para " ".repeat, o recuo some da tela
+   * e nenhum outro teste percebe.
+   */
+  it("usa o espaço não separável, não o comum", () => {
+    expect(categoryOptionIndent(1)).not.toContain(" ");
   });
 });

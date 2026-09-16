@@ -10,6 +10,7 @@ import {
 import { currencyInputToNumber, formatCurrencyInput } from "@/lib/currency";
 import { defaultCategoryId, PREFERRED_INCOME_ROOT } from "@/lib/defaultCategory";
 import { trpc } from "@/lib/trpc";
+import { buildCategoryTree, categoryOptionIndent, flattenCategoryTree, type CategoryOption, type FlatCategory } from "@/lib/categoryTree";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
@@ -168,6 +169,33 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
   };
   const incomeCategories = useMemo(() => options.categories.filter(category => category.type === "entrada" || category.type === "ambos"), [options.categories]);
   const expenseCategories = useMemo(() => options.categories.filter(category => category.type === "saida" || category.type === "ambos"), [options.categories]);
+
+  /*
+   * As mesmas categorias, na ordem e com o recuo da página de Categorias.
+   *
+   * O menu era uma lista chapada em que cada subcategoria vinha como
+   * "Pai/Filha", tudo no mesmo nível — para achar "Comissões de Vendas" era
+   * preciso ler "Despesas Variáveis/" antes, em cada linha. Aqui a árvore é a
+   * mesma que a outra tela desenha (`buildCategoryTree`), achatada em
+   * profundidade: pai em cima, filhas recuadas mostrando só o próprio nome.
+   *
+   * `organization.options` não traz total nem contagem, então os dois entram
+   * zerados. Com todos os subtotais iguais, a ordenação por volume não mexe
+   * em nada e sobra a do banco, que é alfabética — a mesma da outra tela.
+   */
+  const paraArvore = (category: (typeof options.categories)[number]): FlatCategory =>
+    ({ ...category, transactionCount: 0, total: 0, isActive: true });
+  const incomeOptions = useMemo(() => flattenCategoryTree(buildCategoryTree(incomeCategories.map(paraArvore))), [incomeCategories]);
+  const expenseOptions = useMemo(() => flattenCategoryTree(buildCategoryTree(expenseCategories.map(paraArvore))), [expenseCategories]);
+
+  /*
+   * O pai que não está cadastrado vira rótulo desabilitado: dá para ler a
+   * hierarquia, não dá para escolhê-lo — ele não tem id. O `value` próprio
+   * evita que ele se confunda com o "" do placeholder.
+   */
+  const renderOpcoes = (opcoes: CategoryOption[]) => opcoes.map(opcao => opcao.category
+    ? <option key={opcao.path} value={opcao.category.id}>{categoryOptionIndent(opcao.depth)}{opcao.label}</option>
+    : <option key={opcao.path} value={`grupo:${opcao.path}`} disabled>{categoryOptionIndent(opcao.depth)}{opcao.label}</option>);
 
   useEffect(() => {
     if (!accountId && options.accounts.length === 1) setAccountId(String(options.accounts[0].id));
@@ -484,11 +512,11 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                     <div className="grid grid-cols-2 gap-3">
                       <select aria-label="Categoria para entradas" value={incomeCategoryId} onChange={event => setIncomeCategoryId(event.target.value)} className={selectClass} style={chevron}>
                         <option value="">Receita</option>
-                        {incomeCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                        {renderOpcoes(incomeOptions)}
                       </select>
                       <select aria-label="Categoria para saídas" value={expenseCategoryId} onChange={event => setExpenseCategoryId(event.target.value)} className={selectClass} style={chevron}>
                         <option value="">Despesa</option>
-                        {expenseCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                        {renderOpcoes(expenseOptions)}
                       </select>
                     </div>
                     {!(analisada && duplicadas > 0) && (
@@ -554,7 +582,7 @@ export default function ImportTransactionsModal({ onClose, onImported, onManageO
                   <td className="py-2.5"><input aria-label={`Data da linha ${row.sourceIndex}`} type="date" value={row.transactionDate} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transactionDate: event.target.value } : item))} className="w-[116px] bg-transparent text-[11px] outline-none disabled:cursor-not-allowed" /></td>
                   <td className="py-2.5 pr-3"><div className="flex items-center gap-2"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${row.type === "saida" ? "bg-[#FDECEA] text-[#B3261E]" : "bg-[#DFF6EA] text-[#0A7A42]"}`}>{row.type === "saida" ? <ArrowDownIcon size={14} /> : <ArrowUpIcon size={14} />}</span><input aria-label={`Descrição da linha ${row.sourceIndex}`} value={row.description} disabled={row.duplicate} onChange={event => setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item))} className="min-w-0 flex-1 bg-transparent font-semibold outline-none disabled:cursor-not-allowed" /></div></td>
                   <td className="py-2.5 pr-3"><select aria-label={`Natureza da linha ${row.sourceIndex}`} value={row.type} disabled={row.duplicate} onChange={event => updateRowType(index, event.target.value as TransactionType)} className={`h-8 w-full rounded-lg px-2 text-[10.5px] font-bold outline-none disabled:cursor-not-allowed ${row.type === "entrada" ? "bg-[#DFF6EA] text-[#0A7A42]" : "bg-[#FDECEA] text-[#B3261E]"}`}><option value="entrada">Receita</option><option value="saida">Despesa</option></select></td>
-                  <td className="py-2.5 pr-3"><select aria-label={`Categoria da linha ${row.sourceIndex}`} value={row.categoryId} disabled={row.duplicate} onChange={event => { const id = Number(event.target.value); const categoryName = options.categories.find(category => category.id === id)?.name ?? row.categoryName; setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, categoryId: id, categoryName } : item)); }} className="h-8 w-full rounded-lg bg-[#F1F4F2] px-2 text-[10.5px] outline-none disabled:cursor-not-allowed">{options.categories.filter(category => category.type === "ambos" || category.type === row.type).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></td>
+                  <td className="py-2.5 pr-3"><select aria-label={`Categoria da linha ${row.sourceIndex}`} value={row.categoryId} disabled={row.duplicate} onChange={event => { const id = Number(event.target.value); const categoryName = options.categories.find(category => category.id === id)?.name ?? row.categoryName; setRows(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, categoryId: id, categoryName } : item)); }} className="h-8 w-full rounded-lg bg-[#F1F4F2] px-2 text-[10.5px] outline-none disabled:cursor-not-allowed">{renderOpcoes(row.type === "entrada" ? incomeOptions : expenseOptions)}</select></td>
                   <td className={`py-2.5 text-right font-bold ${row.type === "entrada" ? "text-[#0A7A42]" : "text-[#B3261E]"}`}>{formatMoney(row.amount)}</td>
                   <td className="px-5 py-2.5 text-center">{row.duplicate ? <span className="rounded-md bg-[#FFF0C9] px-2 py-1 text-[9.5px] font-bold text-[#936000]">Duplicata</span> : <span className="rounded-md bg-[#DFF6EA] px-2 py-1 text-[9.5px] font-bold text-[#0A7A42]">Novo</span>}</td>
                 </tr>; })}</tbody>
