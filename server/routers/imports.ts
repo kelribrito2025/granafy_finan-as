@@ -3,7 +3,7 @@ import type { Escopo } from "../escopo";
 import { escopoDe } from "../escopo";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { assertPeriodsOpen } from "../periodLock";
 import { findMatchingRule, type CategoryRule } from "@shared/categoryRules";
@@ -114,7 +114,7 @@ export const importsRouter = router({
     }
   }),
 
-  confirm: protectedProcedure.input(z.object({
+  confirm: escritaProcedure.input(z.object({
     fileName: z.string().trim().min(1).max(255),
     format: formatSchema,
     accountId: z.number().int().positive(),

@@ -9,7 +9,7 @@ import {
   summarizeAccountPositions,
   summarizeBalanceSheet,
 } from "../balanceSheet";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { isDuplicateDatabaseError } from "./organization";
 
@@ -214,7 +214,7 @@ export const balanceSheetRouter = router({
       };
     }),
 
-  createItem: protectedProcedure
+  createItem: escritaProcedure
     .input(patrimonialItemValuesSchema)
     .mutation(async ({ ctx, input }) => {
       if (await db.getPatrimonialItemByName(escopoDe(ctx), input.name)) {
@@ -233,7 +233,7 @@ export const balanceSheetRouter = router({
       }
     }),
 
-  updateItem: protectedProcedure
+  updateItem: escritaProcedure
     .input(patrimonialItemValuesSchema.and(z.object({ id: z.number().int().positive() })))
     .mutation(async ({ ctx, input }) => {
       const { id, ...values } = input;
@@ -254,7 +254,7 @@ export const balanceSheetRouter = router({
       }
     }),
 
-  toggleItem: protectedProcedure
+  toggleItem: escritaProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const item = await db.getPatrimonialItem(escopoDe(ctx), input.id);
@@ -264,7 +264,7 @@ export const balanceSheetRouter = router({
       return db.updatePatrimonialItem(escopoDe(ctx), input.id, { isActive: !item.isActive });
     }),
 
-  deleteItem: protectedProcedure
+  deleteItem: escritaProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       if (!await db.getPatrimonialItem(escopoDe(ctx), input.id)) {
@@ -274,7 +274,7 @@ export const balanceSheetRouter = router({
       return { success: true } as const;
     }),
 
-  captureSnapshot: protectedProcedure
+  captureSnapshot: escritaProcedure
     .input(z.object({ referenceDate: isoDateSchema }))
     .mutation(async ({ ctx, input }) => {
       if (input.referenceDate > todayUtc()) {
@@ -299,7 +299,7 @@ export const balanceSheetRouter = router({
       });
     }),
 
-  deleteSnapshot: protectedProcedure
+  deleteSnapshot: escritaProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       await db.deleteBalanceSheetSnapshot(escopoDe(ctx), input.id);

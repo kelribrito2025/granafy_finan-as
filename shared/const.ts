@@ -17,6 +17,17 @@ export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
 export const SEM_EMPRESA_ERR_MSG =
   "Esta conta está sem empresa ativa. Saia e entre de novo — o login recria a empresa padrão. Se continuar assim, é defeito nosso: avise o suporte citando o código 10003.";
 
+/*
+ * Quem entrou por vínculo tentando gravar.
+ *
+ * O contador vê a empresa do cliente inteira, e não muda nada nela. A recusa
+ * precisa dizer isso com todas as letras: sem o "somente leitura" explícito, um
+ * botão que falha parece defeito do produto, e a pessoa tenta de novo. Diz
+ * também A QUEM pedir — porque a resposta existe e é uma só: o dono.
+ */
+export const SOMENTE_LEITURA_ERR_MSG =
+  "Seu acesso a esta empresa é somente leitura. Peça ao dono da empresa para fazer esta alteração (10004).";
+
 /** A empresa escolhida no seletor. Lida desde a Fase 3; escrita a partir da 6. */
 export const COMPANY_COOKIE_NAME = "app_company_id";
 
