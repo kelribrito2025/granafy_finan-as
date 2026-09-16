@@ -228,6 +228,20 @@ describe("invariante das guardas de isolamento em db.ts", () => {
        * ter mudado de nome.
        */
       ["empresasVisiveisPara", "as empresas que o ATOR pode abrir — próprias mais liberadas; alimenta ctx.companies"],
+      /*
+       * Acessos (Fase C): o convite é do DONO para várias empresas dele, e a
+       * lista de acessos é de todas as empresas dele — não cabe num Escopo,
+       * que é uma empresa só. Cada uma confere a posse contra
+       * `companyProfiles.userId = atorId` antes de tocar em linha alguma; é o
+       * `acessos.isolation.test.ts` que prova.
+       */
+      ["empresasProprias", "o ajudante de posse: dos ids pedidos, quais são do ator — é quem os de baixo consultam"],
+      ["criarConvite", "convite do dono para N empresas dele; recusa qualquer id que não seja dele, na transação"],
+      ["listarConvitesPendentes", "os convites que o dono fez, com JOIN em companyProfiles.userId = dono"],
+      ["revogarConvite", "só o dono que convidou alcança o lote"],
+      ["aceitarConvite", "grava o vínculo do PRÓPRIO ator; a empresa vem do convite e o e-mail tem que bater"],
+      ["listarAcessos", "os vínculos vivos das empresas do dono, com JOIN em companyProfiles.userId = dono"],
+      ["revogarAcesso", "confere a posse da empresa antes de carimbar revokedAt"],
     ]);
 
     const porLogin = funcoes.filter(f => /\b(?:userId|atorId): number\b/.test(f.assinatura)).map(f => f.nome);

@@ -58,7 +58,7 @@ describe("escritaProcedure", () => {
      * O código importa para o cliente: UNAUTHORIZED derruba a sessão e mandaria
      * a contadora para a tela de login por ter clicado em Salvar.
      */
-    const erro = await routerDeTeste.createCaller(comoContadora()).gravar().catch(e => e as TRPCError);
+    const erro = await routerDeTeste.createCaller(comoContadora()).gravar().then(() => { throw new Error("deveria recusar"); }, (e: unknown) => e as TRPCError);
     expect(erro.code).toBe("FORBIDDEN");
     expect(erro.message).toBe(SOMENTE_LEITURA_ERR_MSG);
     expect(erro.message).toMatch(/somente leitura/i);

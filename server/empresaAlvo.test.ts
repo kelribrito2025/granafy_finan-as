@@ -81,7 +81,7 @@ describe("escopoDoAlvo: só o dono renomeia e arquiva", () => {
 
     const erro = await companiesRouter.createCaller(ctx).rename({
       companyId: PADARIA_DA_ANA.id, legalName: "Sequestrada", tradeName: "", taxId: "",
-    }).catch(e => e as TRPCError);
+    }).then(() => { throw new Error("deveria recusar"); }, (e: unknown) => e as TRPCError);
 
     expect(erro.code).toBe("FORBIDDEN");
     expect(erro.message).toMatch(/somente leitura/i);
@@ -93,7 +93,7 @@ describe("escopoDoAlvo: só o dono renomeia e arquiva", () => {
     setCompanyArchived.mockClear();
     const erro = await companiesRouter.createCaller(claraNaPropriaEmpresa())
       .setArchived({ companyId: PADARIA_DA_ANA.id, archived: true })
-      .catch(e => e as TRPCError);
+      .then(() => { throw new Error("deveria recusar"); }, (e: unknown) => e as TRPCError);
 
     expect(erro.code).toBe("FORBIDDEN");
     expect(setCompanyArchived).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("escopoDoAlvo: só o dono renomeia e arquiva", () => {
      */
     const erro = await companiesRouter.createCaller(anaNaPropriaEmpresa()).rename({
       companyId: 9999, legalName: "x", tradeName: "", taxId: "",
-    }).catch(e => e as TRPCError);
+    }).then(() => { throw new Error("deveria recusar"); }, (e: unknown) => e as TRPCError);
 
     expect(erro.code).toBe("NOT_FOUND");
   });
