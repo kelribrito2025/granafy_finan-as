@@ -109,7 +109,7 @@ export function StepEmpresa({ onDone, renderFooter }: {
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className={rotulo}>Razão social</span>
-          <input value={legalName} onChange={e => setLegalName(e.target.value)} maxLength={180} placeholder="Número Virtual LTDA" className={campo} />
+          <input value={legalName} onChange={e => setLegalName(e.target.value)} maxLength={180} placeholder="Empresa Exemplo LTDA" className={campo} />
         </label>
         <label className="block">
           <span className={rotulo}>Nome fantasia</span>

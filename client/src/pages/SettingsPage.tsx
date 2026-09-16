@@ -327,7 +327,7 @@ function CompanyForm({ initial, loading, pending, onSave }: {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className={labelClass}>Razão social</span>
-            <input maxLength={180} value={form.legalName} onChange={event => set("legalName", event.target.value)} placeholder="Número Virtual LTDA" className={fieldClass} />
+            <input maxLength={180} value={form.legalName} onChange={event => set("legalName", event.target.value)} placeholder="Empresa Exemplo LTDA" className={fieldClass} />
           </label>
           <label>
             <span className={labelClass}>Nome fantasia</span>
