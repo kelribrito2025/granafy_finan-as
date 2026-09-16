@@ -13,6 +13,7 @@ import {
 } from "@shared/reconciliation";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { assertPeriodsOpen } from "../periodLock";
 
 const MONTH_NAMES = [
   "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -39,23 +40,30 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-/**
- * Mês fechado não aceita alteração.
+/*
+ * Mês fechado não aceita alteração — e a guarda é a MESMA de lançamentos e
+ * importação, de propósito.
  *
- * Sem isso, o fechamento seria um carimbo decorativo: alguém mexeria num
- * lançamento de agosto e o saldo fechado deixaria de bater sem deixar rastro.
- * Para mexer, reabra — e a reabertura fica no histórico.
+ * Aqui vivia uma segunda implementação, que recebia UMA data por chamada. Para
+ * o caminho de uma movimentação só ela acertava; para lote e agrupamento, não
+ * tinha como: `confirmBatch` conferia a primeira e a última data do lote, e
+ * `group` conferia só a primeira das até 50. Um lote com janeiro aberto,
+ * fevereiro FECHADO e março aberto passava, e as movimentações de fevereiro
+ * entravam num mês já assinado — sem erro, sem rastro, e o saldo fechado
+ * deixando de bater.
+ *
+ * `assertPeriodsOpen` recebe a lista inteira e monta o conjunto de (conta, mês)
+ * de todos os alvos, então nenhum mês do meio escapa. Ela também diz QUAL mês e
+ * QUAL conta, e onde reabrir — a mensagem daqui era um "este mês está fechado"
+ * que mandava a pessoa procurar sozinha.
+ *
+ * Duas implementações da mesma regra é como o furo nasceu; a lição é não ter a
+ * segunda.
  */
-async function requireOpenPeriod(escopo: Escopo, accountId: number, date: string) {
-  const [year, month] = date.split("-").map(Number);
-  const period = await db.getReconciliationPeriod(escopo, accountId, year, month);
-  if (period && !period.reopenedAt) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Este mês está fechado. Reabra o período para alterar a conciliação.",
-    });
-  }
-}
+const alvoDe = (movement: { accountId: number; movementDate: string }) => ({
+  accountId: movement.accountId,
+  date: movement.movementDate,
+});
 
 type MovementRecord = Awaited<ReturnType<typeof db.listBankMovements>>[number];
 
@@ -235,7 +243,7 @@ export const reconciliationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const movement = await db.getBankMovement(escopoDe(ctx), input.movementId);
       if (!movement) throw new TRPCError({ code: "NOT_FOUND", message: "Movimentação não encontrada" });
-      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
+      await assertPeriodsOpen(escopoDe(ctx), [alvoDe(movement)]);
 
       const existing = await db.listReconciliationLinks(escopoDe(ctx), [movement.id]);
       if (existing.length > 0) {
@@ -295,9 +303,9 @@ export const reconciliationRouter = router({
       }
 
       const dates = movements.map(movement => movement.movementDate).sort();
-      // O lote pode cruzar a virada do mês: basta uma ponta fechada para recusar.
-      await requireOpenPeriod(escopoDe(ctx), accountId, dates[0]);
-      await requireOpenPeriod(escopoDe(ctx), accountId, dates[dates.length - 1]);
+      /* Todas as movimentações do lote, não as pontas: um mês fechado no MEIO
+         do intervalo também recusa. */
+      await assertPeriodsOpen(escopoDe(ctx), movements.map(alvoDe));
 
       const [candidateRows, rules, existingLinks] = await Promise.all([
         db.listUnlinkedTransactions(
@@ -370,7 +378,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Esta movimentação não está conciliada" });
       }
 
-      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
+      await assertPeriodsOpen(escopoDe(ctx), [alvoDe(movement)]);
       await db.unlinkMovement(escopoDe(ctx), {
         movementId: movement.id,
         previousStatus: movement.status,
@@ -409,7 +417,7 @@ export const reconciliationRouter = router({
         if (!related) throw new TRPCError({ code: "BAD_REQUEST", message: "A movimentação original não foi encontrada" });
       }
 
-      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
+      await assertPeriodsOpen(escopoDe(ctx), [alvoDe(movement)]);
       await db.classifyMovement(escopoDe(ctx), {
         movementId: movement.id,
         classification: input.classification,
@@ -466,7 +474,7 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Uma das categorias não está disponível" });
       }
 
-      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
+      await assertPeriodsOpen(escopoDe(ctx), [alvoDe(movement)]);
       await db.createTransactionsForMovement(escopoDe(ctx), {
         movementId: movement.id,
         previousStatus: movement.status,
@@ -563,7 +571,8 @@ export const reconciliationRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Movimentações e lançamento precisam ser da mesma conta" });
       }
 
-      await requireOpenPeriod(escopoDe(ctx), movements[0].accountId, movements[0].movementDate);
+      /* As até 50 movimentações do grupo, não só a primeira. */
+      await assertPeriodsOpen(escopoDe(ctx), movements.map(alvoDe));
       await db.groupMovements(escopoDe(ctx), {
         movementIds: movements.map(movement => movement.id),
         transactionId: transaction.id,
@@ -637,7 +646,7 @@ export const reconciliationRouter = router({
       if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
       // Mês fechado foi assinado com um saldo: trocar o saldo por baixo é
       // desfazer a assinatura sem reabrir.
-      await requireOpenPeriod(escopoDe(ctx), account.id, input.asOf);
+      await assertPeriodsOpen(escopoDe(ctx), [{ accountId: account.id, date: input.asOf }]);
 
       await db.saveStatementBalance(escopoDe(ctx), {
         accountId: account.id,
@@ -769,7 +778,7 @@ export const reconciliationRouter = router({
       // Só entra o que a própria regra explicou; o resto continua esperando
       // confirmação, que é o combinado.
       if (!suggestion || !suggestion.reason.startsWith("regra")) continue;
-      await requireOpenPeriod(escopoDe(ctx), movement.accountId, movement.movementDate);
+      await assertPeriodsOpen(escopoDe(ctx), [alvoDe(movement)]);
       await db.linkMovement(escopoDe(ctx), {
         movementId: movement.id,
         transactionId: suggestion.transactionId,

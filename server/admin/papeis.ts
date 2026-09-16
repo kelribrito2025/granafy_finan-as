@@ -15,6 +15,7 @@
 import { TRPCError } from "@trpc/server";
 import { count, eq } from "drizzle-orm";
 import { users } from "../../drizzle/schema";
+import { normalizeEmail } from "../auth";
 import { getDb } from "../db";
 
 async function conexao() {
@@ -25,7 +26,17 @@ async function conexao() {
 
 export async function promover({ email, ator }: { email: string; ator: number }) {
   const db = await conexao();
-  const alvo = email.trim();
+  /*
+   * `normalizeEmail`, e não `.trim()`.
+   *
+   * Todo e-mail entra no banco em minúsculas — cadastro, login e Google passam
+   * pela mesma função. Aqui a comparação era exata sobre o texto digitado, e a
+   * collation padrão do TiDB é BINÁRIA: promover digitando "Fulano@empresa.com"
+   * devolvia "nenhum login com esse e-mail" para uma conta que existe. O admin
+   * digita o endereço inteiro justamente porque promover é a ação mais fácil de
+   * fazer sem querer — e o erro fazia parecer que a conta não existia.
+   */
+  const alvo = normalizeEmail(email);
   const [pessoa] = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users)
