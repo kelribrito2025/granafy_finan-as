@@ -80,6 +80,17 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      /*
+       * Erro de servidor vai para o log, com o caminho da procedure. Sem isto
+       * uma consulta que quebra só aparece no navegador — e quando a tela
+       * engole o erro, não aparece em lugar nenhum. Erros do cliente (input
+       * inválido, sem permissão) ficam de fora: são resposta, não defeito.
+       */
+      onError({ path, error }) {
+        if (error.code === "INTERNAL_SERVER_ERROR") {
+          console.error(`[trpc] ${path ?? "?"}: ${error.message}`, error.cause ?? "");
+        }
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
