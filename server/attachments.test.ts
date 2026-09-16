@@ -35,6 +35,7 @@ describe("propriedade do anexo", () => {
 
   it("libera só a arte listada, e nada além dela", () => {
     expect(isPublicAssetKey("efi-bank-logo_221c9925.png")).toBe(true);
+    expect(isPublicAssetKey("granafy-icone-verde-512_d6fa67fc.png")).toBe(true);
     expect(isPublicAssetKey("qualquer-outro-arquivo.png")).toBe(false);
     expect(isPublicAssetKey("lancamentos/7/nota.pdf")).toBe(false);
   });

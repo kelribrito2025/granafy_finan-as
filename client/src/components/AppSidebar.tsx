@@ -1,5 +1,5 @@
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
-import { GranafyLogo, GranafySymbol } from "@/components/GranafyLogo";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import {
   ArrowsUpDownIcon,
   ArrowUpIcon,
@@ -288,9 +288,12 @@ export function AppSidebar({ open, onClose, footer }: {
           do login. Inteira ela é branca, como os cartões; recolhida vira um
           trilho, e o trilho se destaca do fundo em vez de se confundir com ele. */}
       <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-[#0B1F14] px-4 py-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
-          <GranafySymbol size={22} tone="onDark" className="[&_circle]:stroke-white/40 [&_path]:stroke-white" />
-        </span>
+        <img
+          src="/manus-storage/granafy-icone-verde-512_d6fa67fc.png"
+          alt=""
+          aria-hidden="true"
+          className="h-9 w-9 shrink-0 rounded-[11px] object-cover"
+        />
 
         <div className="flex flex-col items-center gap-1">
           {GROUPS.map((group, index) => (
