@@ -1,4 +1,4 @@
-import { NOT_ADMIN_ERR_MSG, SEM_EMPRESA_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { NOT_ADMIN_ERR_MSG, SEM_EMPRESA_ERR_MSG, SOMENTE_LEITURA_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -50,6 +50,43 @@ const requireUser = t.middleware(async opts => {
 });
 
 export const protectedProcedure = t.procedure.use(requireUser);
+
+/**
+ * A tranca da escrita — Fase B do acesso do contador.
+ *
+ * `protectedProcedure` responde "quem é você"; esta responde "você pode mudar
+ * isto". São perguntas diferentes e, até a Fase A, tinham a mesma resposta,
+ * porque só o dono entrava. Com vínculo, não têm mais.
+ *
+ * A tranca mora AQUI, e não em cada mutação, por um motivo prático: uma
+ * verificação repetida 46 vezes é uma verificação que alguém vai esquecer na
+ * quadragésima sétima. No middleware, a mutação nova nasce trancada — e a
+ * sentinela em `tranca.test.ts` recusa qualquer `.mutation(` que não passe por
+ * aqui, com uma lista fechada de exceções justificadas.
+ *
+ * `papel` é o papel NA EMPRESA ABERTA, e é só sobre ela que esta tranca fala.
+ * A mesma pessoa é dona da própria empresa e contadora na do cliente: o que
+ * decide é qual delas está aberta no request.
+ *
+ * O que NÃO está aqui, de propósito: a leitura. O contador lê tudo o que o dono
+ * lê — é a fase inteira. Bloquear leitura seria outro produto.
+ */
+export const escritaProcedure = protectedProcedure.use(async opts => {
+  const { ctx, next } = opts;
+
+  if (ctx.papel !== "dono") {
+    throw new TRPCError({ code: "FORBIDDEN", message: SOMENTE_LEITURA_ERR_MSG });
+  }
+
+  /*
+   * `next()` pelado, sem `{ ctx }`: repassar o contexto aqui o alarga de volta
+   * para o tipo da raiz e as mutações perdem o `user` não-nulo que a
+   * `requireUser` garantiu — cinco erros de `possibly null` em `transactions.ts`
+   * foram o aviso. Esta guarda não acrescenta nada ao contexto; só decide se a
+   * chamada segue.
+   */
+  return next();
+});
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {

@@ -8,7 +8,7 @@ import {
   SIDEBAR_MODES,
 } from "@shared/preferences";
 import { escopoDe } from "../escopo";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
 const companyValuesSchema = z.object({
@@ -76,7 +76,7 @@ export const settingsRouter = router({
     };
   }),
 
-  saveCompany: protectedProcedure.input(companyValuesSchema).mutation(async ({ ctx, input }) => {
+  saveCompany: escritaProcedure.input(companyValuesSchema).mutation(async ({ ctx, input }) => {
     await db.saveCompanyProfile(escopoDe(ctx), { ...input, state: input.state.toUpperCase() });
     return { success: true } as const;
   }),

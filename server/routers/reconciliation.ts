@@ -11,7 +11,7 @@ import {
   type MovementSide,
   type SuggestionRule,
 } from "@shared/reconciliation";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { assertPeriodsOpen } from "../periodLock";
 
@@ -234,7 +234,7 @@ export const reconciliationRouter = router({
   }),
 
   /** Aceita a sugestão de uma movimentação, ou vincula a um lançamento escolhido. */
-  confirm: protectedProcedure
+  confirm: escritaProcedure
     .input(z.object({
       movementId: z.number().int().positive(),
       transactionId: z.number().int().positive(),
@@ -284,7 +284,7 @@ export const reconciliationRouter = router({
    * um lançamento pode ter sido conciliado por outro caminho. O que não casa
    * mais é devolvido como pulado, em vez de conciliado no escuro.
    */
-  confirmBatch: protectedProcedure
+  confirmBatch: escritaProcedure
     .input(z.object({
       movementIds: z.array(z.number().int().positive()).min(1).max(200),
     }))
@@ -367,7 +367,7 @@ export const reconciliationRouter = router({
     }),
 
   /** Desfaz a conciliação de uma movimentação. */
-  undo: protectedProcedure
+  undo: escritaProcedure
     .input(z.object({ movementId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const movement = await db.getBankMovement(escopoDe(ctx), input.movementId);
@@ -392,7 +392,7 @@ export const reconciliationRouter = router({
    * pessoal, duplicidade, estorno ou fora dos relatórios. A linha continua no
    * extrato — classificar não é apagar.
    */
-  classify: protectedProcedure
+  classify: escritaProcedure
     .input(z.object({
       movementId: z.number().int().positive(),
       classification: z.enum(["transferencia", "pessoal", "duplicidade", "estorno", "fora_dos_relatorios"]),
@@ -434,7 +434,7 @@ export const reconciliationRouter = router({
    * A soma das partes tem que fechar com o valor da movimentação ao centavo:
    * dividir 1.000 em 400 e 500 deixaria 100 fora do razão sem ninguém avisar.
    */
-  createFromMovement: protectedProcedure
+  createFromMovement: escritaProcedure
     .input(z.object({
       movementId: z.number().int().positive(),
       parts: z.array(z.object({
@@ -540,7 +540,7 @@ export const reconciliationRouter = router({
     }),
 
   /** Agrupa várias movimentações num lançamento só. */
-  group: protectedProcedure
+  group: escritaProcedure
     .input(z.object({
       movementIds: z.array(z.number().int().positive()).min(2).max(50),
       transactionId: z.number().int().positive(),
@@ -635,7 +635,7 @@ export const reconciliationRouter = router({
    * A data é a do saldo, não a de hoje: extrato de setembro se confere com o
    * saldo de setembro.
    */
-  setStatementBalance: protectedProcedure
+  setStatementBalance: escritaProcedure
     .input(z.object({
       accountId: z.number().int().positive(),
       asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida"),
@@ -661,7 +661,7 @@ export const reconciliationRouter = router({
    * Fecha o mês. Só com diferença zero: fechar com sobra é assinar embaixo de
    * um número que não bate.
    */
-  closePeriod: protectedProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
+  closePeriod: escritaProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
     const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
     if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 
@@ -698,7 +698,7 @@ export const reconciliationRouter = router({
   }),
 
   /** Reabre o mês. Exige motivo, e ele fica no histórico. */
-  reopenPeriod: protectedProcedure
+  reopenPeriod: escritaProcedure
     .input(periodSchema.extend({ reason: z.string().trim().min(3, "Diga por que está reabrindo").max(500) }))
     .mutation(async ({ ctx, input }) => {
       const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
@@ -725,7 +725,7 @@ export const reconciliationRouter = router({
    * razão por conta própria enquanto a tela só estava aberta seria surpresa,
    * não automação.
    */
-  applyAutoRules: protectedProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
+  applyAutoRules: escritaProcedure.input(periodSchema).mutation(async ({ ctx, input }) => {
     const { account } = await resolveAccount(escopoDe(ctx), input.accountId);
     if (!account) throw new TRPCError({ code: "BAD_REQUEST", message: "Conta não encontrada" });
 

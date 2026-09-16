@@ -5,7 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, type AttachmentFolder } from "../attachments";
 import * as db from "../db";
 import { settlementDateFor } from "../settlement";
@@ -521,7 +521,7 @@ export const transactionsRouter = router({
     };
   }),
 
-  create: protectedProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
+  create: escritaProcedure.input(transactionValuesSchema).mutation(async ({ ctx, input }) => {
     const rows = await buildRowsForCreate(escopoDe(ctx), input, await userToday(ctx.user.id));
     // Depois de montar: uma série recorrente ou uma transferência espalha
     // linhas por vários meses e contas, e qualquer uma delas pode cair no mês
@@ -536,7 +536,7 @@ export const transactionsRouter = router({
     return { ...toTransaction(first), createdCount: records.length, monthCount };
   }),
 
-  update: protectedProcedure.input(transactionUpdateSchema).mutation(async ({ ctx, input }) => {
+  update: escritaProcedure.input(transactionUpdateSchema).mutation(async ({ ctx, input }) => {
     const { id, scope, ...values } = input;
     const existing = await db.getTransactionById(escopoDe(ctx), id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
@@ -716,7 +716,7 @@ export const transactionsRouter = router({
     return toTransaction(record);
   }),
 
-  duplicate: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  duplicate: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(escopoDe(ctx), input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
@@ -781,7 +781,7 @@ export const transactionsRouter = router({
    * aparecendo na tela de pagas e recebidas, com uma liquidação que não
    * aconteceu mais.
    */
-  toggleStatus: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  toggleStatus: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const existing = await db.getTransactionById(escopoDe(ctx), input.id);
     if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Lançamento não encontrado" });
 
@@ -820,7 +820,7 @@ export const transactionsRouter = router({
     return toTransaction(record);
   }),
 
-  updateMany: protectedProcedure.input(z.object({
+  updateMany: escritaProcedure.input(z.object({
     ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_UPDATE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
     changes: bulkUpdateChangesSchema,
   })).mutation(async ({ ctx, input }) => {
@@ -876,7 +876,7 @@ export const transactionsRouter = router({
     return { success: true, requestedCount: ids.length, matchedCount: records.length, updatedCount } as const;
   }),
 
-  uploadAttachment: protectedProcedure
+  uploadAttachment: escritaProcedure
     .input(z.object({
       fileName: z.string().trim().min(1).max(180),
       contentType: z.enum(ATTACHMENT_CONTENT_TYPES),
@@ -927,7 +927,7 @@ export const transactionsRouter = router({
       }
     }),
 
-  delete: protectedProcedure
+  delete: escritaProcedure
     .input(z.object({ id: z.number().int().positive(), scope: seriesScopeSchema }))
     .mutation(async ({ ctx, input }) => {
       const existing = await db.getTransactionById(escopoDe(ctx), input.id);
@@ -950,7 +950,7 @@ export const transactionsRouter = router({
       return { success: true, deletedCount: 1 } as const;
     }),
 
-  deleteMany: protectedProcedure.input(z.object({
+  deleteMany: escritaProcedure.input(z.object({
     ids: z.array(z.number().int().positive()).min(1).max(MAX_BULK_DELETE_IDS, "Selecione no máximo 20.000 lançamentos por vez"),
   })).mutation(async ({ ctx, input }) => {
     const ids = Array.from(new Set(input.ids));

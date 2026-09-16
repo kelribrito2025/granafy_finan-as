@@ -4,7 +4,7 @@ import { escopoDe } from "../escopo";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { RULE_MATCH_TYPES } from "@shared/categoryRules";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 
 const colorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida");
@@ -203,7 +203,7 @@ export const organizationRouter = router({
     };
   }),
 
-  createAccount: protectedProcedure.input(accountValuesSchema).mutation(async ({ ctx, input }) => {
+  createAccount: escritaProcedure.input(accountValuesSchema).mutation(async ({ ctx, input }) => {
     if (await db.getFinancialAccountByName(escopoDe(ctx), input.name)) {
       throw conflictError("uma conta");
     }
@@ -214,7 +214,7 @@ export const organizationRouter = router({
     }
   }),
 
-  updateAccount: protectedProcedure.input(accountValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  updateAccount: escritaProcedure.input(accountValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     if (!await db.getFinancialAccount(escopoDe(ctx), id)) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
     const conflictingAccount = await db.getFinancialAccountByName(escopoDe(ctx), values.name);
@@ -226,13 +226,13 @@ export const organizationRouter = router({
     }
   }),
 
-  toggleAccount: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  toggleAccount: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const account = await db.getFinancialAccount(escopoDe(ctx), input.id);
     if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
     return db.updateFinancialAccount(escopoDe(ctx), input.id, { isActive: !account.isActive });
   }),
 
-  deleteAccount: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  deleteAccount: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (!await db.getFinancialAccount(escopoDe(ctx), input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Conta não encontrada" });
     if (!await db.deleteFinancialAccount(escopoDe(ctx), input.id)) {
       throw new TRPCError({ code: "CONFLICT", message: "Esta conta possui lançamentos. Desative-a para preservar o histórico." });
@@ -240,7 +240,7 @@ export const organizationRouter = router({
     return { success: true } as const;
   }),
 
-  createCategory: protectedProcedure.input(categoryValuesSchema).mutation(async ({ ctx, input }) => {
+  createCategory: escritaProcedure.input(categoryValuesSchema).mutation(async ({ ctx, input }) => {
     if (await db.getTransactionCategoryByName(escopoDe(ctx), input.name)) {
       throw conflictError("uma categoria");
     }
@@ -251,7 +251,7 @@ export const organizationRouter = router({
     }
   }),
 
-  updateCategory: protectedProcedure.input(categoryValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  updateCategory: escritaProcedure.input(categoryValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     if (!await db.getTransactionCategory(escopoDe(ctx), id)) throw new TRPCError({ code: "NOT_FOUND", message: "Categoria não encontrada" });
     const conflictingCategory = await db.getTransactionCategoryByName(escopoDe(ctx), values.name);
@@ -263,13 +263,13 @@ export const organizationRouter = router({
     }
   }),
 
-  toggleCategory: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  toggleCategory: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const category = await db.getTransactionCategory(escopoDe(ctx), input.id);
     if (!category) throw new TRPCError({ code: "NOT_FOUND", message: "Categoria não encontrada" });
     return db.updateTransactionCategory(escopoDe(ctx), input.id, { isActive: !category.isActive });
   }),
 
-  deleteCategory: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  deleteCategory: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (!await db.getTransactionCategory(escopoDe(ctx), input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Categoria não encontrada" });
     if (!await db.deleteTransactionCategory(escopoDe(ctx), input.id)) {
       throw new TRPCError({ code: "CONFLICT", message: "Esta categoria possui lançamentos. Desative-a para preservar o histórico." });
@@ -282,12 +282,12 @@ export const organizationRouter = router({
     return rules.map(rule => ({ ...rule, categoryId: rule.categoryId, costCenterId: rule.costCenterId }));
   }),
 
-  createRule: protectedProcedure.input(ruleValuesSchema).mutation(async ({ ctx, input }) => {
+  createRule: escritaProcedure.input(ruleValuesSchema).mutation(async ({ ctx, input }) => {
     const resolved = await resolveRuleTargets(escopoDe(ctx), input);
     return db.createCategoryRule(escopoDe(ctx), { ...resolved, isActive: true });
   }),
 
-  updateRule: protectedProcedure
+  updateRule: escritaProcedure
     .input(z.object({ id: z.number().int().positive() }).and(ruleValuesSchema))
     .mutation(async ({ ctx, input }) => {
       const { id, ...values } = input;
@@ -297,13 +297,13 @@ export const organizationRouter = router({
       return db.updateCategoryRule(escopoDe(ctx), id, await resolveRuleTargets(escopoDe(ctx), values));
     }),
 
-  toggleRule: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  toggleRule: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const rule = await db.getCategoryRule(escopoDe(ctx), input.id);
     if (!rule) throw new TRPCError({ code: "NOT_FOUND", message: "Regra não encontrada" });
     return db.updateCategoryRule(escopoDe(ctx), input.id, { isActive: !rule.isActive });
   }),
 
-  deleteRule: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  deleteRule: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (!await db.getCategoryRule(escopoDe(ctx), input.id)) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Regra não encontrada" });
     }
@@ -315,7 +315,7 @@ export const organizationRouter = router({
    * Categorias já existentes são puladas em vez de duplicadas — importar duas
    * vezes o mesmo plano não pode multiplicar o cadastro.
    */
-  importCategories: protectedProcedure
+  importCategories: escritaProcedure
     .input(z.object({ content: z.string().min(1).max(200_000) }))
     .mutation(async ({ ctx, input }) => {
       const existing = new Set(
@@ -360,7 +360,7 @@ export const organizationRouter = router({
       };
     }),
 
-  createCostCenter: protectedProcedure.input(costCenterValuesSchema).mutation(async ({ ctx, input }) => {
+  createCostCenter: escritaProcedure.input(costCenterValuesSchema).mutation(async ({ ctx, input }) => {
     if (await db.getCostCenterByName(escopoDe(ctx), input.name)) throw conflictError("um centro de custo");
     try {
       return await db.createCostCenter(escopoDe(ctx), { ...input, isActive: true });
@@ -369,7 +369,7 @@ export const organizationRouter = router({
     }
   }),
 
-  updateCostCenter: protectedProcedure.input(costCenterValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  updateCostCenter: escritaProcedure.input(costCenterValuesSchema.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const { id, ...values } = input;
     if (!await db.getCostCenter(escopoDe(ctx), id)) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
     const conflicting = await db.getCostCenterByName(escopoDe(ctx), values.name);
@@ -381,13 +381,13 @@ export const organizationRouter = router({
     }
   }),
 
-  toggleCostCenter: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  toggleCostCenter: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const costCenter = await db.getCostCenter(escopoDe(ctx), input.id);
     if (!costCenter) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
     return db.updateCostCenter(escopoDe(ctx), input.id, { isActive: !costCenter.isActive });
   }),
 
-  deleteCostCenter: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  deleteCostCenter: escritaProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (!await db.getCostCenter(escopoDe(ctx), input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Centro de custo não encontrado" });
     if (!await db.deleteCostCenter(escopoDe(ctx), input.id)) {
       throw new TRPCError({ code: "CONFLICT", message: "Este centro de custo possui lançamentos. Desative-o para preservar o histórico." });

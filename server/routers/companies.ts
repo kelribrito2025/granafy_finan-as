@@ -1,5 +1,5 @@
 import { companyDisplayName } from "@shared/companies";
-import { COMPANY_COOKIE_NAME } from "@shared/const";
+import { COMPANY_COOKIE_NAME, SOMENTE_LEITURA_ERR_MSG } from "@shared/const";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -72,9 +72,30 @@ const valoresSchema = z.object({
 /** O alvo de uma mutação: uma empresa qualquer da lista, não a ativa. */
 const alvoSchema = z.object({ companyId: z.number().int().positive() });
 
-function escopoDoAlvo(ctx: { user: { id: number } | null }, companyId: number) {
+/**
+ * O escopo da empresa ALVO, com a guarda de dono explícita.
+ *
+ * As quatro mutações deste router ficaram de fora da `escritaProcedure` de
+ * propósito, e é aqui que se paga por isso. A tranca do middleware fala do
+ * papel na empresa ABERTA; estas mutações recebem outra empresa por parâmetro,
+ * então a pergunta certa não é "quem sou eu na empresa aberta" e sim "sou dono
+ * DESTA". Uma contadora com a própria empresa aberta passaria pela tranca
+ * genérica e chegaria aqui com o id da empresa do cliente.
+ *
+ * Antes da Fase A isto era `{ userId: ctx.user.id, companyId }` e bastava: a
+ * lista do request só tinha empresa própria, então pedir uma alheia não achava
+ * linha nenhuma e o UPDATE não pegava nada. Continuaria "seguro", e silencioso
+ * — o pior tipo de seguro, porque a tela diria "salvo" sem ter salvo. A recusa
+ * explícita troca o no-op por um erro que a pessoa entende.
+ */
+function escopoDoAlvo(ctx: Pick<TrpcContext, "user" | "companies">, companyId: number) {
   if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
-  return { userId: ctx.user.id, companyId };
+  const alvo = ctx.companies.find(empresa => empresa.id === companyId);
+  if (!alvo) throw new TRPCError({ code: "NOT_FOUND", message: "Empresa não encontrada neste acesso." });
+  if (alvo.userId !== ctx.user.id) {
+    throw new TRPCError({ code: "FORBIDDEN", message: SOMENTE_LEITURA_ERR_MSG });
+  }
+  return { userId: alvo.userId, companyId };
 }
 
 export const companiesRouter = router({

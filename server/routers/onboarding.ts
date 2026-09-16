@@ -1,5 +1,5 @@
 import { escopoDe } from "../escopo";
-import { protectedProcedure, router } from "../_core/trpc";
+import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { shouldShowOnboarding } from "../onboarding";
 
@@ -40,7 +40,7 @@ export const onboardingRouter = router({
    * E decide para ESTA empresa, não para o login. Concluir na segunda empresa
    * não cala o assistente na terceira.
    */
-  complete: protectedProcedure.mutation(async ({ ctx }) => {
+  complete: escritaProcedure.mutation(async ({ ctx }) => {
     await db.markOnboardingCompleted(escopoDe(ctx));
     return { success: true } as const;
   }),
