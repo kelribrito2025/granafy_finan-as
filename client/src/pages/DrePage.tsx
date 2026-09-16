@@ -570,7 +570,7 @@ export default function DrePage() {
             <div className="mr-auto">
               <h1 className="text-[24px] font-bold tracking-[-.02em]">DRE</h1>
               <p className="mt-0.5 text-[12.5px] text-[#8A968D]">
-                {regime === "competencia" ? "Regime de competência" : "Regime de caixa"} · {mesVazio ? `nenhum lançamento em ${monthLabel.toLowerCase()}` : view === "mes" ? monthLabel : series ? `${series.from} a ${series.to}` : monthLabel}
+                {regime === "competencia" ? "Regime de competência" : "Regime de caixa"} · {view === "mes" ? monthLabel : series ? `${series.from} a ${series.to}` : monthLabel}
               </p>
             </div>
 
