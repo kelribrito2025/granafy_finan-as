@@ -6,6 +6,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { valorDoCookie, type TrpcContext } from "../_core/context";
 import * as db from "../db";
+import { registrarTroca } from "../registroDeAcesso";
 import { userToday } from "../userToday";
 
 /**
@@ -221,6 +222,8 @@ export const companiesRouter = router({
   /** Troca a empresa aberta. O cliente limpa o cache e recarrega em seguida. */
   open: protectedProcedure.input(alvoSchema).mutation(async ({ ctx, input }) => {
     gravarEscolha(ctx, input.companyId);
+    // Depois de `gravarEscolha`: ela recusa empresa fora da lista, e recusa não se registra.
+    void registrarTroca(ctx.ator, input.companyId);
     return { success: true } as const;
   }),
 

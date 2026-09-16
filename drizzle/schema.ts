@@ -848,7 +848,37 @@ export const companyInvites = mysqlTable("companyInvites", {
   index("company_invites_lote_idx").on(table.lote),
 ]);
 
+/**
+ * O registro de acesso — Fase E do acesso do contador.
+ *
+ * Uma linha por evento que PASSA PELO SERVIDOR: entrar, trocar de empresa. É
+ * o que dá para registrar com honestidade. A exportação de CSV é montada no
+ * navegador, então a linha dela é o que a tela DECLAROU ter feito — quem
+ * chamar a API direto lê o mesmo dado sem registrar. A tela do dono diz essa
+ * diferença, senão promete uma auditoria que não tem.
+ *
+ * `userId` aqui é o ATOR (quem fez), não o dono do dado: é a única tabela do
+ * schema em que a coluna tem esse sentido, e por isso o registro nunca entra
+ * em consulta de escopo.
+ */
+export const accessLog = mysqlTable("accessLog", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Quem fez. */
+  userId: int("userId").notNull(),
+  /** Em qual empresa. */
+  companyId: int("companyId").notNull(),
+  event: mysqlEnum("event", ["entrada", "troca", "exportacao"]).notNull(),
+  /** O que foi exportado, quando o evento é exportação. */
+  detail: varchar("detail", { length: 120 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  index("access_log_company_created_idx").on(table.companyId, table.createdAt),
+  index("access_log_user_idx").on(table.userId),
+]);
+
 export type CompanyAccessRecord = typeof companyAccess.$inferSelect;
 export type InsertCompanyAccess = typeof companyAccess.$inferInsert;
 export type CompanyInviteRecord = typeof companyInvites.$inferSelect;
 export type InsertCompanyInvite = typeof companyInvites.$inferInsert;
+export type AccessLogRecord = typeof accessLog.$inferSelect;
+export type InsertAccessLog = typeof accessLog.$inferInsert;

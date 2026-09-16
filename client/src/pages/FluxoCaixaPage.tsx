@@ -25,6 +25,7 @@ import { useState, type ReactNode } from "react";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 type View = "dia" | "semana" | "mes";
 type Outputs = inferRouterOutputs<AppRouter>["cashflow"];
@@ -443,7 +444,9 @@ export default function FluxoCaixaPage() {
   const loading = view === "mes" ? monthlyQuery.isPending : dailyQuery.isPending;
   const error = view === "mes" ? monthlyQuery.error : dailyQuery.error;
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportCsv = () => {
+    registrarExportacao("Fluxo de caixa");
     const quote = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
     let csv = "";
     let name = "";

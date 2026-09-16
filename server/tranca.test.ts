@@ -32,6 +32,7 @@ const FORA_DA_TRANCA: Record<string, Record<string, string>> = {
   "acessos.ts": {
     aceitar: "grava o vínculo do PRÓPRIO ator; a empresa vem do convite, não da ativa — e o e-mail tem que bater",
     aceitarCriandoConta: "pública por definição: quem aceita ainda não tem login; o e-mail é o do convite",
+    registrarExportacao: "anota o que o PRÓPRIO ator declarou ter exportado; o contador exporta, e não escreve dado da empresa",
   },
   "admin.ts": {
     "*": "router inteiro é adminProcedure — o admin olha o sistema, não a janela de uma empresa",

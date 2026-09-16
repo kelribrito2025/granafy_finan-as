@@ -69,6 +69,7 @@ import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 type BalanceGroup =
   | "ativo_circulante"
@@ -1214,7 +1215,9 @@ export default function BalanceSheetPage() {
     [data?.history, evolution.movementItems]
   );
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportBalanceSheet = () => {
+    registrarExportacao("Balanço patrimonial");
     const reference = referenceDate;
     const lines: string[][] = [["Grupo", "Linha", "Valor"]];
     const pushSections = (sections: StatementSection[]) => {

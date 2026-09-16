@@ -25,6 +25,7 @@ import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 type DreOutputs = inferRouterOutputs<AppRouter>["dre"];
 type StatementData = DreOutputs["statement"];
@@ -497,7 +498,9 @@ export default function DrePage() {
   );
   const isFuture = lastDay > new Date().toISOString().slice(0, 10);
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportCsv = () => {
+    registrarExportacao("DRE");
     const separator = ";";
     const quote = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
     let name = "";

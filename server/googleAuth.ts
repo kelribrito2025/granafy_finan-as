@@ -15,6 +15,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { normalizeEmail, setLocalSession } from "./auth";
 import * as db from "./db";
 import { ENV, isGoogleLoginEnabled } from "./_core/env";
+import { registrarEntrada } from "./registroDeAcesso";
 
 const STATE_COOKIE = "granafy_google_state";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -119,6 +120,7 @@ export function registerGoogleAuthRoutes(app: Express) {
         db.ensureDefaultCompany(user.id),
       ]);
       await setLocalSession(req, res, user.id);
+      void registrarEntrada(req, user.id);
 
       /*
        * Quem tem mais de uma empresa escolhe antes de entrar, igual ao login
