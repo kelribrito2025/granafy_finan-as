@@ -104,6 +104,15 @@ export default function ConvitePage() {
   let conteudo: ReactElement;
   if (convite.isLoading || carregandoSessao) {
     conteudo = <div className="flex min-h-[220px] items-center justify-center"><GranafyLoader label="Conferindo o convite" /></div>;
+  } else if (convite.isError) {
+    conteudo = (
+      <>
+        <Selo icone={<LockIcon size={22} />} />
+        <h1 className="mt-6 text-[28px] font-semibold leading-tight tracking-[-0.04em]">Não foi possível conferir o convite</h1>
+        <p className="mt-3 text-[14.5px] leading-6 text-[#718077]">{convite.error.message}</p>
+        <button type="button" onClick={() => convite.refetch()} className={`${botaoClass} mt-8`}>Tentar de novo</button>
+      </>
+    );
   } else if (!convite.data || convite.data.status === "invalido") {
     const motivo = MOTIVO[convite.data?.motivo ?? "inexistente"] ?? MOTIVO.inexistente!;
     conteudo = (
