@@ -6,7 +6,7 @@
  * que é o remetente de todos os e-mails, não só o da redefinição) vivem no
  * `.env` e no ambiente de produção — nunca no repositório.
  */
-import { emailDeAtivacao, emailDeBoasVindas, emailDeConvite, emailDeRedefinicao, enviarEmail, envioDeEmailConfigurado } from "./emails";
+import { emailDeAtivacao, emailDeBoasVindas, emailDeContasAtrasadas, emailDeConvite, emailDeRedefinicao, enviarEmail, envioDeEmailConfigurado } from "./emails";
 
 export function isPasswordResetEmailConfigured() {
   return envioDeEmailConfigurado();
@@ -57,5 +57,17 @@ export async function sendCompanyInvite(dados: {
     token: dados.token,
     validade: "7 dias",
   });
+  return enviarEmail({ to: dados.to, assunto, html });
+}
+
+/** O alerta diário de contas a pagar atrasadas. `false` quando o envio não está configurado. */
+export async function sendOverdueAlert(dados: {
+  to: string;
+  nome: string | null;
+  empresa: string;
+  contas: Array<{ descricao: string; contato: string; vencimento: string; diasDeAtraso: number; valor: number }>;
+  total: number;
+}) {
+  const { assunto, html } = emailDeContasAtrasadas(dados);
   return enviarEmail({ to: dados.to, assunto, html });
 }

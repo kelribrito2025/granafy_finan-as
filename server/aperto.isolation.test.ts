@@ -44,7 +44,7 @@ const COM_EMPRESA = [
  * empresa — é vínculo, não razão, e por isso fica fora das treze e das guardas
  * de escopo. Entra aqui só para a contagem do banco de verdade fechar.
  */
-const APONTAM_PARA_EMPRESA = ["accessLog", "companyAccess", "companyInvites"] as const;
+const APONTAM_PARA_EMPRESA = ["accessLog", "alertDispatches", "companyAccess", "companyInvites"] as const;
 
 async function semear(c: Connection) {
   await c.query(

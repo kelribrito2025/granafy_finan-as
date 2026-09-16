@@ -23,6 +23,8 @@ export type Preferences = {
   sidebarBadges: boolean;
   /** Recolher na mão passa a valer na próxima visita. */
   sidebarRemember: boolean;
+  /** E-mail diário com as contas a pagar atrasadas. */
+  alertaContasAtrasadas: boolean;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -35,6 +37,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   sidebarTooltips: true,
   sidebarBadges: true,
   sidebarRemember: false,
+  alertaContasAtrasadas: true,
 };
 
 /**

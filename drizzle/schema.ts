@@ -255,6 +255,8 @@ export const userPreferences = mysqlTable("userPreferences", {
   sidebarBadges: boolean("sidebarBadges").default(true).notNull(),
   /** Quando ligado, recolher a barra na mão vira o estado da próxima visita. */
   sidebarRemember: boolean("sidebarRemember").default(false).notNull(),
+  /** E-mail diário com as contas a pagar atrasadas. Ligado por padrão: quem não quer, desliga. */
+  alertaContasAtrasadas: boolean("alertaContasAtrasadas").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
@@ -876,9 +878,31 @@ export const accessLog = mysqlTable("accessLog", {
   index("access_log_user_idx").on(table.userId),
 ]);
 
+/**
+ * O que já foi enviado de alerta — um por (login, empresa, tipo, dia).
+ *
+ * O agendador roda a cada quinze minutos e o servidor pode reiniciar no meio
+ * do dia; sem esta tabela, cada rodada depois das 8h mandaria o e-mail de
+ * novo. O único composto é a trava: a segunda tentativa do mesmo dia falha
+ * no INSERT, e falhar aí é o comportamento desejado.
+ */
+export const alertDispatches = mysqlTable("alertDispatches", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  companyId: int("companyId").notNull(),
+  kind: mysqlEnum("kind", ["contas_atrasadas"]).notNull(),
+  /** O dia NO FUSO da pessoa, não o do servidor. */
+  sentOn: date("sentOn", { mode: "string" }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  uniqueIndex("alert_dispatches_uidx").on(table.userId, table.companyId, table.kind, table.sentOn),
+]);
+
 export type CompanyAccessRecord = typeof companyAccess.$inferSelect;
 export type InsertCompanyAccess = typeof companyAccess.$inferInsert;
 export type CompanyInviteRecord = typeof companyInvites.$inferSelect;
 export type InsertCompanyInvite = typeof companyInvites.$inferInsert;
 export type AccessLogRecord = typeof accessLog.$inferSelect;
 export type InsertAccessLog = typeof accessLog.$inferInsert;
+export type AlertDispatchRecord = typeof alertDispatches.$inferSelect;
+export type InsertAlertDispatch = typeof alertDispatches.$inferInsert;

@@ -245,6 +245,9 @@ describe("invariante das guardas de isolamento em db.ts", () => {
       /* Registro de acesso (Fase E): userId ali é o ATOR, quem fez — nunca entra em escopo. */
       ["registrarAcesso", "grava o que o ATOR fez na empresa que abriu; falhar aqui nunca derruba a operação"],
       ["listarRegistroDeAcessos", "os eventos nas empresas do dono, com JOIN em companyProfiles.userId = dono"],
+      /* Alertas: o carimbo do envio é por (login, empresa, dia); a empresa vem junto, não em Escopo, porque não é dado dela. */
+      ["registrarEnvioDeAlerta", "carimba o envio do dia para (login, empresa); o único composto é a trava"],
+      ["desfazerEnvioDeAlerta", "o par do de cima, quando o e-mail não saiu"],
     ]);
 
     const porLogin = funcoes.filter(f => /\b(?:userId|atorId): number\b/.test(f.assinatura)).map(f => f.nome);

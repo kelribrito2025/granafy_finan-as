@@ -4,6 +4,7 @@ import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
   accessLog,
+  alertDispatches,
   balanceSheetSnapshots,
   categoryRules,
   companyAccess,
@@ -3103,4 +3104,85 @@ export async function listarRegistroDeAcessos(atorId: number, limite = 50) {
     .where(eq(companyProfiles.userId, atorId))
     .orderBy(desc(accessLog.createdAt), desc(accessLog.id))
     .limit(limite);
+}
+
+/* ── Alertas por e-mail ──────────────────────────────────────────────────── */
+
+/**
+ * Quem recebe alerta: todo login com o alerta ligado. Sem linha de
+ * preferências conta como ligado — é o padrão da coluna, e a maioria das
+ * contas nunca abriu Preferências.
+ */
+export async function listarDestinatariosDeAlerta() {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const linhas = await db
+    .select({
+      userId: users.id,
+      email: users.email,
+      name: users.name,
+      timeZone: userPreferences.timeZone,
+      ligado: userPreferences.alertaContasAtrasadas,
+    })
+    .from(users)
+    .leftJoin(userPreferences, eq(userPreferences.userId, users.id))
+    .where(isNotNull(users.email));
+  return linhas
+    .filter(l => l.ligado !== false)
+    .map(l => ({ userId: l.userId, email: l.email!, name: l.name, timeZone: l.timeZone ?? null }));
+}
+
+/** As contas a pagar vencidas e ainda pendentes de UMA empresa, da mais antiga para a mais nova. */
+export async function listarContasAtrasadas(escopo: Escopo, hoje: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: financialTransactions.id,
+      description: financialTransactions.description,
+      contact: financialTransactions.contact,
+      transactionDate: financialTransactions.transactionDate,
+      amount: financialTransactions.amount,
+    })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      eq(financialTransactions.status, "Pendente"),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      lt(financialTransactions.amount, "0"),
+      lt(financialTransactions.transactionDate, hoje),
+    ))
+    .orderBy(asc(financialTransactions.transactionDate), asc(financialTransactions.id));
+}
+
+/**
+ * Carimba o envio do dia. Devolve `false` quando já havia carimbo: o único
+ * composto recusa a segunda linha, e é ele — não uma leitura antes — que
+ * impede dois envios quando duas rodadas do agendador se cruzam.
+ */
+export async function registrarEnvioDeAlerta(userId: number, dados: { companyId: number; kind: "contas_atrasadas"; sentOn: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  try {
+    await db.insert(alertDispatches).values({ userId, companyId: dados.companyId, kind: dados.kind, sentOn: dados.sentOn });
+    return true;
+  } catch (erro) {
+    // O drizzle embrulha o erro do mysql2: o código vem em `cause`, não no topo.
+    const codigo = (erro as { code?: string }).code ?? ((erro as { cause?: { code?: string } }).cause?.code);
+    if (codigo === "ER_DUP_ENTRY") return false;
+    throw erro;
+  }
+}
+
+/** Desfaz o carimbo quando o e-mail não saiu: amanhã não é hoje, e hoje ainda merece tentativa. */
+export async function desfazerEnvioDeAlerta(userId: number, dados: { companyId: number; kind: "contas_atrasadas"; sentOn: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.delete(alertDispatches).where(and(
+    eq(alertDispatches.userId, userId),
+    eq(alertDispatches.companyId, dados.companyId),
+    eq(alertDispatches.kind, dados.kind),
+    eq(alertDispatches.sentOn, dados.sentOn),
+  ));
 }

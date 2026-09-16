@@ -41,6 +41,7 @@ const preferencesValuesSchema = z.object({
   sidebarTooltips: z.boolean(),
   sidebarBadges: z.boolean(),
   sidebarRemember: z.boolean(),
+  alertaContasAtrasadas: z.boolean(),
 });
 
 const EMPTY_COMPANY = companyValuesSchema.parse({});
@@ -94,6 +95,7 @@ export const settingsRouter = router({
       sidebarTooltips: saved.sidebarTooltips,
       sidebarBadges: saved.sidebarBadges,
       sidebarRemember: saved.sidebarRemember,
+      alertaContasAtrasadas: saved.alertaContasAtrasadas,
     };
   }),
 

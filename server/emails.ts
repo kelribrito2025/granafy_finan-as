@@ -237,6 +237,59 @@ export function emailDeConvite({ nomeDoDono, emailConvidado, empresas, token, va
   };
 }
 
+const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+function dataBr(iso: string) {
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${a}`;
+}
+
+/** A tabela das contas: descrição e vencimento à esquerda, valor à direita. */
+export function blocoDeContas(contas: Array<{ descricao: string; contato: string; vencimento: string; diasDeAtraso: number; valor: number }>, total: number): Bloco {
+  const linhas = contas.map(conta => `
+    <tr>
+      <td style="padding:10px 0; border-bottom:1px solid #F1F4F2; font-family:${FONTE};">
+        <p style="margin:0; font-size:13.5px; line-height:19px; font-weight:bold; color:#0B1F14;">${escapar(conta.descricao)}</p>
+        <p style="margin:2px 0 0 0; font-size:12px; line-height:17px; color:#8A968D;">${conta.contato ? `${escapar(conta.contato)} · ` : ""}venceu em ${dataBr(conta.vencimento)} · ${conta.diasDeAtraso === 1 ? "1 dia" : `${conta.diasDeAtraso} dias`} de atraso</p>
+      </td>
+      <td align="right" valign="top" style="padding:10px 0 10px 12px; border-bottom:1px solid #F1F4F2; font-family:${FONTE}; font-size:13.5px; line-height:19px; font-weight:bold; color:#B3261E; white-space:nowrap;">${escapar(dinheiro.format(conta.valor))}</td>
+    </tr>`).join("");
+  return `
+    <tr><td class="px" style="padding:22px 40px 0 40px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+        ${linhas}
+        <tr>
+          <td style="padding:14px 0 0 0; font-family:${FONTE}; font-size:13px; line-height:19px; font-weight:bold; color:#4C6355;">Total em atraso</td>
+          <td align="right" style="padding:14px 0 0 12px; font-family:${FONTE}; font-size:18px; line-height:24px; font-weight:bold; color:#B3261E; white-space:nowrap;">${escapar(dinheiro.format(total))}</td>
+        </tr>
+      </table>
+    </td></tr>`;
+}
+
+export function emailDeContasAtrasadas({ nome, empresa, contas, total }: {
+  nome: string | null;
+  empresa: string;
+  contas: Array<{ descricao: string; contato: string; vencimento: string; diasDeAtraso: number; valor: number }>;
+  total: number;
+}) {
+  const ola = nome ? `Olá, ${escapar(nome)}. ` : "";
+  const quantas = contas.length === 1 ? "1 conta a pagar está atrasada" : `${contas.length} contas a pagar estão atrasadas`;
+  return {
+    assunto: `${quantas} · ${empresa}`,
+    html: layoutDeEmail({
+      assunto: `${quantas} · ${empresa}`,
+      previa: `${quantas} na ${empresa}, somando ${dinheiro.format(total)}.`,
+      rotulo: "Contas a pagar",
+      titulo: quantas,
+      corpo: `${ola}Na <strong style="color:#28382E;">${escapar(empresa)}</strong>, ${contas.length === 1 ? "esta conta passou do vencimento e ainda está pendente" : "estas contas passaram do vencimento e ainda estão pendentes"}. Se alguma já foi paga, marque como paga e o alerta para.`,
+      blocos: [
+        blocoDeContas(contas, total),
+        blocoDeBotao("Ver tudo", "/a-pagar-e-receber"),
+        blocoDeNota(`Este alerta sai uma vez por dia enquanto houver conta atrasada. Para não receber, desligue em <strong style="color:#28382E;">Configurações → Preferências → Alertas por e-mail</strong>.`),
+      ],
+    }),
+  };
+}
+
 /* ── O envio ────────────────────────────────────────────────────────────── */
 
 export function envioDeEmailConfigurado() {
