@@ -53,18 +53,10 @@ export const acessosRouter = router({
    * convite), os convites em aberto e quem já tem acesso, agrupado por pessoa.
    */
   visaoGeral: protectedProcedure.query(async ({ ctx }) => {
-    // DIAGNÓSTICO TEMPORÁRIO: sai assim que a aba voltar a carregar na máquina do Kelri.
-    const inicio = Date.now();
-    console.log(`[acessos] visaoGeral: começou (ator ${ctx.ator})`);
-    const cronometrar = <T,>(nome: string, promessa: Promise<T>) =>
-      promessa.then(
-        valor => { console.log(`[acessos] ${nome}: ok em ${Date.now() - inicio} ms`); return valor; },
-        erro => { console.error(`[acessos] ${nome}: FALHOU em ${Date.now() - inicio} ms`, erro); throw erro; },
-      );
     const [empresas, convites, acessos] = await Promise.all([
-      cronometrar("listCompanies", db.listCompanies(ctx.user.id)),
-      cronometrar("listarConvitesPendentes", db.listarConvitesPendentes(ctx.ator)),
-      cronometrar("listarAcessos", db.listarAcessos(ctx.ator)),
+      db.listCompanies(ctx.user.id),
+      db.listarConvitesPendentes(ctx.ator),
+      db.listarAcessos(ctx.ator),
     ]);
 
     const nome = ctx.user.name ?? "";
