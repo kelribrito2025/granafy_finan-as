@@ -297,12 +297,17 @@ export function AppSidebar({ open, onClose, footer }: {
           do login. Inteira ela é branca, como os cartões; recolhida vira um
           trilho, e o trilho se destaca do fundo em vez de se confundir com ele. */}
       <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-[#0B1F14] px-4 py-5">
-        <img
-          src="/manus-storage/granafy-icone-verde-512_d6fa67fc.png"
-          alt=""
-          aria-hidden="true"
-          className="h-9 w-9 shrink-0 rounded-[11px] object-cover"
-        />
+        {/* A caixa continua nos 36 px do símbolo anterior. O PNG tem uma margem
+            interna maior, então só a arte é ampliada para o anel voltar aos
+            mesmos 22 px visuais que o SVG ocupava. */}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px]">
+          <img
+            src="/manus-storage/granafy-icone-verde-512_d6fa67fc.png"
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 max-w-none scale-[1.18] object-cover"
+          />
+        </span>
 
         <div className="flex flex-col items-center gap-1">
           {GROUPS.map((group, index) => (
