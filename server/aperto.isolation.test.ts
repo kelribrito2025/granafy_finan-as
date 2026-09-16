@@ -38,6 +38,14 @@ const COM_EMPRESA = [
   "balanceSheetSnapshots",
 ] as const;
 
+/**
+ * Tabelas com `companyId` que NÃO são dado da empresa: apontam para ela.
+ * `companyAccess` (Fase A do acesso do contador) diz quem pode abrir qual
+ * empresa — é vínculo, não razão, e por isso fica fora das treze e das guardas
+ * de escopo. Entra aqui só para a contagem do banco de verdade fechar.
+ */
+const APONTAM_PARA_EMPRESA = ["companyAccess"] as const;
+
 async function semear(c: Connection) {
   await c.query(
     "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
@@ -78,7 +86,7 @@ describe.runIf(temBancoDeTeste())("o aperto da Fase 5, ensaiado", () => {
       `SELECT table_name t, is_nullable n FROM information_schema.columns
         WHERE table_schema = DATABASE() AND column_name = 'companyId'`,
     );
-    expect(linhas).toHaveLength(COM_EMPRESA.length);
+    expect(linhas.map(l => l.t).sort()).toEqual([...COM_EMPRESA, ...APONTAM_PARA_EMPRESA].sort());
     expect(linhas.filter(l => l.n !== "NO").map(l => l.t)).toEqual([]);
   });
 

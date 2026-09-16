@@ -3,6 +3,7 @@ import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createSessionToken } from "./auth";
 import { createContext } from "./_core/context";
+import { escopoDe } from "./escopo";
 import { esquecerBancoDeTeste, usarBancoDeTesteEm } from "./db";
 import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
@@ -18,11 +19,13 @@ import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoD
 
 const ANA = 7_100_001;
 const BRUNO = 7_100_002;
+/** A terceira pessoa da Fase A: contadora, sem empresa própria, só vínculo. */
+const CLARA = 7_100_003;
 const EMPRESA_DA_ANA = 7101;
 const EMPRESA_DO_BRUNO = 7103;
 
-const TABELAS = ["companyProfiles", "users"] as const;
-const DONOS = [ANA, BRUNO] as const;
+const TABELAS = ["companyAccess", "companyProfiles", "users"] as const;
+const DONOS = [ANA, BRUNO, CLARA] as const;
 
 /** Um request só com os cabeçalhos que o contexto lê. */
 function requisicao(cookies: string[]) {
@@ -35,12 +38,14 @@ function requisicao(cookies: string[]) {
 describe.runIf(temBancoDeTeste())("a empresa ativa do request", () => {
   let c: Connection;
   let cookieDaAna = "";
+  let cookieDaClara = "";
 
   beforeAll(async () => {
     c = await conectarNoBancoDeTeste();
     await prepararSchemaDeTeste(c);
     await usarBancoDeTesteEm(process.env.TEST_DATABASE_URL!);
     cookieDaAna = `${COOKIE_NAME}=${await createSessionToken(ANA)}`;
+    cookieDaClara = `${COOKIE_NAME}=${await createSessionToken(CLARA)}`;
   }, 60_000);
 
   afterAll(async () => {
@@ -51,7 +56,7 @@ describe.runIf(temBancoDeTeste())("a empresa ativa do request", () => {
 
   beforeEach(async () => {
     await limparTabelas(c, TABELAS, DONOS);
-    for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"]] as const) {
+    for (const [id, nome] of [[ANA, "Ana"], [BRUNO, "Bruno"], [CLARA, "Clara"]] as const) {
       await c.query(
         "INSERT INTO users (id, openId, email, name, loginMethod) VALUES (?, ?, ?, ?, ?)",
         usuarioDeTeste(id, nome),
@@ -157,5 +162,80 @@ describe.runIf(temBancoDeTeste())("a empresa ativa do request", () => {
     expect(ctx.user?.id).toBe(ANA);
     expect(ctx.activeCompanyId).toBeNull();
     expect(ctx.companies).toEqual([]);
+  });
+
+  /*
+   * ── A terceira pessoa ──────────────────────────────────────────────────
+   *
+   * Até a Fase A, todo teste deste arquivo assumia ator = dono. A Clara é o
+   * primeiro caso em que não são: ela não tem empresa própria, e o que ela vê
+   * vem de `companyAccess`. Os casos abaixo fixam as três coisas que a fase
+   * promete — sem vínculo ela não vê nada; com vínculo ela vê SÓ a liberada;
+   * e o escopo dentro dessa empresa aponta para a DONA, não para ela.
+   */
+
+  it("contadora sem vínculo não recebe empresa nenhuma — nem a da Ana", async () => {
+    const ctx = await createContext(requisicao([cookieDaClara]));
+    expect(ctx.user?.id).toBe(CLARA);
+    expect(ctx.ator).toBe(CLARA);
+    expect(ctx.companies).toEqual([]);
+    expect(ctx.activeCompanyId).toBeNull();
+    expect(ctx.papel).toBeNull();
+  });
+
+  it("com vínculo ativo, vê a empresa da Ana como contadora — e o escopo aponta para a Ana", async () => {
+    await c.query(
+      "INSERT INTO companyAccess (userId, companyId, role, grantedBy) VALUES (?, ?, 'contador', ?)",
+      [CLARA, EMPRESA_DA_ANA, ANA],
+    );
+    const ctx = await createContext(requisicao([cookieDaClara]));
+
+    expect(ctx.companies.map(e => e.id)).toEqual([EMPRESA_DA_ANA]);
+    expect(ctx.activeCompanyId).toBe(EMPRESA_DA_ANA);
+    expect(ctx.ator).toBe(CLARA);
+    expect(ctx.papel).toBe("contador");
+
+    /*
+     * O teste que dá sentido à Fase A. O `userId` do escopo é o da ANA — o
+     * dono do dado —, e não o da Clara, que está logada. É isso que faz as
+     * ~96 guardas continuarem certas sem mudar uma linha: elas filtram pelo
+     * dono, e o dono continua sendo o dono.
+     */
+    const escopo = escopoDe(ctx);
+    expect(escopo.userId).toBe(ANA);
+    expect(escopo.companyId).toBe(EMPRESA_DA_ANA);
+    expect(escopo.userId).not.toBe(CLARA);
+  });
+
+  it("vínculo revogado não vale — a empresa some da lista no request seguinte", async () => {
+    await c.query(
+      "INSERT INTO companyAccess (userId, companyId, role, grantedBy, revokedAt) VALUES (?, ?, 'contador', ?, NOW())",
+      [CLARA, EMPRESA_DA_ANA, ANA],
+    );
+    const ctx = await createContext(requisicao([cookieDaClara]));
+    expect(ctx.companies).toEqual([]);
+    expect(ctx.activeCompanyId).toBeNull();
+  });
+
+  it("pedindo a empresa do Bruno pelo cookie, a contadora cai na que lhe foi liberada", async () => {
+    /*
+     * A mesma recusa que a Ana já tinha, agora para quem entrou por vínculo:
+     * o cookie de empresa alheia é ignorado, e o sinal diz que foi.
+     */
+    await c.query(
+      "INSERT INTO companyAccess (userId, companyId, role, grantedBy) VALUES (?, ?, 'contador', ?)",
+      [CLARA, EMPRESA_DA_ANA, ANA],
+    );
+    const ctx = await createContext(requisicao([cookieDaClara, `${COMPANY_COOKIE_NAME}=${EMPRESA_DO_BRUNO}`]));
+    expect(ctx.activeCompanyId).toBe(EMPRESA_DA_ANA);
+    expect(ctx.companyRequestHonored).toBe(false);
+  });
+
+  it("a dona continua dona: papel 'dono' e escopo com o próprio id", async () => {
+    // A regressão que importa: para quem já usava o sistema, a Fase A não muda nada.
+    const ctx = await createContext(requisicao([cookieDaAna]));
+    expect(ctx.ator).toBe(ANA);
+    expect(ctx.papel).toBe("dono");
+    expect(escopoDe(ctx)).toEqual({ userId: ANA, companyId: EMPRESA_DA_ANA });
   });
 });
