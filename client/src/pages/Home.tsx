@@ -143,7 +143,7 @@ export default function Home() {
   const salvarLancamento = async (input: TransactionInput) => {
     try {
       const result = await createMutation.mutateAsync(input);
-      await Promise.all([
+      void Promise.all([
         utils.transactions.dashboard.invalidate(),
         utils.transactions.list.invalidate(),
         utils.organization.overview.invalidate(),
@@ -151,13 +151,15 @@ export default function Home() {
         utils.payables.invalidate(),
         utils.cashflow.invalidate(),
         utils.dre.invalidate(),
-      ]);
+      ]).catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
       toast.success(result.monthCount > 1
         ? `${result.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
         : "Lançamento salvo no banco");
       setNovoLancamento(false);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+      return false;
     }
   };
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -533,9 +535,10 @@ export default function Home() {
         </section>
       </div>
 
-      {novoLancamento && (
+      {novoLancamento && user?.id && user.activeCompanyId && (
         <TransactionModal
           defaultDate={today()}
+          draftScope={{ userId: user.id, companyId: user.activeCompanyId }}
           pending={createMutation.isPending}
           options={organizationOptions}
           onManageOrganization={() => setLocation("/organizacao")}

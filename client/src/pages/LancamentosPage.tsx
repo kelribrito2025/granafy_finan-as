@@ -31,6 +31,7 @@ import ImportTransactionsModal from "@/components/ImportTransactionsModal";
 import { ModalDeConfirmacao } from "@/components/ModalDeConfirmacao";
 import { ModalIcon } from "@/components/ModalIcon";
 import { SelectionCheckbox } from "@/components/SelectionCheckbox";
+import { SeriesScopeDialog } from "@/components/SeriesScopeDialog";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { TransactionModal } from "@/components/TransactionModal";
 import type {
@@ -346,48 +347,6 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
   );
 }
 
-function SeriesScopeDialog({ action, transaction, pending, onCancel, onConfirm }: {
-  action: "save" | "delete";
-  transaction: Transaction;
-  pending: boolean;
-  onCancel: () => void;
-  onConfirm: (scope: SeriesScope) => void;
-}) {
-  const total = transaction.recurringMonths ?? 0;
-  const position = transaction.recurrenceIndex ?? 1;
-  const verb = action === "delete" ? "Excluir" : "Salvar";
-  return (
-    <div role="dialog" aria-modal="true" aria-labelledby="series-scope-title" className="fixed inset-0 z-[90] flex items-center justify-center bg-[#07150d]/45 p-4 backdrop-blur-[3px]" onMouseDown={event => event.target === event.currentTarget && onCancel()}>
-      <div className="modal-enter w-full max-w-[420px] rounded-[20px] bg-white p-6 text-[#0B1F14] shadow-[0_20px_50px_rgba(11,31,20,.16)]">
-        <div className="flex items-start gap-3">
-        <ModalIcon icon={action === "delete" ? DeleteIcon : DocumentIcon} />
-        <div className="min-w-0">
-        <h2 id="series-scope-title" className="text-[18px] font-bold tracking-[-.01em]">
-          {action === "delete" ? "Excluir lançamento recorrente" : "Salvar lançamento recorrente"}
-        </h2>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A968D]">
-          Este é a parcela {position} de {total}. Escolha o alcance da mudança.
-        </p>
-        </div>
-        </div>
-        <div className="mt-5 flex flex-col gap-2">
-          <button type="button" disabled={pending} onClick={() => onConfirm("single")} className="rounded-[12px] border border-[#E3EAE5] px-4 py-3 text-left text-[13px] font-semibold hover:bg-[#F8FAF9] disabled:opacity-50">
-            {verb} só esta parcela
-            <span className="mt-0.5 block text-[11px] font-normal text-[#8A968D]">As outras ficam como estão.</span>
-          </button>
-          <button type="button" disabled={pending} onClick={() => onConfirm("following")} className="rounded-[12px] bg-[#12B85C] px-4 py-3 text-left text-[13px] font-bold text-white hover:bg-[#0F9E4E] disabled:opacity-50">
-            {verb} esta e as próximas
-            <span className="mt-0.5 block text-[11px] font-normal text-white/85">Parcelas anteriores e meses já pagos não são tocados.</span>
-          </button>
-        </div>
-        <button type="button" disabled={pending} onClick={onCancel} className="mt-3 h-11 w-full rounded-[12px] bg-[#F1F4F2] text-[13px] font-bold text-[#4C6355] hover:bg-[#E7ECE9] disabled:opacity-50">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function TypeBadge({ type, amount }: { type: TransactionType; amount: number }) {
   if (type === "transferencia") {
     // As duas pernas usam o mesmo tipo; o sinal diz se esta linha sai ou entra.
@@ -672,8 +631,8 @@ export default function LancamentosPage() {
       utils.dre.invalidate(),
     ]);
   };
-  const createMutation = trpc.transactions.create.useMutation({ onSuccess: refresh });
-  const updateMutation = trpc.transactions.update.useMutation({ onSuccess: refresh });
+  const createMutation = trpc.transactions.create.useMutation();
+  const updateMutation = trpc.transactions.update.useMutation();
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
   const [seriesPrompt, setSeriesPrompt] = useState<
@@ -782,11 +741,14 @@ export default function LancamentosPage() {
           ? `${result.monthCount} lançamentos criados, de ${formatDate(input.transactionDate)} em diante`
           : "Lançamento salvo no banco");
       }
+      void refresh().catch(() => toast.info("Lançamento salvo. Atualize a página para recarregar os indicadores."));
       setModalOpen(false);
       setEditing(null);
       setSeriesPrompt(null);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o lançamento");
+      return false;
     }
   };
 
@@ -795,9 +757,9 @@ export default function LancamentosPage() {
     // silenciosamente meses que o usuário não estava olhando.
     if (editing?.recurrenceGroupId) {
       setSeriesPrompt({ action: "save", transaction: editing, input });
-      return;
+      return false;
     }
-    await commitSave(input, editing, "single");
+    return commitSave(input, editing, "single");
   };
 
   const duplicate = async (transaction: Transaction) => {
@@ -1202,7 +1164,7 @@ export default function LancamentosPage() {
         </section>
       </div>
 
-      {modalOpen && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
+      {modalOpen && user?.id && user.activeCompanyId && <TransactionModal transaction={editing} defaultDate={defaultDateForMonth(period.year, period.month)} draftScope={{ userId: user.id, companyId: user.activeCompanyId }} pending={mutationPending} options={organizationOptions} onManageOrganization={() => setLocation("/organizacao")} onClose={() => { setModalOpen(false); setEditing(null); }} onSave={saveTransaction} />}
       {excluindoLote && (
         <ModalDeConfirmacao
           titulo={selected.length === 1 ? "Excluir este lançamento?" : `Excluir ${selected.length.toLocaleString("pt-BR")} lançamentos?`}
