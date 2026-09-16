@@ -80,6 +80,32 @@ export function DocumentIcon(props: IconlyIconProps) {
   );
 }
 
+/*
+ * Clipe de papel — desenho próprio, não um asset Iconly.
+ *
+ * O conjunto não tem clipe, e o `DocumentIcon` já significa duas outras coisas
+ * na mesma linha da tabela ("Duplicar" no menu, e o anexo dentro do modal).
+ * Um clipe é a forma que todo mundo lê como "tem arquivo" sem legenda.
+ *
+ * Traço de 1,5 no canvas de 24 (o shell escala ×2), com pontas redondas: é o
+ * peso visual dos contornos preenchidos dos outros ícones, então ele não
+ * salta nem some ao lado deles.
+ */
+export function ClipIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <path
+        d="M16.5 6.5v9a4.5 4.5 0 0 1-9 0v-9a3 3 0 0 1 6 0v9a1.5 1.5 0 0 1-3 0V8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </IconShell>
+  );
+}
+
 // Iconly Outline Curved — Tick Square (ID 39030), master canvas 48 px.
 export function CheckIcon(props: IconlyIconProps) {
   return (

@@ -8,6 +8,7 @@ import {
   ArrowUpIcon,
   ChartIcon,
   ChevronRightIcon,
+  ClipIcon,
   ClockIcon,
   CloseIcon,
   DeleteIcon,
@@ -109,7 +110,12 @@ function AccountBadge({ account }: { account: string }) {
 }
 
 /** Colunas do extrato. Uma constante só para cabeçalho e linhas nunca desalinharem. */
-const ROW_GRID = "grid grid-cols-[22px_minmax(0,1fr)_168px_132px_124px_120px_28px] items-center gap-3";
+/*
+ * A terceira faixa (28px) é a coluna do anexo: um clipe, e nada mais. Estreita
+ * de propósito — é um sim/não, e a maioria das linhas não tem arquivo; uma
+ * coluna larga seria um corredor vazio no meio da tabela.
+ */
+const ROW_GRID = "grid grid-cols-[22px_minmax(0,1fr)_28px_168px_132px_124px_120px_28px] items-center gap-3";
 
 const STATUS_TONE: Record<RowStatus["tone"], string> = {
   positive: "bg-[#DFF6EA] text-[#0A7A42]",
@@ -231,7 +237,7 @@ function rowSubtitle(transaction: Transaction, status: RowStatus, showDate: bool
   return parts.join(" · ");
 }
 
-function TransactionGridRow({ transaction, status, selected, showDate, pendingStatus, onToggleSelect, onToggleStatus, onCategorize, onEdit, onDuplicate, onDelete, menuOpen, onMenu, onCloseMenu }: {
+function TransactionGridRow({ transaction, status, selected, showDate, pendingStatus, onToggleSelect, onToggleStatus, onCategorize, onEdit, onDuplicate, onDelete, onOpenAttachment, menuOpen, onMenu, onCloseMenu }: {
   transaction: Transaction;
   status: RowStatus;
   selected: boolean;
@@ -243,6 +249,7 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onOpenAttachment: () => void;
   menuOpen: boolean;
   onMenu: () => void;
   onCloseMenu: () => void;
@@ -308,6 +315,24 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
           )}
         </div>
       </div>
+      {/* O clipe só existe onde há arquivo; nas outras linhas a célula fica
+          vazia para a coluna não desalinhar. Passando o mouse, o nome do
+          arquivo; clicando, ele abre — antes não havia como ver o comprovante
+          fora do modal, e nem lá dava para abrir. */}
+      {transaction.attachmentKey ? (
+        <Hint label={transaction.attachmentName ?? "Abrir anexo"} className="justify-self-center">
+          <button
+            type="button"
+            aria-label={`Abrir anexo de ${transaction.description}`}
+            onClick={event => { event.stopPropagation(); onOpenAttachment(); }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#0A7A42] hover:bg-white"
+          >
+            <ClipIcon size={15} />
+          </button>
+        </Hint>
+      ) : (
+        <span aria-hidden="true" />
+      )}
       {transaction.categoryId || transaction.category ? (
         <span className="truncate text-[#4C6355]">{transaction.category}</span>
       ) : (
@@ -603,6 +628,31 @@ export default function LancamentosPage() {
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(() => new Set());
   const period = useMemo(() => ({ year: monthCursor.getFullYear(), month: monthCursor.getMonth() + 1 }), [monthCursor]);
   const utils = trpc.useUtils();
+
+  /*
+   * O clipe da linha abre o arquivo. O endpoint `attachmentUrl` já existia e
+   * já conferia a posse — só ninguém o chamava: o modal mostrava o nome e o
+   * botão de remover, e para VER o comprovante não havia caminho nenhum.
+   *
+   * A aba abre ANTES do `await`, de propósito. O bloqueador de pop-up só
+   * libera `window.open` dentro do clique; depois de uma espera de rede ele
+   * trata a abertura como não solicitada e a engole. Então a aba nasce vazia
+   * no clique e recebe a URL quando ela chega. Se a URL falhar, a aba fecha e
+   * o erro vai para o toast — não sobra uma aba em branco sem explicação.
+   */
+  const abrirAnexo = async (transaction: Transaction) => {
+    if (!transaction.attachmentKey) return;
+    const aba = window.open("", "_blank");
+    if (aba) aba.opener = null;
+    try {
+      const { url } = await utils.transactions.attachmentUrl.fetch({ key: transaction.attachmentKey });
+      if (aba) aba.location.href = url;
+      else window.location.assign(url);
+    } catch (error) {
+      aba?.close();
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir o anexo");
+    }
+  };
   const transactionsQuery = trpc.transactions.list.useQuery(period);
   const organizationQuery = trpc.organization.options.useQuery();
   const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
@@ -1056,10 +1106,11 @@ export default function LancamentosPage() {
             )}
 
             <div className="min-h-0 flex-1 overflow-auto">
-              <div className="min-w-[940px]">
+              <div className="min-w-[980px]">
                 <div className={`${ROW_GRID} border-b border-[#F1F4F2] px-3 pb-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]`}>
                   <SelectionCheckbox checked={allSelected} mixed={someSelected} label="Selecionar todos" onChange={() => setSelected(allSelected ? [] : filtered.map(item => item.id))} />
                   <span>Descrição</span>
+                  <span className="flex justify-center text-[#B5C2BA]" title="Anexo" aria-label="Anexo"><ClipIcon size={13} /></span>
                   <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} />
                   <SortableColumnHeader label="Conta" sortKey="account" sort={sort} onSort={toggleSort} />
                   <SortableColumnHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
@@ -1125,6 +1176,7 @@ export default function LancamentosPage() {
                           onEdit={() => { setEditing(transaction); setModalOpen(true); setActionOpen(null); }}
                           onDuplicate={() => duplicate(transaction)}
                           onDelete={() => remove(transaction)}
+                          onOpenAttachment={() => abrirAnexo(transaction)}
                         />
                       ))
                       : []),
