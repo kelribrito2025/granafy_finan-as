@@ -254,7 +254,7 @@ export const acessosRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Já existe uma conta com este e-mail. Entre com a sua senha para aceitar." });
       }
 
-      const user = await db.createLocalUser({ email, name: input.name, passwordHash: await hashPassword(input.password) });
+      const user = await db.createLocalUser({ email, name: input.name, passwordHash: await hashPassword(input.password), semEmpresaPadrao: true });
       const aceite = await db.aceitarConvite(user.id, { tokenHash, email });
       await setLocalSession(ctx.req, ctx.res, user.id);
       void registrarEntrada(ctx.req, user.id);

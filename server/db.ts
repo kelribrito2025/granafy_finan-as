@@ -175,7 +175,7 @@ type ComEscrita = Pick<Conexao, "select" | "insert">;
  * A empresa nasce com os campos vazios: o rótulo da tela sai de
  * `companyDisplayName`, e razão social inventada não entra no banco.
  */
-async function garantirEmpresaPadrao(tx: ComEscrita, userId: number): Promise<number> {
+async function garantirEmpresaPadrao(tx: ComEscrita, userId: number): Promise<number | null> {
   const [existente] = await tx
     .select({ id: companyProfiles.id })
     .from(companyProfiles)
@@ -183,6 +183,19 @@ async function garantirEmpresaPadrao(tx: ComEscrita, userId: number): Promise<nu
     .orderBy(asc(companyProfiles.sortOrder), asc(companyProfiles.id))
     .limit(1);
   if (existente) return existente.id;
+
+  /*
+   * Quem tem vínculo vivo não precisa de empresa própria: o contador entra na
+   * empresa do cliente, e uma "empresa do contador" vazia no seletor é o que
+   * ele estranha na primeira vez que abre a lista. Sem vínculo, a regra de
+   * sempre — toda conta tem pelo menos uma empresa.
+   */
+  const [vinculo] = await tx
+    .select({ id: companyAccess.id })
+    .from(companyAccess)
+    .where(and(eq(companyAccess.userId, userId), isNull(companyAccess.revokedAt)))
+    .limit(1);
+  if (vinculo) return null;
 
   /* Nasce na versão corrente porque quem a cria insere o catálogo inteiro em seguida. */
   const criada = await tx.insert(companyProfiles).values({ userId, categoryDefaultsVersion: DEFAULT_CATEGORY_CATALOG_VERSION });
@@ -211,6 +224,12 @@ export async function createLocalUser(input: {
   /** Null quando a conta nasce por provedor externo: não existe senha para guardar. */
   passwordHash: string | null;
   loginMethod?: string;
+  /**
+   * A conta que nasce pelo convite de acesso não ganha empresa própria: ela
+   * vai abrir a do cliente. A regra geral (toda conta tem uma) fica para o
+   * cadastro normal, que é quem passa por aqui sem esta opção.
+   */
+  semEmpresaPadrao?: boolean;
 }): Promise<User> {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -226,9 +245,12 @@ export async function createLocalUser(input: {
       lastSignedIn: new Date(),
     });
     const userId = Number(result[0].insertId);
+    if (input.semEmpresaPadrao) return userId;
     // A empresa vem antes das categorias: elas já nascem carimbadas.
     const companyId = await garantirEmpresaPadrao(tx, userId);
-    await tx.insert(transactionCategories).values(defaultCategoryValues(userId, companyId));
+    if (companyId !== null) {
+      await tx.insert(transactionCategories).values(defaultCategoryValues(userId, companyId));
+    }
     return userId;
   });
 
