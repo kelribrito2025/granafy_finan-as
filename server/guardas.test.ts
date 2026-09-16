@@ -219,9 +219,18 @@ describe("invariante das guardas de isolamento em db.ts", () => {
        * GROUP BY daqui, o arreio de isolamento é que pega — não esta lista.
        */
       ["saldosDeCaixaPorEmpresa", "agrega por empresa, todas as do login, só leitura e com GROUP BY companyId"],
+      /*
+       * A única função que recebe o ATOR de propósito — e por isso o parâmetro
+       * se chama `atorId`, não `userId`. Ela não filtra dado de empresa
+       * nenhuma: devolve a LISTA de empresas que o ator pode abrir, e é dessa
+       * lista que `escopoDe` tira o dono. A regex abaixo vigia as duas grafias
+       * justamente para uma função com `atorId` não escapar desta lista por
+       * ter mudado de nome.
+       */
+      ["empresasVisiveisPara", "as empresas que o ATOR pode abrir — próprias mais liberadas; alimenta ctx.companies"],
     ]);
 
-    const porLogin = funcoes.filter(f => /\buserId: number\b/.test(f.assinatura)).map(f => f.nome);
+    const porLogin = funcoes.filter(f => /\b(?:userId|atorId): number\b/.test(f.assinatura)).map(f => f.nome);
     const naoAutorizadas = porLogin.filter(nome => !PODEM.has(nome));
     const autorizadasQueSumiram = [...PODEM.keys()].filter(nome => !porLogin.includes(nome));
 

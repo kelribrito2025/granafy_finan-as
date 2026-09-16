@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import {
   balanceSheetSnapshots,
   categoryRules,
+  companyAccess,
   companyProfiles,
   costCenters,
   type InsertCategoryRule,
@@ -1582,6 +1583,54 @@ export async function listCompanies(userId: number) {
     .from(companyProfiles)
     .where(eq(companyProfiles.userId, userId))
     .orderBy(desc(companyProfiles.isActive), asc(companyProfiles.sortOrder), asc(companyProfiles.id));
+}
+
+/**
+ * As empresas que um ATOR consegue ver: as próprias mais as liberadas a ele.
+ *
+ * É a irmã de `listCompanies`, e a diferença entre as duas é a Fase A inteira:
+ * `listCompanies(dono)` responde "de quem é esta empresa"; esta responde "o que
+ * esta pessoa pode abrir". Para o dono as duas coincidem. Para o contador, só
+ * esta serve — e é ela que alimenta `ctx.companies`, que alimenta
+ * `pickActiveCompany`, que é quem recusa o cookie de empresa alheia em todo
+ * request.
+ *
+ * Isso faz desta consulta SUPERFÍCIE DE SEGURANÇA. Uma linha a mais aqui — um
+ * vínculo revogado que entrou, um JOIN sem filtro — e o cookie da empresa
+ * alheia passa a ser aceito, e todas as guardas de escopo obedecem, porque
+ * para elas está tudo certo. Por isso `revokedAt IS NULL` é a primeira
+ * condição, e por isso ela tem arreio próprio.
+ *
+ * `atorId`, e não `userId`: o nome diz de quem é o número. A sentinela em
+ * `guardas.test.ts` vigia as duas grafias, para esta função não escapar da
+ * lista fechada por ter mudado de nome.
+ */
+export async function empresasVisiveisPara(atorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [proprias, vinculos] = await Promise.all([
+    listCompanies(atorId),
+    db
+      .select({ companyId: companyAccess.companyId })
+      .from(companyAccess)
+      .where(and(eq(companyAccess.userId, atorId), isNull(companyAccess.revokedAt))),
+  ]);
+
+  // Um vínculo para a própria empresa não deveria existir, mas se existir não
+  // pode duplicar a linha: o dono já a tem por propriedade.
+  const idsLiberadas = Array.from(new Set(vinculos.map(vinculo => vinculo.companyId)))
+    .filter(id => !proprias.some(empresa => empresa.id === id));
+  if (idsLiberadas.length === 0) return proprias;
+
+  const liberadas = await db.select().from(companyProfiles).where(inArray(companyProfiles.id, idsLiberadas));
+
+  // A mesma ordem de `listCompanies`, sobre a lista unida: ativas primeiro,
+  // depois pela ordem que o dono deu, depois pelo id — para a empresa padrão
+  // de `pickActiveCompany` não depender de qual metade da lista ela veio.
+  return [...proprias, ...liberadas].sort((a, b) =>
+    Number(b.isActive) - Number(a.isActive) || a.sortOrder - b.sortOrder || a.id - b.id,
+  );
 }
 
 /*

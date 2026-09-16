@@ -1,5 +1,6 @@
 import { COMPANY_COOKIE_NAME } from "@shared/const";
 import { pickActiveCompany } from "@shared/activeCompany";
+import { papelDaEmpresa, type Papel } from "../escopo";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { CompanyProfileRecord, User } from "../../drizzle/schema";
 import { sessionUserIdFrom } from "../auth";
@@ -9,12 +10,19 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
-  /** As empresas do login, na ordem da lista. Vazia para visita. */
+  /** As empresas que o ator pode abrir — as próprias mais as liberadas. Vazia para visita. */
   companies: CompanyProfileRecord[];
   /** A empresa deste request. Null para visita — e para a conta sem empresa. */
   activeCompanyId: number | null;
   /** `false` quando veio um pedido de empresa e ele foi ignorado. */
   companyRequestHonored: boolean;
+  /**
+   * Quem está logado — que, desde a Fase A, não é necessariamente o dono do
+   * dado. Serve para registrar QUEM fez; nunca para filtrar consulta.
+   */
+  ator: number | null;
+  /** O que o ator é na empresa ativa. Null sem empresa. */
+  papel: Papel | null;
 };
 
 /**
@@ -66,6 +74,8 @@ export async function createContext(
     companies: [],
     activeCompanyId: null,
     companyRequestHonored: true,
+    ator: null,
+    papel: null,
   } satisfies TrpcContext;
 
   /*
@@ -88,7 +98,12 @@ export async function createContext(
   try {
     [registro, companies] = await Promise.all([
       db.getUserRecordById(userId),
-      db.listCompanies(userId),
+      /*
+       * Visíveis, não próprias: é a Fase A. Com a tabela de vínculos vazia as
+       * duas coincidem e nada muda; com um vínculo, a empresa do cliente entra
+       * aqui e `pickActiveCompany` passa a aceitá-la — e só ela.
+       */
+      db.empresasVisiveisPara(userId),
     ]);
   } catch {
     return vazio;
@@ -96,6 +111,7 @@ export async function createContext(
   if (!registro) return vazio;
 
   const escolha = pickActiveCompany({ empresas: companies, pedida: empresaPedida(opts.req) });
+  const ativa = escolha.status === "ok" ? companies.find(empresa => empresa.id === escolha.companyId) : undefined;
 
   return {
     req: opts.req,
@@ -104,5 +120,7 @@ export async function createContext(
     companies,
     activeCompanyId: escolha.status === "ok" ? escolha.companyId : null,
     companyRequestHonored: escolha.status === "ok" ? escolha.pedidoAtendido : true,
+    ator: userId,
+    papel: ativa ? papelDaEmpresa(userId, ativa) : null,
   };
 }

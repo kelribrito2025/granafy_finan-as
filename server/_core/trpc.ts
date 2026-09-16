@@ -29,15 +29,22 @@ const requireUser = t.middleware(async opts => {
    * conta, o cadastro cria a sua e o login recria a que faltar. Falhar alto é
    * melhor que seguir em frente com nulo.
    */
-  if (ctx.activeCompanyId === null) {
+  if (ctx.activeCompanyId === null || ctx.papel === null) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: SEM_EMPRESA_ERR_MSG });
   }
 
+  /*
+   * `ator` e `papel` saem daqui não nulos, junto com a empresa: a Fase B vai
+   * construir a tranca de escrita em cima de `papel`, e ela não pode ter que
+   * tratar nulo em 50 mutações.
+   */
   return next({
     ctx: {
       ...ctx,
       user: ctx.user,
       activeCompanyId: ctx.activeCompanyId,
+      ator: ctx.user.id,
+      papel: ctx.papel,
     },
   });
 });

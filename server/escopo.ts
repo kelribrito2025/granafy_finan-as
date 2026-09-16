@@ -21,6 +21,18 @@ export type Escopo = {
   companyId: number;
 };
 
+/** O que o ator é na empresa aberta. Decide quem pode escrever (Fase B). */
+export type Papel = "dono" | "contador";
+
+/**
+ * O papel do ator numa empresa, em uma linha — e a linha é o que define a
+ * Fase A: dono é quem consta em `companyProfiles.userId`; todo o resto que
+ * chegou até a lista visível chegou por vínculo, e é contador.
+ */
+export function papelDaEmpresa(atorId: number, empresa: { userId: number }): Papel {
+  return empresa.userId === atorId ? "dono" : "contador";
+}
+
 /**
  * Monta o escopo a partir do contexto do request.
  *
@@ -28,8 +40,22 @@ export type Escopo = {
  * que ele é um lugar só. O tipo é estrutural de propósito: assim este módulo
  * não precisa importar o contexto do tRPC, e o contexto não precisa saber que
  * escopo existe.
+ *
+ * A PARTIR DA FASE A, o `userId` do escopo é o DONO da empresa aberta — lido
+ * de `ctx.companies`, que o contexto já carregou —, e não mais quem está
+ * logado. Para o dono, dá o mesmo número de sempre. Para o contador, dá o id
+ * do cliente dele: as ~96 guardas continuam filtrando pelo dono, que é o que
+ * sempre fizeram, e o ator não entra em WHERE nenhum. Quem está logado fica em
+ * `ctx.ator`, para quem precisar registrar QUEM fez — nunca para filtrar.
+ *
+ * Isso é o dividendo de ter concentrado as duas chaves aqui: mudar como este
+ * lugar calcula uma delas muda o sistema inteiro sem tocar nas consultas.
  */
-export function escopoDe(ctx: { user: { id: number } | null; activeCompanyId: number | null }): Escopo {
+export function escopoDe(ctx: {
+  user: { id: number } | null;
+  activeCompanyId: number | null;
+  companies: readonly { id: number; userId: number }[];
+}): Escopo {
   if (!ctx.user || ctx.activeCompanyId === null) {
     /*
      * Não deveria acontecer: `protectedProcedure` já barrou os dois casos antes
@@ -39,5 +65,18 @@ export function escopoDe(ctx: { user: { id: number } | null; activeCompanyId: nu
      */
     throw new Error("Escopo pedido fora de uma procedure autenticada com empresa ativa.");
   }
-  return { userId: ctx.user.id, companyId: ctx.activeCompanyId };
+
+  const empresa = ctx.companies.find(candidata => candidata.id === ctx.activeCompanyId);
+  if (!empresa) {
+    /*
+     * Também não deveria acontecer: `pickActiveCompany` escolhe a ativa DE
+     * DENTRO desta lista. Se ela não está aqui, o contexto foi montado à mão
+     * ou a lista mudou por baixo. Cair de volta para `ctx.user.id` seria o
+     * pior conserto possível — reintroduziria ator = dono em silêncio, que é
+     * exatamente o furo que esta fase fecha. Falhar alto.
+     */
+    throw new Error("A empresa ativa não está na lista de empresas visíveis do request.");
+  }
+
+  return { userId: empresa.userId, companyId: empresa.id };
 }

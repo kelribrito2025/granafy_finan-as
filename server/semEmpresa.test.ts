@@ -35,6 +35,8 @@ function contexto(over: Partial<TrpcContext>): TrpcContext {
     companies: [],
     activeCompanyId: null,
     companyRequestHonored: true,
+    ator: usuario.id,
+    papel: null,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
     ...over,
@@ -85,7 +87,15 @@ describe("login autenticado sem empresa ativa", () => {
      * cai. `settings.company` sem empresa cadastrada devolve o formulário
      * vazio, que é o comportamento de hoje.
      */
-    const ctx = contexto({ activeCompanyId: 99, companies: [] });
+    /*
+     * A empresa ativa precisa estar em `companies`: desde a Fase A é dali que
+     * o escopo tira o dono, e um contexto com ativa fora da lista lança — de
+     * propósito, porque cair de volta para `user.id` reintroduziria ator =
+     * dono em silêncio. `pickActiveCompany` nunca produz esse estado; só um
+     * contexto montado à mão produz, e este aqui é montado à mão.
+     */
+    const empresa = { id: 99, userId: usuario.id, isActive: true, sortOrder: 0 } as unknown as TrpcContext["companies"][number];
+    const ctx = contexto({ activeCompanyId: 99, companies: [empresa], papel: "dono" });
     await expect(chamar(ctx)).resolves.toHaveProperty("legalName");
   });
 });

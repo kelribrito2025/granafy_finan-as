@@ -740,6 +740,43 @@ export const systemSettings = mysqlTable("systemSettings", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/*
+ * O vínculo do contador com uma empresa — quem PERGUNTA, separado de quem é
+ * DONO do dado.
+ *
+ * Até aqui os dois eram o mesmo número: o usuário logado era o dono da empresa
+ * aberta. O contador é o primeiro caso em que não são. Esta tabela diz a quem
+ * mais uma empresa está liberada; a propriedade continua em
+ * `companyProfiles.userId` e NÃO vira linha aqui — o dono nunca pode perder
+ * acesso porque alguém apagou um vínculo.
+ *
+ * `userId` é o ATOR (quem recebe o acesso), uma linha por empresa liberada: é o
+ * que permite ao dono liberar duas das suas quatro. Revogar é carimbar
+ * `revokedAt`, não apagar — o histórico fica, e toda leitura filtra
+ * `revokedAt IS NULL`. Por isso o par (userId, companyId) NÃO é único: um
+ * vínculo revogado e um novo para a mesma dupla precisam coexistir.
+ *
+ * `role` é o papel NA EMPRESA e mora aqui de propósito, não em `users.role`:
+ * aquela coluna é global (user | admin) e `adminProcedure` ignora empresa por
+ * desenho — um contador que caísse lá veria o sistema inteiro.
+ */
+export const companyAccess = mysqlTable("companyAccess", {
+  id: int("id").autoincrement().primaryKey(),
+  /** O ator: quem recebe o acesso. Nunca o dono. */
+  userId: int("userId").notNull(),
+  companyId: int("companyId").notNull(),
+  role: mysqlEnum("role", ["contador"]).default("contador").notNull(),
+  /** Quem liberou — o dono, para o registro fazer sentido. */
+  grantedBy: int("grantedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  revokedAt: timestamp("revokedAt"),
+}, table => [
+  // A consulta que decide o que o ator vê: por ator, só vínculos vivos.
+  index("company_access_user_revoked_idx").on(table.userId, table.revokedAt),
+  // A lista que o dono vê em Acessos: quem tem vínculo com esta empresa.
+  index("company_access_company_idx").on(table.companyId),
+]);
+
 export type UserRecord = typeof users.$inferSelect;
 export type User = Omit<UserRecord, "passwordHash" | "categoryDefaultsVersion">;
 export type InsertUser = typeof users.$inferInsert;
@@ -771,3 +808,5 @@ export type BalanceSheetSnapshotRecord = typeof balanceSheetSnapshots.$inferSele
 export type InsertBalanceSheetSnapshot = typeof balanceSheetSnapshots.$inferInsert;
 export type SystemSettingRecord = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+export type CompanyAccessRecord = typeof companyAccess.$inferSelect;
+export type InsertCompanyAccess = typeof companyAccess.$inferInsert;

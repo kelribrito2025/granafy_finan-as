@@ -48,9 +48,17 @@ const CONTA = 7;
 const USUARIO = 1;
 const EMPRESA = 60;
 
+/*
+ * Desde a Fase A o escopo tira o DONO de `ctx.companies`, não de `ctx.user`.
+ * Um contexto sem a lista não é mais um contexto válido — a empresa ativa tem
+ * que estar nela, e é dela que sai o `userId` das guardas.
+ */
 const ctx = {
   user: { id: USUARIO },
   activeCompanyId: EMPRESA,
+  companies: [{ id: EMPRESA, userId: USUARIO }],
+  ator: USUARIO,
+  papel: "dono",
 } as unknown as Parameters<typeof reconciliationRouter.createCaller>[0];
 
 const chamador = () => reconciliationRouter.createCaller(ctx);
