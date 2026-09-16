@@ -17,6 +17,13 @@ const fieldClass = "h-[46px] w-full rounded-xl border border-[#E3EAE5] bg-[#F8FA
 const labelClass = "mb-[7px] block text-[12.5px] font-semibold text-[#4C6355]";
 
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+const dataEHora = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+const EVENTO: Record<"entrada" | "troca" | "exportacao", string> = {
+  entrada: "entrou",
+  troca: "abriu",
+  exportacao: "exportou",
+};
 
 function diasAte(data: Date) {
   const dias = Math.ceil((data.getTime() - Date.now()) / 86_400_000);
@@ -64,7 +71,7 @@ export function AcessosPanel() {
     return <div className="flex min-h-[300px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando acessos..." /></div>;
   }
 
-  const { empresas, convites, acessos, emailConfigurado } = visao.data;
+  const { empresas, convites, acessos, registro, emailConfigurado } = visao.data;
 
   const alternar = (id: number) =>
     setEscolhidas(atual => (atual.includes(id) ? atual.filter(x => x !== id) : [...atual, id]));
@@ -222,6 +229,29 @@ export function AcessosPanel() {
                     </span>
                   ))}
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Registro de acessos</h2>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A968D]">
+          Entradas e trocas de empresa passam pelo servidor e são exatas. Exportações são registradas pela tela no momento do download: valem para uso normal, mas quem acessar a API diretamente lê o mesmo dado sem deixar registro.
+        </p>
+        {registro.length === 0 ? (
+          <p className="mt-3 text-[12.5px] text-[#8A968D]">Nenhum acesso registrado ainda. As próximas entradas aparecem aqui.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-[#F1F4F2]">
+            {registro.map(linha => (
+              <li key={linha.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 text-[13px]">
+                <span className="w-[112px] shrink-0 tabular-nums text-[12px] text-[#8A968D]">{dataEHora.format(new Date(linha.quando))}</span>
+                <span className="font-semibold">{linha.ehVoce ? "Você" : (linha.nome || linha.email)}</span>
+                <span className="text-[#4C6355]">{EVENTO[linha.evento]}</span>
+                {linha.evento === "exportacao" && linha.detalhe && <span className="text-[#4C6355]">{linha.detalhe} de</span>}
+                <span className="font-semibold text-[#0A7A42]">{linha.empresa}</span>
+                {!linha.ehVoce && <span className="text-[11.5px] text-[#8A968D]">· {linha.email}</span>}
               </li>
             ))}
           </ul>

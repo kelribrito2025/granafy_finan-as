@@ -242,6 +242,9 @@ describe("invariante das guardas de isolamento em db.ts", () => {
       ["aceitarConvite", "grava o vínculo do PRÓPRIO ator; a empresa vem do convite e o e-mail tem que bater"],
       ["listarAcessos", "os vínculos vivos das empresas do dono, com JOIN em companyProfiles.userId = dono"],
       ["revogarAcesso", "confere a posse da empresa antes de carimbar revokedAt"],
+      /* Registro de acesso (Fase E): userId ali é o ATOR, quem fez — nunca entra em escopo. */
+      ["registrarAcesso", "grava o que o ATOR fez na empresa que abriu; falhar aqui nunca derruba a operação"],
+      ["listarRegistroDeAcessos", "os eventos nas empresas do dono, com JOIN em companyProfiles.userId = dono"],
     ]);
 
     const porLogin = funcoes.filter(f => /\b(?:userId|atorId): number\b/.test(f.assinatura)).map(f => f.nome);

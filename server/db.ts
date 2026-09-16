@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2";
 import { randomUUID } from "node:crypto";
 import {
+  accessLog,
   balanceSheetSnapshots,
   categoryRules,
   companyAccess,
@@ -3034,4 +3035,50 @@ export async function empresaDoAnexo(key: string): Promise<number | null> {
     .where(eq(patrimonialItems.attachmentKey, key))
     .limit(1);
   return bem?.companyId ?? null;
+}
+
+/* ── Registro de acesso — Fase E ─────────────────────────────────────────── */
+
+/**
+ * Grava um evento. `atorId` é quem fez; a empresa é a que ele abriu. Nunca
+ * lança para o chamador — falhar em registrar não pode derrubar um login.
+ */
+export async function registrarAcesso(atorId: number, dados: { companyId: number; event: "entrada" | "troca" | "exportacao"; detail?: string | null }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.insert(accessLog).values({
+    userId: atorId,
+    companyId: dados.companyId,
+    event: dados.event,
+    detail: dados.detail?.slice(0, 120) ?? null,
+  });
+}
+
+/**
+ * Os últimos eventos nas empresas do DONO, com quem fez. A posse é o JOIN em
+ * `companyProfiles.userId = dono`: o registro de uma empresa alheia não entra,
+ * mesmo que o ator seja o mesmo.
+ */
+export async function listarRegistroDeAcessos(atorId: number, limite = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select({
+      id: accessLog.id,
+      atorId: accessLog.userId,
+      nome: users.name,
+      email: users.email,
+      companyId: accessLog.companyId,
+      legalName: companyProfiles.legalName,
+      tradeName: companyProfiles.tradeName,
+      event: accessLog.event,
+      detail: accessLog.detail,
+      quando: accessLog.createdAt,
+    })
+    .from(accessLog)
+    .innerJoin(companyProfiles, eq(companyProfiles.id, accessLog.companyId))
+    .innerJoin(users, eq(users.id, accessLog.userId))
+    .where(eq(companyProfiles.userId, atorId))
+    .orderBy(desc(accessLog.createdAt), desc(accessLog.id))
+    .limit(limite);
 }

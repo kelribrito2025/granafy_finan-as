@@ -55,6 +55,7 @@ import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 
 
@@ -918,7 +919,9 @@ export default function LancamentosPage() {
    * filtros e ordenação de uma vez, sem repetir a regra num segundo lugar e
    * arriscar que os dois se afastem com o tempo.
    */
+  const registrarExportacao = useRegistrarExportacao();
   const exportTransactions = () => {
+    registrarExportacao("Lançamentos");
     const linhas = groupedTransactions.flatMap(group => group.items);
     if (linhas.length === 0) {
       return toast.info(

@@ -16,6 +16,7 @@ import {
   verifyPasswordResetToken,
 } from "./auth";
 import { lerConfiguracaoDoSistema } from "./configuracaoDoSistema";
+import { registrarEntrada } from "./registroDeAcesso";
 import * as db from "./db";
 import {
   isPasswordResetEmailConfigured,
@@ -135,6 +136,7 @@ export const appRouter = router({
             passwordHash,
           });
           await setLocalSession(ctx.req, ctx.res, user.id);
+          void registrarEntrada(ctx.req, user.id);
           // Sem await: a resposta do cadastro não espera o Resend, e a falha
           // do envio fica no log, nunca na tela de quem acabou de entrar.
           void sendWelcomeEmail({ to: email, name: input.name.trim() });
@@ -227,6 +229,8 @@ export const appRouter = router({
           db.ensureDefaultCompany(record.id),
         ]);
         await setLocalSession(ctx.req, ctx.res, record.id, input.remember);
+        // Sem await: o registro não segura a resposta do login, e não a derruba.
+        void registrarEntrada(ctx.req, record.id);
         return db.toPublicUser({ ...record, lastSignedIn: new Date() });
       }),
 

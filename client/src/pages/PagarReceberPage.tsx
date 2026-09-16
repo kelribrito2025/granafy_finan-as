@@ -37,6 +37,7 @@ import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 type Arrangement = "lista" | "colunas";
 type Tab = "tudo" | "receber" | "pagar" | "atrasados";
@@ -567,7 +568,9 @@ export default function PagarReceberPage() {
     });
   }, [data, search, tab]);
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportCsv = () => {
+    registrarExportacao("A pagar e receber");
     if (!data || data.open.length === 0) return toast.info("Não há títulos abertos para exportar.");
     const header = ["Vencimento", "Tipo", "Título", "Contato", "Categoria", "Situação", "Valor", "Conta"];
     const rows = data.open.map(title => [

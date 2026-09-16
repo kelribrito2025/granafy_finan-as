@@ -36,6 +36,7 @@ import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import type { AppRouter } from "../../../server/routers";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 type Arrangement = "lista" | "colunas";
 type Tab = "tudo" | "recebidas" | "pagas";
@@ -540,7 +541,9 @@ export default function PagasRecebidasPage() {
   const [sort, setSort] = useState<SettledSortState>(null);
   const porDia = useMemo(() => buildSettledDayGroups(filtered, sort), [filtered, sort]);
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportCsv = () => {
+    registrarExportacao("Pagas e recebidas");
     if (filtered.length === 0) {
       return alert(filtrosAtivos
         ? "Nenhum título liquidado corresponde aos filtros."

@@ -16,6 +16,7 @@ import {
 } from "../convites";
 import * as db from "../db";
 import { sendCompanyInvite } from "../email";
+import { registrarEntrada, registrarExportacao } from "../registroDeAcesso";
 
 /*
  * Acessos — Fase C do acesso do contador.
@@ -53,10 +54,11 @@ export const acessosRouter = router({
    * convite), os convites em aberto e quem já tem acesso, agrupado por pessoa.
    */
   visaoGeral: protectedProcedure.query(async ({ ctx }) => {
-    const [empresas, convites, acessos] = await Promise.all([
+    const [empresas, convites, acessos, registro] = await Promise.all([
       db.listCompanies(ctx.user.id),
       db.listarConvitesPendentes(ctx.ator),
       db.listarAcessos(ctx.ator),
+      db.listarRegistroDeAcessos(ctx.ator, 50),
     ]);
 
     const nome = ctx.user.name ?? "";
@@ -79,6 +81,17 @@ export const acessosRouter = router({
       empresas: empresas.filter(e => e.isActive).map(e => ({ id: e.id, nome: nomeDaEmpresa(e, nome), atual: e.id === ctx.activeCompanyId })),
       convites: [...porLote.values()],
       acessos: [...porPessoa.values()],
+      /** Os últimos eventos nas empresas do dono. `ehVoce` marca as linhas do próprio dono. */
+      registro: registro.map(linha => ({
+        id: linha.id,
+        quando: linha.quando,
+        nome: linha.nome ?? "",
+        email: linha.email ?? "",
+        ehVoce: linha.atorId === ctx.ator,
+        empresa: nomeDaEmpresa(linha, nome),
+        evento: linha.event,
+        detalhe: linha.detail,
+      })),
       emailConfigurado: Boolean(process.env.RESEND_API_KEY && process.env.PASSWORD_RESET_FROM_EMAIL),
     };
   }),
@@ -135,6 +148,18 @@ export const acessosRouter = router({
       }
 
       return { lote, enviado, link: `${baseDoLink(ctx.req)}${caminhoDoConvite(token)}` };
+    }),
+
+  /**
+   * A tela declara que exportou. Não é `escritaProcedure` de propósito: o
+   * contador exporta, e o registro é sobre o que ELE fez — não escreve dado
+   * da empresa. Vale para qualquer empresa que a pessoa esteja vendo.
+   */
+  registrarExportacao: protectedProcedure
+    .input(z.object({ relatorio: z.string().trim().min(1).max(120) }))
+    .mutation(async ({ ctx, input }) => {
+      await registrarExportacao(ctx.ator, ctx.activeCompanyId, input.relatorio);
+      return { success: true } as const;
     }),
 
   /** Cancela um convite em aberto. Um clique antigo no e-mail passa a dizer "não vale mais". */
@@ -232,6 +257,7 @@ export const acessosRouter = router({
       const user = await db.createLocalUser({ email, name: input.name, passwordHash: await hashPassword(input.password) });
       const aceite = await db.aceitarConvite(user.id, { tokenHash, email });
       await setLocalSession(ctx.req, ctx.res, user.id);
+      void registrarEntrada(ctx.req, user.id);
       return aceite;
     }),
 });

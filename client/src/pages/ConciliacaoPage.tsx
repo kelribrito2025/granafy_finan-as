@@ -33,6 +33,7 @@ import { toast } from "@/lib/toast";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useLocation } from "wouter";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
+import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
 
 /*
  * O `overview` virou união: ou o pacote da conciliação, ou "não há conta". O
@@ -1245,7 +1246,9 @@ export default function ConciliacaoPage() {
     }
   };
 
+  const registrarExportacao = useRegistrarExportacao();
   const exportCsv = () => {
+    registrarExportacao("Conciliação");
     if (!data || data.items.length === 0) return toast.info("Não há movimentações para exportar.");
     const header = ["Data", "Descrição no extrato", "Valor", "Situação", "Lançamento", "Motivo"];
     const rows = data.items.map(item => [
