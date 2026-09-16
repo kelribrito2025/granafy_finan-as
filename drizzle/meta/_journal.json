@@ -204,6 +204,13 @@
       "when": 1789576146219,
       "tag": "0028_wandering_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1789584210279,
+      "tag": "0029_early_morning_star",
+      "breakpoints": true
     }
   ]
 }

@@ -469,6 +469,7 @@ function PreferencesForm({ initial, loading, pending, onSave }: {
   pending: boolean;
   onSave: (values: Preferences) => Promise<void>;
 }) {
+  const enviarAgora = trpc.alertas.enviarAgora.useMutation();
   const [form, setForm] = useState<Preferences | null>(null);
 
   useEffect(() => {
@@ -591,6 +592,38 @@ function PreferencesForm({ initial, loading, pending, onSave }: {
             label="Lembrar do estado ao recarregar"
             hint="recolher a barra na mão passa a valer na próxima visita, neste navegador"
           />
+        </div>
+      </article>
+
+      <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3] sm:p-6">
+        <h2 className="text-[15px] font-bold">Alertas por e-mail</h2>
+        <div className="mt-2 flex flex-col">
+          <Toggle
+            checked={form.alertaContasAtrasadas}
+            onChange={value => setForm({ ...form, alertaContasAtrasadas: value })}
+            label="Contas a pagar atrasadas"
+            hint="um e-mail por dia, às 8h, com a lista e o total do que venceu e ainda está pendente — só quando houver atraso"
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[14px] bg-[#F8FAF9] px-4 py-3">
+          <span className="min-w-0 flex-1 text-[12.5px] text-[#4C6355]">Quer ver como fica? Manda agora o alerta desta empresa para o seu e-mail, mesmo antes das 8h.</span>
+          <button
+            type="button"
+            disabled={enviarAgora.isPending}
+            onClick={async () => {
+              try {
+                const r = await enviarAgora.mutateAsync();
+                if (r.enviado) toast.success(`Enviado: ${r.contas} ${r.contas === 1 ? "conta atrasada" : "contas atrasadas"}.`);
+                else if (r.motivo === "sem-atraso") toast.info("Nenhuma conta a pagar atrasada nesta empresa. Nada a enviar.");
+                else toast.error("O envio de e-mail não está configurado neste ambiente.");
+              } catch (erro) {
+                toast.error(erro instanceof Error ? erro.message : "Não foi possível enviar");
+              }
+            }}
+            className="h-10 rounded-xl bg-white px-4 text-[13px] font-bold text-[#0A7A42] ring-1 ring-[#DFE6E1] hover:bg-[#DFF6EA] disabled:opacity-60"
+          >
+            {enviarAgora.isPending ? "Enviando..." : "Enviar agora"}
+          </button>
         </div>
       </article>
 

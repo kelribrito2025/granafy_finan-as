@@ -10,6 +10,7 @@ import { serveStatic, setupVite } from "./vite";
 import { registerGoogleAuthRoutes } from "../googleAuth";
 import { sessionUserIdFrom } from "../auth";
 import path from "node:path";
+import { iniciarAgendadorDeAlertas } from "../alertas";
 
 /** O HTML da landing, no lugar em que cada ambiente o deixa. */
 function landingIndex() {
@@ -110,6 +111,9 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // O alerta diário de contas atrasadas. Roda dentro do processo; ver alertas.ts.
+  iniciarAgendadorDeAlertas();
 }
 
 startServer().catch(console.error);

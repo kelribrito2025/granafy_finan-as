@@ -32,6 +32,7 @@ import { isGoogleLoginEnabled } from "./_core/env";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { acessosRouter } from "./routers/acessos";
+import { alertasRouter } from "./routers/alertas";
 import { adminRouter } from "./routers/admin";
 import { balanceSheetRouter } from "./routers/balanceSheet";
 import { cashflowRouter, payablesRouter } from "./routers/cashflow";
@@ -79,6 +80,7 @@ export const appRouter = router({
   configuracaoDoSistema: publicProcedure.query(() => lerConfiguracaoDoSistema()),
 
   acessos: acessosRouter,
+  alertas: alertasRouter,
   admin: adminRouter,
   balanceSheet: balanceSheetRouter,
   cashflow: cashflowRouter,

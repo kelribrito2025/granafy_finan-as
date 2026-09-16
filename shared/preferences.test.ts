@@ -110,6 +110,8 @@ describe("DEFAULT_PREFERENCES", () => {
     expect(DEFAULT_PREFERENCES.sidebarTooltips).toBe(true);
     expect(DEFAULT_PREFERENCES.sidebarBadges).toBe(true);
     expect(DEFAULT_PREFERENCES.sidebarRemember).toBe(false);
+    /* Alerta ligado por padrão: quem não quer, desliga — e o e-mail diz onde. */
+    expect(DEFAULT_PREFERENCES.alertaContasAtrasadas).toBe(true);
   });
 
   it("descreve os três modos que a tela de preferências oferece", () => {
