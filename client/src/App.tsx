@@ -71,6 +71,21 @@ function ApenasAutenticado({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Só o dono da empresa aberta. O contador que chegar aqui por URL volta para a
+ * visão geral — Configurações é empresa, preferências e Acessos, e nada disso
+ * é dele.
+ */
+function SoDono({ children }: { children: ReactNode }) {
+  const { somenteLeitura } = useAuth();
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (somenteLeitura) setLocation("/", { replace: true });
+  }, [somenteLeitura, setLocation]);
+  if (somenteLeitura) return <AuthLoading />;
+  return <>{children}</>;
+}
+
 function ProtectedPage({ children }: { children: ReactNode }) {
   /*
    * O portão do primeiro acesso fica dentro dos provedores e fora do painel: o
@@ -104,7 +119,7 @@ function Router() {
       <Route path="/dre"><ProtectedPage><DrePage /></ProtectedPage></Route>
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
-      <Route path="/configuracoes"><ProtectedPage><SettingsPage /></ProtectedPage></Route>
+      <Route path="/configuracoes"><ProtectedPage><SoDono><SettingsPage /></SoDono></ProtectedPage></Route>
       <Route path="/pagas-e-recebidas"><ProtectedPage><PagasRecebidasPage /></ProtectedPage></Route>
       <Route path="/lancamentos"><ProtectedPage><LancamentosPage /></ProtectedPage></Route>
       {/* O admin do sistema tem o próprio portão (papel), dentro do AdminShell. */}

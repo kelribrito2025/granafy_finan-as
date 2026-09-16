@@ -21,7 +21,12 @@ export const onboardingRouter = router({
     const empresaAtiva = ctx.companies.find(empresa => empresa.id === ctx.activeCompanyId);
 
     return {
-      show: shouldShowOnboarding({
+      /*
+       * O contador nunca vê o primeiro acesso da empresa do cliente: o fluxo
+       * cadastra conta e importa extrato, e ele não pode nem uma coisa nem
+       * outra. A empresa vazia do cliente é assunto do cliente.
+       */
+      show: ctx.papel === "dono" && shouldShowOnboarding({
         /* A coluna da empresa manda; a do login é o legado que responde por quem não a tem. */
         companyCompletedAt: empresaAtiva?.onboardingCompletedAt ?? null,
         completedAt: record?.onboardingCompletedAt ?? null,

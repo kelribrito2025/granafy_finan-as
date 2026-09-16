@@ -38,6 +38,7 @@ import { toast } from "@/lib/toast";
 import { todayIso } from "@/lib/period";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 type Account = {
   id: number;
@@ -130,6 +131,7 @@ function CategoryRow({ node, depth, share, onEdit }: {
   share: number;
   onEdit: (category: Category) => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   const hasChildren = node.children.length > 0;
   return (
     <>
@@ -153,6 +155,7 @@ function CategoryRow({ node, depth, share, onEdit }: {
         <span className={`w-[120px] shrink-0 text-right ${depth === 0 ? "text-[14px] font-bold" : "text-[13px] font-semibold"}`}>
           {formatMoney(node.subtotal)}
         </span>
+        {podeEscrever && (
         <Hint label="Editar categoria" placement="left" className="shrink-0">
           <button
             type="button"
@@ -164,6 +167,7 @@ function CategoryRow({ node, depth, share, onEdit }: {
             <EditIcon size={13} />
           </button>
         </Hint>
+        )}
       </div>
       {node.children.map(child => (
         <CategoryRow key={child.path} node={child} depth={depth + 1} share={0} onEdit={onEdit} />
@@ -609,6 +613,7 @@ export default function OrganizationPage() {
   const semContasRapido = useSemContas();
   const data = overviewQuery.data;
   const refresh = async () => { await Promise.all([utils.organization.overview.invalidate(), utils.organization.options.invalidate(), utils.transactions.list.invalidate(), utils.transactions.dashboard.invalidate()]); };
+  const podeEscrever = !useSomenteLeitura();
   const createAccount = trpc.organization.createAccount.useMutation({ onSuccess: refresh });
   const updateAccount = trpc.organization.updateAccount.useMutation({ onSuccess: refresh });
   const toggleAccount = trpc.organization.toggleAccount.useMutation({ onSuccess: refresh });
@@ -849,12 +854,14 @@ export default function OrganizationPage() {
               </div>
             )}
 
-            {section === "categories" && (
+            {section === "categories" && podeEscrever && (
               <Hint label="Importar plano de contas"><button type="button" aria-label="Importar plano de contas" onClick={() => setImportPlanOpen(true)} className={toolButton}><UploadIcon size={17} /></button></Hint>
             )}
+            {podeEscrever && (
             <button type="button" onClick={openPrimary} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold sm:px-4 text-white hover:bg-[#0F9E4E]">
               <PlusIcon size={15} />{primaryLabel}
             </button>
+            )}
             <ProfileMenu />
           </header>
 
@@ -877,7 +884,10 @@ export default function OrganizationPage() {
           )}
           {failed && <section className="flex min-h-[420px] flex-1 flex-col items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><strong className="text-[#B3261E]">Não foi possível carregar</strong><button type="button" onClick={() => overviewQuery.refetch()} className="mt-3 rounded-xl bg-[#FDECEA] px-4 py-2 text-[12px] font-bold text-[#8E1F16]">Tentar novamente</button></section>}
 
-          {semContas && section === "accounts" && (
+          {semContas && section === "accounts" && !podeEscrever && (
+            <CartaoVazio icone={<WalletIcon size={20} />} titulo="Nenhuma conta cadastrada" texto="O dono ainda não cadastrou contas nesta empresa." alturaMinima={420} />
+          )}
+          {semContas && section === "accounts" && podeEscrever && (
             <ContasVazias onCadastrar={tipo => { setEditingAccount(null); setTipoInicial(tipo); setAccountModal(true); }} />
           )}
 
@@ -938,7 +948,7 @@ export default function OrganizationPage() {
                           : accountFilter === "active"
                             ? "Cadastre uma conta para importar OFX ou CSV e organizar os saldos."
                             : "Contas arquivadas somem das telas do dia a dia e ficam guardadas aqui."}
-                        acoes={accountSearch || accountFilter !== "active" ? [] : [{ rotulo: "Cadastrar conta", onClick: () => { setEditingAccount(null); setAccountModal(true); }, icone: <PlusIcon size={15} /> }]}
+                        acoes={accountSearch || accountFilter !== "active" || !podeEscrever ? [] : [{ rotulo: "Cadastrar conta", onClick: () => { setEditingAccount(null); setAccountModal(true); }, icone: <PlusIcon size={15} /> }]}
                       />
                     ) : visibleAccounts.map(item => (
                       <div key={item.id} className={`${ACCOUNT_GRID} items-center border-b border-[#F1F4F2] px-1 py-3 transition hover:bg-[#F8FAF9]`}>
@@ -965,11 +975,13 @@ export default function OrganizationPage() {
                           cortado pelo próprio contêiner, que também recorta em
                           cima.
                         */}
+                        {podeEscrever && (
                         <div className="flex items-center justify-end gap-1">
                           <Hint label={item.isActive ? "Arquivar conta" : "Reativar conta"} placement="left"><button type="button" aria-label={item.isActive ? `Arquivar ${item.name}` : `Reativar ${item.name}`} onClick={() => toggleAccount.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]">{item.isActive ? <ArchiveIcon size={15} /> : <CheckIcon size={15} />}</button></Hint>
                           <Hint label="Editar conta" placement="left"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingAccount(item); setAccountModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
                           <Hint label="Excluir conta" placement="left"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteAccount(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
                         </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1019,11 +1031,13 @@ export default function OrganizationPage() {
                             <span className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${item.isActive ? "" : "text-[#8A968D] line-through"}`}>{item.name}</span>
                             <span className="text-[12px] text-[#8A968D]">{item.transactionCount} lançamentos</span>
                             <span className="w-[130px] text-right text-[14px] font-bold">{formatMoney(item.total)}</span>
+                            {podeEscrever && (
                             <div className="flex items-center gap-1">
                               <button type="button" title={item.isActive ? "Desativar" : "Ativar"} aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`} onClick={() => toggleCostCenter.mutate({ id: item.id })} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><CheckIcon size={15} /></button>
                               <Hint label="Editar centro de custo" placement="top"><button type="button" aria-label={`Editar ${item.name}`} onClick={() => { setEditingCostCenter(item); setCostCenterModal(true); }} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#F1F4F2]"><EditIcon size={15} /></button></Hint>
                               <Hint label="Excluir centro de custo" placement="top"><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => handleDeleteCostCenter(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-[#8A968D] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={15} /></button></Hint>
                             </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1050,9 +1064,11 @@ export default function OrganizationPage() {
                       </div>
                     ))}
                   </div>
+                  {podeEscrever && (
                   <button type="button" onClick={() => { setEditingCostCenter(null); setCostCenterModal(true); }} className="mt-4 flex h-[42px] w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#C9D5CD] text-[13px] font-semibold text-[#4C6355] hover:bg-[#F8FAF9]">
                     <PlusIcon size={14} />Novo centro de custo
                   </button>
+                  )}
                 </article>
 
                 <article className="rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
@@ -1082,14 +1098,18 @@ export default function OrganizationPage() {
                               <span className="min-w-0 truncate">{[rule.category, rule.costCenter].filter(Boolean).join(" · ")}</span>
                             </span>
                           </div>
+                          {podeEscrever && (
                           <Hint label="Excluir regra" placement="top"><button type="button" aria-label={`Excluir regra ${rule.matchValue}`} onClick={() => handleDeleteRule(rule)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#B3BFB7] hover:bg-[#FDECEA] hover:text-[#B3261E]"><DeleteIcon size={13} /></button></Hint>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
+                  {podeEscrever && (
                   <button type="button" onClick={() => setRuleModal(true)} className="mt-4 flex h-[42px] w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#C9D5CD] text-[13px] font-semibold text-[#4C6355] hover:bg-[#F8FAF9]">
                     <PlusIcon size={14} />Nova regra
                   </button>
+                  )}
                 </article>
 
                 {uncategorized.count > 0 && (

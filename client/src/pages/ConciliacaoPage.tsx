@@ -32,6 +32,7 @@ import { useMemo, useState } from "react";
 import { toast } from "@/lib/toast";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useLocation } from "wouter";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 /*
  * O `overview` virou união: ou o pacote da conciliação, ou "não há conta". O
@@ -826,6 +827,7 @@ function DifferenceModal({ data, accountId, firstDayOfMonth, lastDayOfMonth, onC
   onResolve: (movementId: number) => void;
   onBalanceSaved: () => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   return (
     <ModalShell
       title="Composição da diferença"
@@ -862,6 +864,7 @@ function DifferenceModal({ data, accountId, firstDayOfMonth, lastDayOfMonth, onC
         </div>
       </div>
 
+      {podeEscrever && (
       <StatementBalanceForm
         accountId={accountId}
         monthStart={firstDayOfMonth}
@@ -871,6 +874,7 @@ function DifferenceModal({ data, accountId, firstDayOfMonth, lastDayOfMonth, onC
         origin={data.statementOrigin}
         onSaved={onBalanceSaved}
       />
+      )}
 
       <div className="flex flex-col gap-2">
         <span className="text-[12.5px] font-semibold text-[#4C6355]">
@@ -1085,6 +1089,7 @@ export default function ConciliacaoPage() {
     ]);
   };
 
+  const podeEscrever = !useSomenteLeitura();
   const confirm = trpc.reconciliation.confirm.useMutation({
     onSuccess: async () => { await refresh(); toast.success("Movimentação conciliada."); },
     onError: error => toast.error(error.message),
@@ -1323,7 +1328,10 @@ export default function ConciliacaoPage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar conciliação" onClick={exportCsv} className={toolButton}><DownloadIcon size={17} /></button></Hint>
-            {data && (
+            {data && !podeEscrever && data.period.closed && (
+              <span className="flex h-10 items-center rounded-[12px] bg-[#F1F4F2] px-4 text-[13px] font-bold text-[#4C6355]">Mês fechado</span>
+            )}
+            {data && podeEscrever && (
               data.period.closed ? (
                 <button
                   type="button"
@@ -1441,7 +1449,7 @@ export default function ConciliacaoPage() {
                     </label>
                   </div>
 
-                  {selectedItems.length > 0 && (
+                  {selectedItems.length > 0 && podeEscrever && (
                     <BatchBar
                       items={selectedItems}
                       pending={confirmBatch.isPending || group.isPending}
@@ -1482,7 +1490,7 @@ export default function ConciliacaoPage() {
                         icone={<UploadIcon size={20} />}
                         titulo="Nenhum extrato importado neste mês"
                         texto="Envie o arquivo OFX ou CSV do banco e as movimentações aparecem aqui para conciliar."
-                        acoes={[{ rotulo: "Importar extrato", onClick: () => setLocation("/lancamentos?importar=extrato"), icone: <UploadIcon size={15} /> }]}
+                        acoes={podeEscrever ? [{ rotulo: "Importar extrato", onClick: () => setLocation("/lancamentos?importar=extrato"), icone: <UploadIcon size={15} /> }] : []}
                       />
                     ) : (
                       <CartaoVazio
@@ -1503,12 +1511,14 @@ export default function ConciliacaoPage() {
                             selected.has(item.id) ? "bg-[#F1FBF6]" : "hover:bg-[#F8FAF9]"
                           }`}
                         >
+                          {podeEscrever ? (
                           <Check
                             checked={selected.has(item.id)}
                             disabled={item.status === "conciliado" || item.status === "classificado"}
                             label={`Selecionar ${item.description}`}
                             onChange={() => toggle(item.id)}
                           />
+                          ) : <span aria-hidden="true" />}
                           <span
                             title={formatDate(item.movementDate)}
                             className="hidden whitespace-nowrap text-[13px] text-[#4C6355] lg:block"
@@ -1543,7 +1553,7 @@ export default function ConciliacaoPage() {
                             {signedMoney(item.amount)}
                           </span>
                           <span className="relative hidden items-center justify-end gap-1 justify-self-end lg:flex">
-                            {item.suggestion && (
+                            {item.suggestion && podeEscrever && (
                               <button
                                 type="button"
                                 disabled={confirm.isPending}
@@ -1558,6 +1568,7 @@ export default function ConciliacaoPage() {
                                 Confirmar
                               </button>
                             )}
+                            {podeEscrever && (<>
                             <button
                               type="button"
                               aria-label={`Ações de ${item.description}`}
@@ -1571,6 +1582,7 @@ export default function ConciliacaoPage() {
                             {menuFor === item.id && (
                               <RowMenu item={item} onClose={() => setMenuFor(null)} onAction={action => abrirAcao(action, item)} />
                             )}
+                            </>)}
                           </span>
                         </div>
                       );
@@ -1582,7 +1594,7 @@ export default function ConciliacaoPage() {
                   <div className="flex flex-col gap-3 rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">
                     <div className="flex items-baseline gap-2">
                       <span className="text-[15px] font-bold">Regras de conciliação</span>
-                      {data.rules.some(rule => rule.autoReconcile) && (
+                      {data.rules.some(rule => rule.autoReconcile) && podeEscrever && (
                         <button
                           type="button"
                           disabled={applyAutoRules.isPending}

@@ -35,6 +35,7 @@ import type { TransactionInput } from "@/lib/transactionTypes";
 import { HideValuesButton } from "@/components/HideValuesButton";
 import { VisaoGeralVazia } from "@/pages/VisaoGeralVazia";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 
 const PERIOD_LABELS: Record<DefaultPeriod, string> = {
@@ -139,6 +140,7 @@ export default function Home() {
   const organizationQuery = trpc.organization.options.useQuery(undefined, { enabled: novoLancamento });
   const organizationOptions = organizationQuery.data ?? { accounts: [], categories: [], costCenters: [] };
   const createMutation = trpc.transactions.create.useMutation();
+  const podeEscrever = !useSomenteLeitura();
 
   const salvarLancamento = async (input: TransactionInput) => {
     try {
@@ -290,6 +292,7 @@ export default function Home() {
               )}
             </div>
 
+            {podeEscrever && (
             <button
               type="button"
               onClick={() => setNovoLancamento(true)}
@@ -299,13 +302,14 @@ export default function Home() {
               <span className="hidden sm:inline">Novo lançamento</span>
               <span className="sm:hidden">Novo</span>
             </button>
+            )}
 
             <ProfileMenu />
           </header>
 
           {carregando && <VisaoGeralSkeleton />}
 
-          {!carregando && primeiroAcesso && (
+          {!carregando && primeiroAcesso && podeEscrever && (
             <VisaoGeralVazia
               empresa={companyQuery.data?.legalName || null}
               categorias={overviewQuery.data ? overviewQuery.data.categories.length : null}
@@ -317,7 +321,7 @@ export default function Home() {
             />
           )}
 
-          {!carregando && !primeiroAcesso && (<>
+          {!carregando && (!primeiroAcesso || !podeEscrever) && (<>
           <div className="grid gap-5 xl:grid-cols-[392px_minmax(0,1fr)]">
             <AuroraSurface className="min-h-[326px] rounded-[20px] p-5 sm:p-6">
               <div className="flex flex-1 flex-col gap-[18px]">
@@ -491,10 +495,10 @@ export default function Home() {
                     icone={<MenuIcon size={20} />}
                     titulo="Nenhum lançamento ainda"
                     texto="Entradas e saídas aparecem aqui conforme forem registradas ou importadas do banco."
-                    acoes={[
+                    acoes={podeEscrever ? [
                       { rotulo: "Novo lançamento", onClick: () => setNovoLancamento(true), icone: <PlusIcon size={15} /> },
                       { rotulo: "Importar extrato", onClick: () => setLocation("/lancamentos?importar=extrato"), icone: <UploadIcon size={15} />, tom: "secundario" },
-                    ]}
+                    ] : []}
                   />
                 )}
               </div>

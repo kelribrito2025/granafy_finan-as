@@ -1,6 +1,7 @@
 import type { Express } from "express";
-import { isAttachmentKey, isPublicAssetKey, ownsAttachment } from "../attachments";
+import { isAttachmentKey, isPublicAssetKey, ownsAttachment, podeLerAnexo } from "../attachments";
 import { authenticateLocalRequest } from "../auth";
+import * as db from "../db";
 import { ENV } from "./env";
 
 /*
@@ -31,8 +32,18 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
+    /*
+     * A mesma regra do tRPC, porque esta rota entrega o arquivo fora dele: o
+     * dono pelo prefixo; o contador pela linha, conferida contra as empresas
+     * que ele pode abrir (as mesmas de ctx.companies).
+     */
     const permitido = isAttachmentKey(key)
-      ? ownsAttachment(user.id, key)
+      ? (ownsAttachment(user.id, key) || podeLerAnexo({
+          atorId: user.id,
+          key,
+          empresaDoAnexo: await db.empresaDoAnexo(key),
+          empresasVisiveis: (await db.empresasVisiveisPara(user.id)).map(empresa => empresa.id),
+        }))
       : isPublicAssetKey(key);
     if (!permitido) {
       res.status(403).send("Arquivo não disponível para esta conta");

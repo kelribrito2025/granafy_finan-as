@@ -24,6 +24,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 type DreOutputs = inferRouterOutputs<AppRouter>["dre"];
 type StatementData = DreOutputs["statement"];
@@ -349,6 +350,7 @@ function DreVazia({ regime, onNovoLancamento, onImportar, onVerCompetencia }: {
   onImportar: () => void;
   onVerCompetencia: () => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   const [explicando, setExplicando] = useState(false);
   const traco = (conteudo: ReactNode, tamanho = 20) => (
     <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{conteudo}</svg>
@@ -391,6 +393,7 @@ function DreVazia({ regime, onNovoLancamento, onImportar, onVerCompetencia }: {
           </p>
         </div>
 
+        {podeEscrever && (
         <div className="flex flex-wrap justify-center gap-3">
           <button type="button" onClick={onNovoLancamento} className="flex h-12 items-center gap-2 rounded-[12px] bg-[#12B85C] px-[22px] text-[14px] font-bold text-white transition hover:bg-[#0F9E4E]">
             <PlusIcon size={16} />
@@ -401,6 +404,7 @@ function DreVazia({ regime, onNovoLancamento, onImportar, onVerCompetencia }: {
             Importar extrato
           </button>
         </div>
+        )}
 
         <div className="flex w-full max-w-[820px] flex-col gap-2 border-t border-[#F1F4F2] pt-6">
           <span className="text-left text-[11px] font-bold uppercase tracking-[.08em] text-[#8A968D]">As linhas que o GranaFy vai calcular</span>
@@ -474,6 +478,7 @@ export default function DrePage() {
     { enabled: view !== "mes" }
   );
   const utils = trpc.useUtils();
+  const podeEscrever = !useSomenteLeitura();
   const closeMonth = trpc.balanceSheet.captureSnapshot.useMutation({
     onSuccess: () => {
       utils.dre.statement.invalidate();
@@ -598,6 +603,7 @@ export default function DrePage() {
             </div>
 
             <Hint label="Exportar CSV"><button type="button" aria-label="Exportar DRE" onClick={exportCsv} disabled={mesVazio} className={`${toolButton} disabled:pointer-events-none disabled:opacity-50`}><DownloadIcon size={17} /></button></Hint>
+            {podeEscrever && (
             <button
               type="button"
               disabled={closeMonth.isPending || isFuture}
@@ -608,6 +614,7 @@ export default function DrePage() {
               <DocumentIcon size={15} />
               {closeMonth.isPending ? "Fechando…" : "Fechar o mês"}
             </button>
+            )}
             <ProfileMenu />
           </header>
 

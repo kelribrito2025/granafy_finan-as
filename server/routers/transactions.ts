@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { TransactionRecord } from "../../drizzle/schema";
 import { escritaProcedure, protectedProcedure, router } from "../_core/trpc";
-import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, type AttachmentFolder } from "../attachments";
+import { ATTACHMENT_FOLDERS, attachmentPrefix, ownsAttachment, podeLerAnexo, type AttachmentFolder } from "../attachments";
 import * as db from "../db";
 import { settlementDateFor } from "../settlement";
 import { userToday } from "../userToday";
@@ -911,7 +911,14 @@ export const transactionsRouter = router({
   attachmentUrl: protectedProcedure
     .input(z.object({ key: z.string().trim().min(1).max(255) }))
     .query(async ({ ctx, input }) => {
-      if (!ownsAttachment(ctx.user.id, input.key)) {
+      const permitido = podeLerAnexo({
+        atorId: ctx.user.id,
+        key: input.key,
+        // A busca na linha só acontece para quem não é o dono do prefixo.
+        empresaDoAnexo: ownsAttachment(ctx.user.id, input.key) ? null : await db.empresaDoAnexo(input.key),
+        empresasVisiveis: ctx.companies.map(empresa => empresa.id),
+      });
+      if (!permitido) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Anexo não pertence a esta conta" });
       }
       try {

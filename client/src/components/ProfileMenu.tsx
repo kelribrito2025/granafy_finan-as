@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 import {
   ArchiveIcon,
   BuildingIcon,
@@ -59,6 +60,8 @@ function ChevronDownIcon({ size = 15, className = "" }: { size?: number; classNa
 type Empresa = {
   id: number;
   displayName: string;
+  /** Só o dono renomeia e arquiva; o contador vê a linha sem o menu. */
+  podeGerir: boolean;
   legalName: string;
   tradeName: string;
   taxId: string;
@@ -313,6 +316,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
   onClose: () => void;
   onMudou: () => void;
 }) {
+  const somenteLeitura = useSomenteLeitura();
   const [form, setForm] = useState<
     { modo: "criar" } | { modo: "renomear"; empresa: Empresa } | { modo: "arquivar" } | null
   >(null);
@@ -515,6 +519,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                         verdade mas não responde a pergunta da tela.
                       */}
                       <CaixaDeSelecao marcada={empresa.isCurrent} tamanho={20} />
+                      {empresa.podeGerir && (
                       <span onClick={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
                       <MenuDaEmpresa
                         desabilitado={ocupado}
@@ -539,6 +544,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                         }}
                       />
                       </span>
+                      )}
                     </div>
 
                     {/*
@@ -556,6 +562,8 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                 );
               })}
 
+              {/* Criar empresa fica fora da v1 do contador: quem está como contador não vê o botão. */}
+              {!somenteLeitura && (
               <button
                 type="button"
                 disabled={ocupado}
@@ -565,6 +573,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
                 <PlusIcon size={16} />
                 Adicionar empresa
               </button>
+              )}
 
               {/*
                 As arquivadas, atrás de um clique.
@@ -622,7 +631,7 @@ function CompanySwitcher({ empresas, carregando, onClose, onMudou }: {
 
 /** O avatar da topbar e o menu que ele abre. */
 export function ProfileMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout, somenteLeitura } = useAuth();
   const [, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   const [switcher, setSwitcher] = useState(false);
@@ -702,23 +711,26 @@ export function ProfileMenu() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-[14px] font-semibold ${carregandoEmpresa ? "text-[#8A968D]" : "text-[#0A7A42]"}`}>{companyName}</span>
-                <span className="block text-[12px] text-[#4C6355]">empresa atual</span>
+                <span className="block text-[12px] text-[#4C6355]">{somenteLeitura ? "empresa atual · somente leitura" : "empresa atual"}</span>
               </span>
               {/* Troca, não avanço: a seta única dizia "próxima tela". */}
               <SwapIcon size={17} className="shrink-0 text-[#0A7A42]" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => { setOpen(false); setLocation("/configuracoes"); }}
-              className="mt-1.5 flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left text-[14px] text-[#28382E] hover:bg-[#F1FBF6]"
-            >
-              <SettingsIcon size={16} className="text-[#4C6355]" />
-              <span className="flex-1">Configurações</span>
-              <ChevronRightIcon size={15} className="text-[#8A968D]" />
-            </button>
+            {/* Configurações e Assinatura são da empresa, e a empresa não é do contador. */}
+            {!somenteLeitura && (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setLocation("/configuracoes"); }}
+                className="mt-1.5 flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left text-[14px] text-[#28382E] hover:bg-[#F1FBF6]"
+              >
+                <SettingsIcon size={16} className="text-[#4C6355]" />
+                <span className="flex-1">Configurações</span>
+                <ChevronRightIcon size={15} className="text-[#8A968D]" />
+              </button>
+            )}
 
-            {assinaturasLiberadas && (
+            {assinaturasLiberadas && !somenteLeitura && (
               <button
                 type="button"
                 onClick={() => { setOpen(false); setLocation("/configuracoes?aba=assinatura"); }}

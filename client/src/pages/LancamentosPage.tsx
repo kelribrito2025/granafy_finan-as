@@ -54,6 +54,7 @@ import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 
 
@@ -254,6 +255,7 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
   onMenu: () => void;
   onCloseMenu: () => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   const isTransfer = transaction.type === "transferencia";
   const subtitle = rowSubtitle(transaction, status, showDate);
   // O menu de ações fecha ao clicar fora e no Esc, como os outros popovers.
@@ -301,7 +303,7 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}
       style={menuOpen ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 46px" }}
     >
-      <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} />
+      {podeEscrever ? <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} /> : <span aria-hidden="true" />}
       <div className="flex min-w-0 items-center gap-3">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[12px] font-bold ${monogramClass}`}>
           {monogram(monogramSource(transaction.description, transaction.contact))}
@@ -335,12 +337,15 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       )}
       {transaction.categoryId || transaction.category ? (
         <span className="truncate text-[#4C6355]">{transaction.category}</span>
-      ) : (
+      ) : podeEscrever ? (
         <button type="button" onClick={onCategorize} className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#0A7A42] hover:underline">
           <PlusIcon size={13} />Categorizar
         </button>
+      ) : (
+        <span className="truncate text-[#8A968D]">Sem categoria</span>
       )}
       <span className="truncate text-[#4C6355]">{transaction.account}</span>
+      {podeEscrever ? (
       <button
         type="button"
         disabled={pendingStatus}
@@ -350,10 +355,14 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       >
         {status.label}
       </button>
+      ) : (
+      <span className={`justify-self-start rounded-md px-2.5 py-1 text-[11px] font-semibold ${STATUS_TONE[status.tone]}`}>{status.label}</span>
+      )}
       <span className={`text-right font-bold ${amountClass}`}>{formatMoney(transaction.amount)}</span>
       <div ref={menuAnchor} className="relative justify-self-end">
       {/* Sem dica, o "⋮" é o único botão da linha que não se explica: os outros
           têm rótulo ao lado ou cor que os denuncia. */}
+      {podeEscrever && (<>
       <Hint label="Ações do lançamento" placement="left">
       <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded={menuOpen} onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4C6355] hover:bg-white">
         <MenuIcon size={16} />
@@ -366,6 +375,7 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
           <button type="button" onClick={onDelete} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button>
         </div>
       )}
+      </>)}
       </div>
     </div>
   );
@@ -681,6 +691,7 @@ export default function LancamentosPage() {
     ]);
   };
   const createMutation = trpc.transactions.create.useMutation();
+  const podeEscrever = !useSomenteLeitura();
   const updateMutation = trpc.transactions.update.useMutation();
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
@@ -962,24 +973,31 @@ export default function LancamentosPage() {
               <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A968D]" />
               <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar lançamento…" className="h-10 w-full rounded-[12px] bg-white pl-10 pr-3 text-[13px] outline-none ring-1 ring-[#DFE6E1] focus:ring-2 focus:ring-[#12B85C]/30" />
             </label>
+            {podeEscrever && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" aria-label="Importar lançamentos" onClick={() => setImportOpen(true)} className={toolButton}><UploadIcon size={17} /></button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Importar OFX ou CSV</TooltipContent>
             </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Hint label="Exportar CSV"><button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} disabled={contaVazia} className={toolButton}><DownloadIcon size={17} /></button></Hint>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
             </Tooltip>
+            {podeEscrever && (
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
+            )}
             <ProfileMenu />
           </header>
 
-          {contaVazia && (
+          {contaVazia && podeEscrever && (
             <LancamentosVazio onNovo={() => { setEditing(null); setModalOpen(true); }} onImportar={() => setImportOpen(true)} />
+          )}
+          {contaVazia && !podeEscrever && (
+            <CartaoVazio icone={<DocumentIcon size={20} />} titulo="Nenhum lançamento nesta empresa" texto="O dono ainda não registrou nem importou movimentos. Quando registrar, eles aparecem aqui." alturaMinima={420} />
           )}
 
           {!contaVazia && !panorama.pronto && (
@@ -1108,7 +1126,7 @@ export default function LancamentosPage() {
             <div className="min-h-0 flex-1 overflow-auto">
               <div className="min-w-[980px]">
                 <div className={`${ROW_GRID} border-b border-[#F1F4F2] px-3 pb-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]`}>
-                  <SelectionCheckbox checked={allSelected} mixed={someSelected} label="Selecionar todos" onChange={() => setSelected(allSelected ? [] : filtered.map(item => item.id))} />
+                  {podeEscrever ? <SelectionCheckbox checked={allSelected} mixed={someSelected} label="Selecionar todos" onChange={() => setSelected(allSelected ? [] : filtered.map(item => item.id))} /> : <span aria-hidden="true" />}
                   <span>Descrição</span>
                   <span className="flex justify-center text-[#B5C2BA]" title="Anexo" aria-label="Anexo"><ClipIcon size={13} /></span>
                   <SortableColumnHeader label="Categoria" sortKey="category" sort={sort} onSort={toggleSort} />
@@ -1139,7 +1157,7 @@ export default function LancamentosPage() {
                     texto={filtrosAtivos
                       ? "Ajuste os filtros ou limpe a busca para ver os lançamentos do mês."
                       : "Registre o primeiro movimento do mês, ou importe o extrato do banco."}
-                    acoes={filtrosAtivos ? [] : [
+                    acoes={filtrosAtivos || !podeEscrever ? [] : [
                       { rotulo: "Novo lançamento", onClick: () => { setEditing(null); setModalOpen(true); }, icone: <PlusIcon size={15} /> },
                       { rotulo: "Importar extrato", onClick: () => setImportOpen(true), icone: <UploadIcon size={15} />, tom: "secundario" },
                     ]}

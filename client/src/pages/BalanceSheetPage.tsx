@@ -68,6 +68,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 type BalanceGroup =
   | "ativo_circulante"
@@ -736,8 +737,9 @@ function ItemList({ items, emptyTitle, emptyText, onCreate, onEdit, onToggle, on
   onToggle: (item: PatrimonialItem) => void;
   onDelete: (item: PatrimonialItem) => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   if (!items.length) {
-    return <div className="flex min-h-[340px] flex-col items-center justify-center text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span><strong className="mt-3 text-[14px]">{emptyTitle}</strong><p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">{emptyText}</p><button type="button" onClick={onCreate} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white">Cadastrar primeiro item</button></div>;
+    return <div className="flex min-h-[340px] flex-col items-center justify-center text-center"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#DFF6EA] text-[#0A7A42]"><DocumentIcon size={23} /></span><strong className="mt-3 text-[14px]">{emptyTitle}</strong><p className="mt-1 max-w-[360px] text-[12px] leading-relaxed text-[#8A968D]">{emptyText}</p>{podeEscrever && <button type="button" onClick={onCreate} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12px] font-bold text-white">Cadastrar primeiro item</button>}</div>;
   }
   return (
     <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
@@ -747,7 +749,9 @@ function ItemList({ items, emptyTitle, emptyText, onCreate, onEdit, onToggle, on
           <strong className="mt-3 block truncate text-[14px]">{item.name}</strong>
           <span className="mt-1 block text-[10.5px] text-[#8A968D]">{typeLabels[item.itemType]}{item.acquisitionDate ? ` · ${formatDate(item.acquisitionDate)}` : ""}</span>
           <div className="mt-4 rounded-xl bg-[#F8FAF9] p-3"><span className="text-[10.5px] text-[#8A968D]">Valor contábil atual</span><strong className={`mt-0.5 block text-xl ${item.balanceGroup.startsWith("passivo_") ? "text-[#B3261E]" : "text-[#0A7A42]"}`}>{formatMoney(item.bookValue)}</strong>{item.accumulatedDepreciation > 0 && <span className="mt-1 block text-[10px] text-[#8A968D]">Depreciação acumulada: {formatMoney(item.accumulatedDepreciation)}</span>}</div>
+          {podeEscrever && (
           <div className="mt-3 flex gap-2"><button type="button" onClick={() => onToggle(item)} className="flex-1 rounded-[10px] bg-[#F1F4F2] px-2 py-2 text-[11px] font-bold text-[#4C6355]">{item.isActive ? "Desativar" : "Ativar"}</button><button type="button" aria-label={`Editar ${item.name}`} onClick={() => onEdit(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#F1F4F2] text-[#4C6355]"><EditIcon size={14} /></button><button type="button" aria-label={`Excluir ${item.name}`} onClick={() => onDelete(item)} className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#FDECEA] text-[#B3261E]"><DeleteIcon size={14} /></button></div>
+          )}
         </article>
       ))}
     </div>
@@ -874,6 +878,7 @@ function GrupoVazio({ titulo, tone, texto, acao, onAcao }: {
   acao: string;
   onAcao: () => void;
 }) {
+  const podeEscrever = !useSomenteLeitura();
   const ativo = tone === "asset";
   return (
     <div className="flex flex-col gap-2.5">
@@ -883,9 +888,11 @@ function GrupoVazio({ titulo, tone, texto, acao, onAcao }: {
       </div>
       <div className="flex items-center gap-3 px-3.5 pb-2 pt-1">
         <span className="flex-1 text-[12.5px] leading-relaxed text-[#4C6355]">{texto}</span>
+        {podeEscrever && (
         <button type="button" onClick={onAcao} className="whitespace-nowrap text-[12.5px] font-bold text-[#0A7A42] hover:underline">
           {acao} →
         </button>
+        )}
       </div>
     </div>
   );
@@ -977,6 +984,7 @@ export default function BalanceSheetPage() {
   };
   const data = overviewQuery.data;
   const refresh = async () => { await utils.balanceSheet.overview.invalidate(); };
+  const podeEscrever = !useSomenteLeitura();
   const createItem = trpc.balanceSheet.createItem.useMutation({ onSuccess: refresh });
   const updateItem = trpc.balanceSheet.updateItem.useMutation({ onSuccess: refresh });
   const toggleItem = trpc.balanceSheet.toggleItem.useMutation({ onSuccess: refresh });
@@ -1288,7 +1296,7 @@ export default function BalanceSheetPage() {
               ))}
             </div>
             <button type="button" onClick={exportBalanceSheet} disabled={balancoVazio} className="flex h-10 items-center gap-2 rounded-[12px] bg-white px-3.5 disabled:pointer-events-none disabled:opacity-50 text-[12.5px] font-semibold text-[#28382E] ring-1 ring-[#E1E8E3] hover:bg-[#F1FBF6]"><DownloadIcon size={15} />Exportar</button>
-            <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>
+            {podeEscrever && <button type="button" onClick={() => openNew()} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-4 text-[13px] font-bold text-white hover:bg-[#0F9E4E]"><PlusIcon size={15} />Cadastrar bem</button>}
             <ProfileMenu />
           </header>
 
@@ -1448,6 +1456,7 @@ export default function BalanceSheetPage() {
                           {formatMoney(totals.balanceDifference)} entra acima como resultado acumulado.
                         </p>
                       )}
+                      {podeEscrever && (
                       <button
                         type="button"
                         onClick={() => setSnapshotModal(true)}
@@ -1455,6 +1464,7 @@ export default function BalanceSheetPage() {
                       >
                         Registrar esta posição no histórico
                       </button>
+                      )}
                     </article>
                   </div>
                 </section>
@@ -1522,9 +1532,11 @@ export default function BalanceSheetPage() {
                         <p className="mt-1 max-w-[400px] text-[12px] leading-relaxed text-[#C5DACE]">
                           Registre a posição atual para criar o primeiro ponto real do histórico. O gráfico só usa posições que você salvou.
                         </p>
+                        {podeEscrever && (
                         <button type="button" onClick={() => setSnapshotModal(true)} className="mt-4 rounded-xl bg-[#12B85C] px-4 py-2.5 text-[12.5px] font-bold text-white hover:bg-[#0F9E4E]">
                           Registrar primeira posição
                         </button>
+                        )}
                       </div>
                     ) : (
                       <>
@@ -1551,9 +1563,11 @@ export default function BalanceSheetPage() {
                   <article className="flex flex-1 flex-col gap-3.5 rounded-[20px] bg-white p-5 ring-1 ring-[#E1E8E3]">
                     <div className="flex items-center gap-3">
                       <h2 className="text-[15px] font-bold">Movimentação do patrimônio</h2>
+                      {podeEscrever && (
                       <button type="button" onClick={() => setSnapshotModal(true)} className="ml-auto text-[12.5px] font-semibold text-[#0A7A42] hover:underline">
                         Registrar posição
                       </button>
+                      )}
                     </div>
 
                     {movementRows.length === 0 ? (
@@ -1561,7 +1575,7 @@ export default function BalanceSheetPage() {
                         icone={<ArchiveIcon size={20} />}
                         titulo="Nenhum fechamento registrado"
                         texto="Cada posição salva vira uma linha aqui, com o principal movimento do mês."
-                        acoes={[{ rotulo: "Registrar posição", onClick: () => setSnapshotModal(true), icone: <PlusIcon size={15} /> }]}
+                        acoes={podeEscrever ? [{ rotulo: "Registrar posição", onClick: () => setSnapshotModal(true), icone: <PlusIcon size={15} /> }] : []}
                         alturaMinima={180}
                       />
                     ) : (
@@ -1587,6 +1601,7 @@ export default function BalanceSheetPage() {
                                   {row.depreciation > 0 ? formatDecimal(row.depreciation) : "—"}
                                 </span>
                                 <span className={`text-right font-bold ${index === 0 ? "text-[#0A7A42]" : ""}`}>{formatDecimal(row.snapshot.netWorth)}</span>
+                                {podeEscrever && (
                                 <button
                                   type="button"
                                   aria-label={`Excluir fechamento de ${formatDate(row.snapshot.referenceDate)}`}
@@ -1606,6 +1621,7 @@ export default function BalanceSheetPage() {
                                 >
                                   <DeleteIcon size={14} />
                                 </button>
+                                )}
                               </div>
                             ))}
                           </div>

@@ -35,6 +35,7 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import type { AppRouter } from "../../../server/routers";
+import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 
 type Arrangement = "lista" | "colunas";
 type Tab = "tudo" | "recebidas" | "pagas";
@@ -123,6 +124,7 @@ function KpisDoMesVazio({ arrangement }: { arrangement: "lista" | "colunas" }) {
 }
 
 function MesVazio({ onIrParaAPagar, onNovoLancamento }: { onIrParaAPagar: () => void; onNovoLancamento: () => void }) {
+  const podeEscrever = !useSomenteLeitura();
   const [explicando, setExplicando] = useState(false);
   const setas = <><path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" /></>;
   const passos = [
@@ -165,6 +167,7 @@ function MesVazio({ onIrParaAPagar, onNovoLancamento }: { onIrParaAPagar: () => 
           {traco(<path d="M5 12h14M12 5l7 7-7 7" />, 16)}
           Ir para A pagar e receber
         </button>
+        {podeEscrever && (
         <button
           type="button"
           onClick={onNovoLancamento}
@@ -173,6 +176,7 @@ function MesVazio({ onIrParaAPagar, onNovoLancamento }: { onIrParaAPagar: () => 
           <PlusIcon size={16} />
           Novo lançamento
         </button>
+        )}
       </div>
 
       <div className="grid w-full max-w-[820px] gap-3.5 border-t border-[#F1F4F2] pt-6 sm:grid-cols-3">
@@ -237,6 +241,8 @@ function RowActions({ open, onOpen, onClose, onEstornar }: {
 }) {
   const anchor = useRef<HTMLDivElement>(null);
   useDismissOnOutside(open, anchor, useCallback(() => onClose(), [onClose]));
+  const somenteLeitura = useSomenteLeitura();
+  if (somenteLeitura) return <span aria-hidden="true" />;
   return (
     <div ref={anchor} className="relative justify-self-end">
       <button
@@ -280,6 +286,7 @@ function RowActions({ open, onOpen, onClose, onEstornar }: {
  */
 function DesmarcarButton({ item, onEstornar }: { item: Settled; onEstornar: (item: Settled) => void }) {
   const label = item.amount > 0 ? "Desmarcar recebimento" : "Desmarcar pagamento";
+  if (useSomenteLeitura()) return <span aria-hidden="true" />;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
