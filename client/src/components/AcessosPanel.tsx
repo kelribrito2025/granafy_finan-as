@@ -45,6 +45,21 @@ export function AcessosPanel() {
     if (atual) setEscolhidas([atual.id]);
   }, [visao.data, escolhidas.length]);
 
+  /*
+   * Erro é erro, não "carregando". Sem este bloco, uma falha da consulta
+   * deixava o anel girando para sempre — e a pessoa sem nenhuma pista do que
+   * aconteceu, nem como tentar de novo.
+   */
+  if (visao.isError) {
+    return (
+      <div className="flex min-h-[300px] flex-1 flex-col items-center justify-center gap-3 rounded-[20px] bg-white p-6 text-center ring-1 ring-[#E1E8E3]">
+        <strong className="text-[15px] text-[#B42318]">Não foi possível carregar os acessos</strong>
+        <p className="max-w-[460px] text-[12.5px] leading-relaxed text-[#4C6355]">{visao.error.message}</p>
+        <button type="button" onClick={() => visao.refetch()} className="mt-2 h-10 rounded-xl bg-[#F1FBF6] px-4 text-[13px] font-bold text-[#0A7A42] hover:bg-[#DFF6EA]">Tentar de novo</button>
+      </div>
+    );
+  }
+
   if (visao.isLoading || !visao.data) {
     return <div className="flex min-h-[300px] flex-1 items-center justify-center rounded-[20px] bg-white ring-1 ring-[#E1E8E3]"><GranafyLoader label="Carregando acessos..." /></div>;
   }
