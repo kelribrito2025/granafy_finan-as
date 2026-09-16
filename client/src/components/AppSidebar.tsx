@@ -73,6 +73,22 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
 ];
 
 const STORAGE_KEY = "granafy-sidebar";
+const SESSION_STORAGE_KEY = `${STORAGE_KEY}-session`;
+
+function readCollapsedPreference(remember: boolean) {
+  if (typeof window === "undefined") return null;
+  try {
+    const sessionValue = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (sessionValue === "recolhida" || sessionValue === "inteira") return sessionValue === "recolhida";
+    if (remember) {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved === "recolhida" || saved === "inteira") return saved === "recolhida";
+    }
+  } catch {
+    // Navegador sem storage: a preferência salva no servidor continua valendo.
+  }
+  return null;
+}
 
 /** Ícone de painel com a coluna destacada, para expandir e recolher. */
 function PanelIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
@@ -180,25 +196,17 @@ export function AppSidebar({ open, onClose, footer }: {
 }) {
   const [location, setLocation] = useLocation();
   const preferences = usePreferences();
-  const [override, setOverride] = useState<boolean | null>(null);
+  const [override, setOverride] = useState<boolean | null>(() => readCollapsedPreference(preferences.sidebarRemember));
   const [hovering, setHovering] = useState(false);
 
   /*
-   * "Lembrar do estado" guarda a escolha manual no próprio navegador: é uma
-   * preferência da máquina, não da conta — a mesma pessoa pode querer a barra
-   * inteira no monitor grande e recolhida no notebook.
+   * A escolha manual sempre dura enquanto esta aba estiver aberta, porque cada
+   * rota monta uma nova instância da barra. "Lembrar do estado" promove a mesma
+   * escolha para o armazenamento permanente da máquina.
    */
   useEffect(() => {
-    if (!preferences.sidebarRemember) {
-      setOverride(null);
-      return;
-    }
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved === "recolhida" || saved === "inteira") setOverride(saved === "recolhida");
-    } catch {
-      // Navegador sem storage: a preferência salva no servidor continua valendo.
-    }
+    const saved = readCollapsedPreference(preferences.sidebarRemember);
+    if (saved !== null) setOverride(saved);
   }, [preferences.sidebarRemember]);
 
   const mode: SidebarMode = preferences.sidebarMode;
@@ -212,9 +220,10 @@ export function AppSidebar({ open, onClose, footer }: {
 
   const setCollapsed = (value: boolean) => {
     setOverride(value);
-    if (!preferences.sidebarRemember) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, value ? "recolhida" : "inteira");
+      const state = value ? "recolhida" : "inteira";
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, state);
+      if (preferences.sidebarRemember) window.localStorage.setItem(STORAGE_KEY, state);
     } catch {
       // Sem storage a escolha vale só para esta sessão.
     }
