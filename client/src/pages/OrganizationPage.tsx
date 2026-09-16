@@ -35,6 +35,7 @@ import { useSemContas } from "@/hooks/useSemContas";
 import { currencyInputToNumber, formatCurrencyInput, formatCurrencyValue } from "@/lib/currency";
 import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "@/lib/toast";
+import { todayIso } from "@/lib/period";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 
@@ -45,6 +46,8 @@ type Account = {
   accountType: "corrente" | "poupanca" | "carteira" | "cartao" | "gateway" | "outro";
   color: string;
   initialBalance: number;
+  /** A data a que o saldo inicial se refere. Nula: tudo soma, como antes da coluna. */
+  initialBalanceDate: string | null;
   balance: number;
   transactionCount: number;
   monthTransactionCount: number;
@@ -226,7 +229,7 @@ function BankMark({ institution, color, compact = false }: { institution: string
   return <span className={`flex ${sizeClass} items-center justify-center px-1.5 font-extrabold text-white ${compact ? "text-[9px]" : "text-[12px]"}`} style={{ backgroundColor: preset?.color ?? color }}>{preset?.initials ?? institution.slice(0, 2).toUpperCase()}</span>;
 }
 
-function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { account?: Account | null; /** O tipo já escolhido por quem abriu — os cartões do estado vazio. */ tipoInicial?: Account["accountType"]; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number }) => Promise<void> }) {
+function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { account?: Account | null; /** O tipo já escolhido por quem abriu — os cartões do estado vazio. */ tipoInicial?: Account["accountType"]; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number; initialBalanceDate: string | null }) => Promise<void> }) {
   const matchedPreset = BANK_PRESETS.find(item => item.name.toLowerCase() === account?.institution.toLowerCase());
   const [institutionChoice, setInstitutionChoice] = useState<BankPresetId>(matchedPreset?.id ?? "outro");
   const [name, setName] = useState(account?.name ?? "");
@@ -234,6 +237,13 @@ function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { acco
   const [accountType, setAccountType] = useState<Account["accountType"]>(account?.accountType ?? tipoInicial ?? "corrente");
   const [color, setColor] = useState(account?.color ?? "#12B85C");
   const [initialBalance, setInitialBalance] = useState(account ? formatCurrencyValue(account.initialBalance) : "0,00");
+  /*
+   * Conta nova nasce com a data de hoje: a pessoa digita o saldo que o banco
+   * mostra agora, e os lançamentos até hoje não somam de novo. Conta antiga
+   * mostra a data que tem — ou vazio, que é "tudo soma", o comportamento de
+   * antes da coluna existir.
+   */
+  const [initialBalanceDate, setInitialBalanceDate] = useState(account ? (account.initialBalanceDate ?? "") : todayIso());
   const [errorMessage, setErrorMessage] = useState("");
 
   const selectPreset = (preset: (typeof BANK_PRESETS)[number]) => {
@@ -261,7 +271,7 @@ function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { acco
     if (!institution.trim()) return toast.error("Selecione ou informe a instituição");
     setErrorMessage("");
     try {
-      await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed });
+      await onSave({ name: name.trim(), institution: institution.trim(), accountType, color, initialBalance: parsed, initialBalanceDate: initialBalanceDate || null });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível salvar a conta");
     }
@@ -292,6 +302,8 @@ function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { acco
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Nome da conta</span><input autoFocus={institutionChoice !== "outro"} required value={name} onChange={event => { setName(event.target.value); setErrorMessage(""); }} placeholder="Ex.: Efi principal" className={`h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 focus:ring-2 ${errorMessage ? "ring-[#E8A39D] focus:ring-[#B3261E]" : "ring-[#E1E8E3] focus:ring-[#12B85C]"}`} /></label>
           <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Tipo</span><select value={accountType} onChange={event => setAccountType(event.target.value as Account["accountType"])} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]"><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="carteira">Carteira</option><option value="cartao">Cartão</option><option value="gateway">Gateway</option><option value="outro">Outro</option></select></label>
           <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo inicial</span><input value={initialBalance} onFocus={event => event.currentTarget.select()} onChange={event => setInitialBalance(formatCurrencyInput(event.target.value))} inputMode="decimal" className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
+          <label><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Saldo em</span><input type="date" value={initialBalanceDate} onChange={event => setInitialBalanceDate(event.target.value)} className="h-11 w-full rounded-xl bg-[#F8FAF9] px-3.5 text-[13px] outline-none ring-1 ring-[#E1E8E3]" /></label>
+          <p className="text-[11px] leading-relaxed text-[#8A968D] sm:col-span-2">O saldo inicial é o saldo <strong className="font-semibold text-[#4C6355]">nessa data</strong>. Lançamentos até ela não somam de novo — já estão dentro do valor. Sem data, tudo soma.</p>
           <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.08em] text-[#8A968D]">Cor de identificação</span><div className="flex h-11 items-center gap-3 rounded-xl bg-[#F8FAF9] px-3 ring-1 ring-[#E1E8E3]"><input aria-label="Cor da conta" type="color" value={color} onChange={event => setColor(event.target.value)} className="h-7 w-8 cursor-pointer border-0 bg-transparent" /><span className="text-[12px] font-semibold uppercase text-[#718077]">{color}</span></div></label>
         </div>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareOpeningBalance, derivedOpeningBalance, openingMismatchReason } from "./openingBalance";
+import { compareOpeningBalance, derivedBalanceAt, derivedOpeningBalance, openingMismatchReason } from "./openingBalance";
 
 describe("derivedOpeningBalance", () => {
   it("reproduz a conta que desvendou o Efi Bank", () => {
@@ -73,5 +73,26 @@ describe("openingMismatchReason", () => {
   it("nos outros casos só diz para que lado está a diferença", () => {
     expect(openingMismatchReason(compareOpeningBalance(90_000, 86_770), 96_210.42)).toBe("digitado_maior");
     expect(openingMismatchReason(compareOpeningBalance(80_000, 86_770), 96_210.42)).toBe("digitado_menor");
+  });
+});
+
+describe("derivedBalanceAt", () => {
+  const linhas = [
+    { transactionDate: "2026-09-10", amount: 5_000 },
+    { transactionDate: "2026-09-15", amount: -200 },
+    { transactionDate: "2026-09-16", amount: 300 },
+  ];
+
+  it("data anterior a tudo devolve a abertura clássica", () => {
+    expect(derivedBalanceAt(10_300, linhas, "2026-09-01")).toBe(derivedOpeningBalance(10_300, [5_000, -200, 300]));
+  });
+
+  it("data no meio subtrai só o que veio DEPOIS dela — o do próprio dia já está dentro", () => {
+    expect(derivedBalanceAt(10_300, linhas, "2026-09-15")).toBe(10_000);
+  });
+
+  it("data igual ou posterior à última movimentação devolve o próprio saldo final", () => {
+    expect(derivedBalanceAt(10_300, linhas, "2026-09-16")).toBe(10_300);
+    expect(derivedBalanceAt(10_300, linhas, "2026-12-31")).toBe(10_300);
   });
 });

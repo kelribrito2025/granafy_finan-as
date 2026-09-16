@@ -117,11 +117,17 @@ export const organizationRouter = router({
      * razão inteiro. A tela já disparava sete consultas em paralelo: estas
      * entram sem custo de tempo e tiram 6.725 linhas da rede.
      */
-    const [accounts, categories, costCenters, accountStats, categoryStats, costCenterStats, uncategorized, imports, importSummary, monthCounts] = await Promise.all([
+    const [accounts, categories, costCenters, accountStats, saldos, categoryStats, costCenterStats, uncategorized, imports, importSummary, monthCounts] = await Promise.all([
       db.listFinancialAccounts(escopoDe(ctx)),
       db.listTransactionCategories(escopoDe(ctx)),
       db.listCostCenters(escopoDe(ctx)),
       db.getTransactionStatsByAccount(escopoDe(ctx)),
+      /*
+       * O saldo sai de `getAccountBalances`, não do total das estatísticas: só
+       * ela aplica a data do saldo inicial. As estatísticas seguem contando
+       * TODOS os lançamentos da conta, que é o que `transactionCount` promete.
+       */
+      db.getAccountBalances(escopoDe(ctx)),
       db.getTransactionStatsByCategory(escopoDe(ctx)),
       db.getTransactionStatsByCostCenter(escopoDe(ctx)),
       db.getUncategorizedSummary(escopoDe(ctx)),
@@ -136,7 +142,7 @@ export const organizationRouter = router({
         return {
           ...account,
           initialBalance: Number(account.initialBalance),
-          balance: roundCurrency(Number(account.initialBalance) + (accountStats.get(account.id)?.total ?? 0)),
+          balance: roundCurrency(Number(account.initialBalance) + (saldos.get(account.id) ?? 0)),
           transactionCount: accountStats.get(account.id)?.count ?? 0,
           monthTransactionCount: monthCounts.get(account.id) ?? 0,
           // Não há conexão bancária: a "sincronização" da conta é o histórico

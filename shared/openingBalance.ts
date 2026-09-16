@@ -35,6 +35,22 @@ export function derivedOpeningBalance(closingBalance: number, amounts: readonly 
   return roundCurrency(closingBalance - movimento);
 }
 
+/**
+ * O saldo que o arquivo implica NUMA DATA: o saldo final menos o que veio
+ * depois dela. É a versão com data de `derivedOpeningBalance` — e é a que vale
+ * desde que o saldo inicial passou a significar "saldo nesta data".
+ *
+ * Data anterior a todo o arquivo devolve a abertura clássica; data igual ou
+ * posterior à última movimentação devolve o próprio saldo final.
+ */
+export function derivedBalanceAt(
+  closingBalance: number,
+  rows: readonly { transactionDate: string; amount: number }[],
+  date: string,
+) {
+  return derivedOpeningBalance(closingBalance, rows.filter(row => row.transactionDate > date).map(row => row.amount));
+}
+
 export function compareOpeningBalance(informed: number, derived: number): OpeningComparison {
   const difference = roundCurrency(informed - derived);
   return {
