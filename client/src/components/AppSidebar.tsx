@@ -150,13 +150,13 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
         active
           ? "bg-[#12B85C] text-white"
           : disabled
-            ? "cursor-not-allowed text-[#A8B1AB] opacity-55"
-            : "text-[#28382E] hover:bg-[#F1FBF6]"
+            ? "cursor-not-allowed text-white/35"
+            : "text-[#C5DACE] hover:bg-white/10 hover:text-white"
       }`}
     >
       <Icon size={19} />
       {count !== null && count > 0 && (
-        <span className="absolute right-[5px] top-[5px] flex h-4 min-w-4 items-center justify-center rounded-lg border-2 border-white bg-[#B3261E] px-1 text-[9.5px] font-bold text-white">
+        <span className="absolute right-[5px] top-[5px] flex h-4 min-w-4 items-center justify-center rounded-lg border-2 border-[#0B1F14] bg-[#B3261E] px-1 text-[9.5px] font-bold text-white">
           {count > 99 ? "99+" : count}
         </span>
       )}
@@ -284,7 +284,10 @@ export function AppSidebar({ open, onClose, footer }: {
       onMouseLeave={() => setHovering(false)}
       className="relative hidden shrink-0 xl:block"
     >
-      <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-white px-4 py-5">
+      {/* Recolhida, a barra é verde-escuro: o mesmo #0B1F14 do painel de marca
+          do login. Inteira ela é branca, como os cartões; recolhida vira um
+          trilho, e o trilho se destaca do fundo em vez de se confundir com ele. */}
+      <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-[#0B1F14] px-4 py-5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
           <GranafySymbol size={22} tone="onDark" className="[&_circle]:stroke-white/40 [&_path]:stroke-white" />
         </span>
@@ -292,7 +295,7 @@ export function AppSidebar({ open, onClose, footer }: {
         <div className="flex flex-col items-center gap-1">
           {GROUPS.map((group, index) => (
             <div key={group.title} className="flex flex-col items-center gap-1">
-              {index > 0 && <span className="my-2 h-px w-6 bg-[#F1F4F2]" />}
+              {index > 0 && <span className="my-2 h-px w-6 bg-white/10" />}
               {group.items.map(item => (
                 <RailItem
                   key={item.label}
@@ -315,7 +318,7 @@ export function AppSidebar({ open, onClose, footer }: {
               aria-label="Expandir menu"
               title="Expandir menu"
               onClick={() => setCollapsed(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-[12px] text-[#4C6355] transition hover:bg-[#F1FBF6]"
+              className="flex h-11 w-11 items-center justify-center rounded-[12px] text-[#C5DACE] transition hover:bg-white/10"
             >
               <PanelIcon size={18} />
             </button>

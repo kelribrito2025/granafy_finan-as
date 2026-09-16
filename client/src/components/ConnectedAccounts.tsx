@@ -32,7 +32,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
     return (
       <span
         title={`Saldo somado das contas: ${money(total)}`}
-        className={`flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#F1FBF6] text-[11px] font-bold text-[#0A7A42] ${className}`}
+        className={`flex h-10 w-10 items-center justify-center rounded-[12px] bg-white/10 text-[11px] font-bold text-[#7EE2A8] ${className}`}
       >
         {accountsQuery.isLoading ? "—" : compact(total)}
       </span>
