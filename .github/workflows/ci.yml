@@ -1,0 +1,62 @@
+name: CI
+
+# Duas IAs mexem neste repositório e até aqui não havia nenhuma verificação
+# automática entre elas. Este workflow é o piso: tipos e a suíte inteira, a cada
+# push e a cada pull request.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Push novo cancela a rodada anterior do mesmo ramo: a suíte fala com um TiDB em
+# us-east-1 e cada rodada paga o ping. Quem empurra três vezes em cinco minutos
+# só precisa do resultado da última.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A versão do pnpm sai do campo `packageManager` do package.json, para
+      # não existir um segundo lugar onde ela possa divergir.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Tipos
+        run: pnpm run check
+
+      # A suíte inteira, com os arreios de isolamento ligados. Sem as duas
+      # variáveis abaixo, `server/arreioConfigurado.test.ts` falha de propósito:
+      # sem elas os 11 arreios são PULADOS e a suíte fecharia verde sem ter
+      # exercitado nenhuma guarda de dono ou de empresa.
+      #
+      # TEST_DATABASE_URL precisa apontar para um schema terminado em `_test`,
+      # com uma credencial que só tenha permissão nele — a trava de nome em
+      # server/testDatabase.ts recusa qualquer outra coisa, e a suíte de
+      # contenção prova que aquela credencial não alcança produção.
+      - name: Testes
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TIDB_DATABASE_URL: ${{ secrets.TIDB_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'chave-de-ci-sem-valor-em-producao' }}
+        run: pnpm test
+
+      # O build entra porque nem todo erro aparece no `tsc`: resolução de
+      # caminho, import que só existe em dev e o bundle do servidor pelo esbuild
+      # só falham aqui.
+      - name: Build
+        run: pnpm build
