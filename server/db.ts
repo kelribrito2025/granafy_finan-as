@@ -65,6 +65,15 @@ let _db: ReturnType<typeof drizzle> | null = null;
 let _dbTeste: ReturnType<typeof drizzle> | null = null;
 let _poolTeste: mysql.Pool | null = null;
 
+/** O TiDB Cloud só aceita TLS; localhost (MariaDB dos testes) não usa. */
+function exigeTls(databaseUrl: string) {
+  try {
+    return new URL(databaseUrl).hostname.endsWith(".tidbcloud.com");
+  } catch {
+    return false;
+  }
+}
+
 function createTiDbClient(databaseUrl: string) {
   const url = new URL(databaseUrl);
   const pool = mysql.createPool({
@@ -135,15 +144,18 @@ export async function getDb() {
   if (_dbTeste) return _dbTeste;
   if (_db) return _db;
 
-  const tiDbUrl = process.env.TIDB_DATABASE_URL;
-  const defaultUrl = process.env.DATABASE_URL;
+  /*
+   * TIDB_DATABASE_URL manda; sem ela vale DATABASE_URL. Qualquer uma das duas
+   * que aponte para o TiDB Cloud entra pelo cliente com TLS — o serviço recusa
+   * conexão sem TLS, e um ambiente novo configurado só com DATABASE_URL
+   * falhava em toda consulta sem dizer por quê.
+   */
+  const url = process.env.TIDB_DATABASE_URL || process.env.DATABASE_URL;
 
   try {
-    _db = tiDbUrl
-      ? createTiDbClient(tiDbUrl).db
-      : defaultUrl
-        ? drizzle(defaultUrl)
-        : null;
+    _db = url
+      ? (exigeTls(url) ? createTiDbClient(url).db : drizzle(url))
+      : null;
   } catch (error) {
     console.error("[Database] Failed to initialize connection");
     _db = null;
