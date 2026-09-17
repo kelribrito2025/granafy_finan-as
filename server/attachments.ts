@@ -62,6 +62,7 @@ export function isAttachmentKey(key: string) {
  */
 const PUBLIC_ASSET_KEYS = new Set<string>([
   "efi-bank-logo_221c9925.png",
+  "granafy-icone-verde-512_d6fa67fc.png",
 ]);
 
 export function isPublicAssetKey(key: string) {

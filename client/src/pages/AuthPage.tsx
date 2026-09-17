@@ -88,9 +88,6 @@ function BrandPanel() {
         </div>
       </div>
 
-      <p className="relative z-10 text-[11px] text-[#668272]">
-        Seus dados financeiros continuam privados e vinculados à sua conta.
-      </p>
     </section>
   );
 }
@@ -453,9 +450,6 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-[#9AA69E] lg:justify-start">
-          <span>© 2026 GranaFy</span>
-        </div>
       </section>
     </main>
   );

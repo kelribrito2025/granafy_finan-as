@@ -24,10 +24,12 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
-    // Sessão antes de qualquer coisa: nem a arte do produto é anônima, e
-    // responder o mesmo 403 para tudo não conta quais chaves existem.
-    const user = await authenticateLocalRequest(req).catch(() => null);
-    if (!user) {
+    // A landing precisa carregar a marca antes de existir uma sessão. Só as
+    // chaves enumeradas na allowlist pública passam por esse caminho; qualquer
+    // outra chave continua exigindo autenticação e autorização por empresa.
+    const publicAsset = isPublicAssetKey(key);
+    const user = publicAsset ? null : await authenticateLocalRequest(req).catch(() => null);
+    if (!publicAsset && !user) {
       res.status(401).send("Autenticação necessária");
       return;
     }
@@ -37,14 +39,14 @@ export function registerStorageProxy(app: Express) {
      * dono pelo prefixo; o contador pela linha, conferida contra as empresas
      * que ele pode abrir (as mesmas de ctx.companies).
      */
-    const permitido = isAttachmentKey(key)
+    const permitido = publicAsset || (user && isAttachmentKey(key)
       ? (ownsAttachment(user.id, key) || podeLerAnexo({
           atorId: user.id,
           key,
           empresaDoAnexo: await db.empresaDoAnexo(key),
           empresasVisiveis: (await db.empresasVisiveisPara(user.id)).map(empresa => empresa.id),
         }))
-      : isPublicAssetKey(key);
+      : false);
     if (!permitido) {
       res.status(403).send("Arquivo não disponível para esta conta");
       return;

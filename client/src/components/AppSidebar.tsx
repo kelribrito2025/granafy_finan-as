@@ -1,5 +1,5 @@
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
-import { GranafyLogo, GranafySymbol } from "@/components/GranafyLogo";
+import { GranafyLogo } from "@/components/GranafyLogo";
 import {
   ArrowUpIcon,
   ArrowsUpDownIcon,
@@ -75,29 +75,25 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
 ];
 
 const STORAGE_KEY = "granafy-sidebar";
+const SESSION_STORAGE_KEY = `${STORAGE_KEY}-session`;
 
-/*
- * A escolha manual de expandir ou recolher vive aqui, fora do componente: cada
- * página monta a própria barra, e um estado só do componente morria a cada
- * troca de tela — quem expandia na visão geral via a barra encolher de novo
- * ao abrir A pagar e receber. Com "Lembrar do estado" ligado ela também vai
- * para o localStorage, para valer entre visitas.
- */
-let escolhaDaSessao: boolean | null = null;
-/** O modo salvo da última vez: mudar o modo nas Preferências esquece a escolha manual. */
-let modoVisto: SidebarMode | null = null;
-
-function escolhaInicial(lembrar: boolean): boolean | null {
-  if (escolhaDaSessao !== null) return escolhaDaSessao;
-  if (!lembrar) return null;
+function readCollapsedPreference(remember: boolean) {
+  if (typeof window === "undefined") return null;
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved === "recolhida" || saved === "inteira") return saved === "recolhida";
+    const sessionValue = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (sessionValue === "recolhida" || sessionValue === "inteira") return sessionValue === "recolhida";
+    if (remember) {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved === "recolhida" || saved === "inteira") return saved === "recolhida";
+    }
   } catch {
     // Navegador sem storage: a preferência salva no servidor continua valendo.
   }
   return null;
 }
+
+/** O modo salvo da última vez: mudar o modo nas Preferências esquece a escolha manual da aba. */
+let modoVisto: SidebarMode | null = null;
 
 /** Ícone de painel com a coluna destacada, para expandir e recolher. */
 function PanelIcon({ size = 18, className = "" }: { size?: number; className?: string }) {
@@ -206,23 +202,23 @@ export function AppSidebar({ open, onClose, footer }: {
 }) {
   const [location, setLocation] = useLocation();
   const preferences = usePreferences();
-  const [override, setOverride] = useState<boolean | null>(() => escolhaInicial(preferences.sidebarRemember));
+  const [override, setOverride] = useState<boolean | null>(() => readCollapsedPreference(preferences.sidebarRemember));
   const [hovering, setHovering] = useState(false);
 
   /*
-   * "Lembrar do estado" guarda a escolha manual no próprio navegador: é uma
-   * preferência da máquina, não da conta — a mesma pessoa pode querer a barra
-   * inteira no monitor grande e recolhida no notebook. Quando a preferência
-   * chega ou muda, a escolha guardada é relida.
+   * A escolha manual sempre dura enquanto esta aba estiver aberta, porque cada
+   * rota monta uma nova instância da barra. "Lembrar do estado" promove a mesma
+   * escolha para o armazenamento permanente da máquina.
    */
   useEffect(() => {
-    setOverride(escolhaInicial(preferences.sidebarRemember));
+    const saved = readCollapsedPreference(preferences.sidebarRemember);
+    if (saved !== null) setOverride(saved);
   }, [preferences.sidebarRemember]);
 
   const mode: SidebarMode = preferences.sidebarMode;
   useEffect(() => {
     if (modoVisto !== null && modoVisto !== mode) {
-      escolhaDaSessao = null;
+      try { window.sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* sem storage não há o que esquecer */ }
       setOverride(null);
     }
     modoVisto = mode;
@@ -237,10 +233,10 @@ export function AppSidebar({ open, onClose, footer }: {
 
   const setCollapsed = (value: boolean) => {
     setOverride(value);
-    escolhaDaSessao = value;
-    if (!preferences.sidebarRemember) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, value ? "recolhida" : "inteira");
+      const state = value ? "recolhida" : "inteira";
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, state);
+      if (preferences.sidebarRemember) window.localStorage.setItem(STORAGE_KEY, state);
     } catch {
       // Sem storage a escolha vale só para esta sessão.
     }
@@ -314,8 +310,16 @@ export function AppSidebar({ open, onClose, footer }: {
           do login. Inteira ela é branca, como os cartões; recolhida vira um
           trilho, e o trilho se destaca do fundo em vez de se confundir com ele. */}
       <div className="flex h-[calc(100vh-40px)] w-[76px] flex-col items-center gap-[22px] rounded-[20px] bg-[#0B1F14] px-4 py-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#12B85C]">
-          <GranafySymbol size={22} tone="onDark" className="[&_circle]:stroke-white/40 [&_path]:stroke-white" />
+        {/* A caixa continua nos 36 px do símbolo anterior. O PNG tem uma margem
+            interna maior, então só a arte é ampliada para o anel voltar aos
+            mesmos 22 px visuais que o SVG ocupava. */}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px]">
+          <img
+            src="/manus-storage/granafy-icone-verde-512_d6fa67fc.png"
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 max-w-none scale-[1.18] object-cover"
+          />
         </span>
 
         <div className="flex flex-col items-center gap-1">
