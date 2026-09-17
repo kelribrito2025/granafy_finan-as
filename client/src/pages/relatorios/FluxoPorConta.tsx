@@ -40,7 +40,6 @@ export default function FluxoPorConta() {
       titulo="Fluxo de caixa por conta bancária"
       subtitulo={vazio ? "nenhuma conta bancária cadastrada" : `${contas.length} contas acompanhadas · ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate}`}
       vazio={vazio}
-      voltar
       janela={janela} onJanela={setJanela}
       mes="Set 2026" onMes={() => undefined}
       rodape={vazio

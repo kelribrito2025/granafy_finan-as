@@ -42,7 +42,6 @@ export default function FluxoCaixaGeral() {
       titulo="Fluxo de caixa geral"
       subtitulo={vazio ? "nenhum saldo para consolidar ainda" : `saldo consolidado de todas as contas · ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate}`}
       vazio={vazio}
-      voltar
       janela={janela} onJanela={setJanela}
       mes="Set 2026" onMes={() => undefined}
       rodape="Este relatório mostra apenas o realizado. Para o previsto, use a projeção em Fluxo de caixa."

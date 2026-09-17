@@ -22,7 +22,6 @@ export default function EntradasVsSaidas() {
       titulo="Entradas vs. saídas geral"
       subtitulo={vazio ? "nenhuma movimentação registrada ainda" : `realizado de ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate} · todas as contas`}
       vazio={vazio}
-      voltar
       janela={janela} onJanela={setJanela}
       mes="Set 2026" onMes={() => undefined}
       rodape="Transferências entre contas próprias são compensadas e não contam como entrada nem saída."

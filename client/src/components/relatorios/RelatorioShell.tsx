@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
 
 /*
- * A casca comum das telas de Relatórios: barra lateral, "Voltar", título,
+ * A casca comum das telas de Relatórios: barra lateral, título,
  * seletor de janela (6 meses · 12 meses · Ano), navegador de mês e Exportar.
  *
  * Enquanto os dados são de amostra, a exportação só avisa. A janela e o mês
@@ -20,14 +20,12 @@ export const JANELAS: Array<[Janela, string]> = [["6m", "6 meses"], ["12m", "12 
 
 export const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40";
 
-export function RelatorioShell({ icone, titulo, subtitulo, vazio, voltar, janela, onJanela, mes, onMes, rodape, children }: {
+export function RelatorioShell({ icone, titulo, subtitulo, vazio, janela, onJanela, mes, onMes, rodape, children }: {
   icone: IconlyIcon;
   titulo: string;
   subtitulo: string;
   /** Sem dados: controles ficam esmaecidos e sem clique, como no protótipo. */
   vazio: boolean;
-  /** Mostra "Voltar para relatórios" acima do título (as três telas filhas). */
-  voltar?: boolean;
   janela?: Janela;
   onJanela?: (janela: Janela) => void;
   mes?: string;
@@ -36,8 +34,6 @@ export function RelatorioShell({ icone, titulo, subtitulo, vazio, voltar, janela
   children: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [, setLocation] = useLocation();
-  const busca = typeof window === "undefined" ? "" : window.location.search;
   const desligado = vazio ? "pointer-events-none opacity-50" : "";
 
   return (
@@ -46,12 +42,6 @@ export function RelatorioShell({ icone, titulo, subtitulo, vazio, voltar, janela
         <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
         <section className="flex min-w-0 flex-1 flex-col gap-5">
-          {voltar && (
-            <button type="button" onClick={() => setLocation(`/relatorios${busca}`)} className="inline-flex w-fit items-center gap-2 text-[12.5px] font-semibold text-[#4C6355] hover:text-[#0A7A42]">
-              <ChevronRightIcon size={15} className="rotate-180" />
-              Voltar para relatórios
-            </button>
-          )}
 
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
