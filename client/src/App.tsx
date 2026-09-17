@@ -15,6 +15,10 @@ import OrganizationPage from "@/pages/OrganizationPage";
 import PagarReceberPage from "@/pages/PagarReceberPage";
 import PagasRecebidasPage from "@/pages/PagasRecebidasPage";
 import SettingsPage from "@/pages/SettingsPage";
+import RelatoriosHub from "@/pages/relatorios/RelatoriosHub";
+import EntradasVsSaidas from "@/pages/relatorios/EntradasVsSaidas";
+import FluxoCaixaGeral from "@/pages/relatorios/FluxoCaixaGeral";
+import FluxoPorConta from "@/pages/relatorios/FluxoPorConta";
 import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -117,6 +121,10 @@ function Router() {
       <Route path="/fluxo-de-caixa"><ProtectedPage><FluxoCaixaPage /></ProtectedPage></Route>
       <Route path="/a-pagar-e-receber"><ProtectedPage><PagarReceberPage /></ProtectedPage></Route>
       <Route path="/dre"><ProtectedPage><DrePage /></ProtectedPage></Route>
+      <Route path="/relatorios"><ProtectedPage><RelatoriosHub /></ProtectedPage></Route>
+      <Route path="/relatorios/entradas-vs-saidas"><ProtectedPage><EntradasVsSaidas /></ProtectedPage></Route>
+      <Route path="/relatorios/fluxo-de-caixa-geral"><ProtectedPage><FluxoCaixaGeral /></ProtectedPage></Route>
+      <Route path="/relatorios/fluxo-por-conta"><ProtectedPage><FluxoPorConta /></ProtectedPage></Route>
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
       <Route path="/configuracoes"><ProtectedPage><SoDono><SettingsPage /></SoDono></ProtectedPage></Route>

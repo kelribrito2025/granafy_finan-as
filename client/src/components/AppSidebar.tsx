@@ -1,14 +1,15 @@
 import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 import { GranafyLogo, GranafySymbol } from "@/components/GranafyLogo";
 import {
-  ArrowsUpDownIcon,
   ArrowUpIcon,
+  ArrowsUpDownIcon,
   ChartIcon,
   CheckIcon,
   CloseIcon,
   DashboardIcon,
   DocumentIcon,
   ReportIcon,
+  ReportsIcon,
   TrendUpIcon,
   WalletIcon,
   type IconlyIcon,
@@ -27,6 +28,8 @@ type Item = {
   disabled?: boolean;
   /** O item que recebe a contagem de títulos abertos. */
   counter?: boolean;
+  /** Sub-abas, mostradas na barra inteira quando o item está ativo. */
+  children?: Array<{ label: string; path: string }>;
 };
 
 /**
@@ -62,6 +65,14 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   {
     title: "Análise",
     items: [
+      {
+        label: "Relatórios", icon: ReportsIcon, path: "/relatorios",
+        children: [
+          { label: "Entradas vs. saídas", path: "/relatorios/entradas-vs-saidas" },
+          { label: "Fluxo de caixa geral", path: "/relatorios/fluxo-de-caixa-geral" },
+          { label: "Fluxo por conta bancária", path: "/relatorios/fluxo-por-conta" },
+        ],
+      },
       { label: "DRE", icon: ReportIcon, path: "/dre" },
       { label: "Balanço Patrimonial", icon: ChartIcon, path: "/balanco-patrimonial" },
     ],
@@ -264,13 +275,32 @@ export function AppSidebar({ open, onClose, footer }: {
             {group.title}
           </span>
           {group.items.map(item => (
-            <WideItem
-              key={item.label}
-              item={item}
-              active={isActive(location, item.path)}
-              count={countOf(item)}
-              onSelect={select}
-            />
+            <div key={item.label} className="flex flex-col gap-[3px]">
+              <WideItem
+                item={item}
+                active={isActive(location, item.path)}
+                count={countOf(item)}
+                onSelect={select}
+              />
+              {/* As sub-abas abrem só com o pai aceso: fechadas, o menu fica do tamanho de sempre. */}
+              {item.children && isActive(location, item.path) && (
+                <div className="ml-3 flex flex-col gap-px border-l border-[#E3EBE6] py-1 pl-5">
+                  {item.children.map(filho => {
+                    const aceso = location.startsWith(filho.path);
+                    return (
+                      <button
+                        key={filho.path}
+                        type="button"
+                        onClick={() => { setLocation(`${filho.path}${window.location.search}`); onClose(); }}
+                        className={`rounded-[9px] px-2.5 py-2 text-left text-[12.5px] transition ${aceso ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"}`}
+                      >
+                        {filho.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       ))}

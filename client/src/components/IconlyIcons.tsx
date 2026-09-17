@@ -497,3 +497,15 @@ export function DeleteIcon(props: IconlyIconProps) {
     </IconShell>
   );
 }
+
+/* Relatórios: a caixa com três barras, como no protótipo. */
+export function ReportsIcon(props: IconlyIconProps) {
+  return (
+    <IconShell {...props}>
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="2.5" />
+        <path d="M8 16v-5M12 16V8M16 16v-3" />
+      </g>
+    </IconShell>
+  );
+}
