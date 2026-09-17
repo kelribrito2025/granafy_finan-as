@@ -199,8 +199,8 @@ export default function RelatoriosHub() {
         <div className="flex flex-wrap items-center gap-5 rounded-[20px] bg-[#0B1F14] p-6 text-white">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-[#1F3D2B] text-[#7EE2A8]"><DownloadIcon size={19} /></span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[15px] font-bold">Precisa dos três juntos?</span>
-            <span className="text-[13px] text-[#C5DACE]">Exporte um PDF único com entradas vs. saídas, fluxo geral e fluxo por conta no mesmo período.</span>
+            <span className="text-[15px] font-bold">Precisa de todos juntos?</span>
+            <span className="text-[13px] text-[#C5DACE]">Exporte um PDF único com a DRE e os seis relatórios de caixa no mesmo período.</span>
           </div>
           <button type="button" onClick={() => toast.info("O pacote em PDF chega em breve.")} className="h-11 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold hover:bg-[#0F9E4E]">Exportar pacote em PDF</button>
         </div>
