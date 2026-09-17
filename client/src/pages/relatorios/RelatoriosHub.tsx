@@ -193,7 +193,7 @@ export default function RelatoriosHub() {
         <EstadoVazioRelatorio
           ilustracao={<IlustracaoBarras />}
           titulo="Nenhum relatório disponível ainda"
-          texto="Os três relatórios são montados a partir dos seus lançamentos. Cadastre uma conta bancária e registre as primeiras movimentações — entradas vs. saídas, fluxo de caixa geral e fluxo por conta aparecem aqui automaticamente."
+          texto="Todos os relatórios são montados a partir dos seus lançamentos. Registre as primeiras movimentações para eles aparecerem aqui automaticamente."
           acaoPrincipal="Cadastrar conta bancária"
           onAcaoPrincipal={() => setLocation("/organizacao?nova=conta")}
           mostrarAcoes={podeEscrever}
