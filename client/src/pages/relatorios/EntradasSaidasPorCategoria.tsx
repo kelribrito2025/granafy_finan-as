@@ -63,12 +63,14 @@ export default function EntradasSaidasPorCategoria() {
     >
       {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
       <>
+      {!vazio && (
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi rotulo="Categorias de entrada" valor={`${entradas.length} ${entradas.length === 1 ? "categoria" : "categorias"}`} apoio={`${dinheiro(totalEntradas)} no total`} tom="positivo" vazio={vazio} />
         <Kpi rotulo="Categorias de saída" valor={`${saidas.length} ${saidas.length === 1 ? "categoria" : "categorias"}`} apoio={`${dinheiro(totalSaidas)} no total`} tom="negativo" vazio={vazio} />
         <Kpi rotulo="Maior entrada" valor={entradas[0]?.nome ?? "—"} apoio={entradas[0] ? `${pct(entradas[0].valor, totalEntradas)}% de tudo que entrou` : undefined} vazio={vazio} />
         <Kpi rotulo="Maior saída" valor={saidas[0]?.nome ?? "—"} apoio={saidas[0] ? `${pct(saidas[0].valor, totalSaidas)}% de tudo que saiu` : undefined} vazio={vazio} />
       </div>
+      )}
 
       {vazio ? (
         <EstadoVazioRelatorio
