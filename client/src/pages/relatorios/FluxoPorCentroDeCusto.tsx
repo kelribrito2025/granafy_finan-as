@@ -54,19 +54,9 @@ export default function FluxoPorCentroDeCusto() {
     >
       {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
       <>
+      {!vazio && (
       <div className="grid gap-5 lg:grid-cols-2">
-        {(vazio ? [0, 1, 2, 3] : centros).map((c, i) => typeof c === "number" ? (
-          <article key={i} className="flex flex-col gap-[18px] rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">
-            <div className="flex items-center gap-3">
-              <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[12px] bg-[#F1F4F2] text-[#B3BFB7]"><BuildingIcon size={18} /></span>
-              <div className="flex flex-1 flex-col gap-1.5"><span className="h-[9px] w-[62%] rounded-[5px] bg-[#EDF2EE]" /><span className="h-[7px] w-[42%] rounded bg-[#F1F4F2]" /></div>
-            </div>
-            <div className="flex flex-col gap-3 border-t border-[#F1F4F2] pt-4">
-              <span className="h-[7px] w-full rounded bg-[#F1F4F2]" /><span className="h-[7px] w-[80%] rounded bg-[#F1F4F2]" /><span className="h-[7px] w-[66%] rounded bg-[#F1F4F2]" />
-              <span className="pt-1.5 text-[20px] font-bold text-[#B3BFB7]">—</span>
-            </div>
-          </article>
-        ) : (
+        {centros.map(c => (
           <article key={c.chave} className="flex flex-col gap-[18px] rounded-[20px] bg-white p-6 ring-1 ring-[#E1E8E3]">
             <div className="flex items-center gap-3">
               <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[12px] bg-[#F1FBF6] text-[#0A7A42]"><BuildingIcon size={18} /></span>
@@ -89,6 +79,7 @@ export default function FluxoPorCentroDeCusto() {
           </article>
         ))}
       </div>
+      )}
 
       {vazio ? (
         <EstadoVazioRelatorio
