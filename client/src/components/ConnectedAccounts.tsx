@@ -1,7 +1,7 @@
 import { ChevronRightIcon } from "@/components/IconlyIcons";
 import { formatMoney as money, valuesHidden } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
 
@@ -45,6 +45,18 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
   const accountsQuery = trpc.organization.accountBalances.useQuery();
   const accounts = accountsQuery.data?.contas ?? [];
   const [indice, setIndice] = useState(0);
+  const [pausado, setPausado] = useState(false);
+
+  /*
+   * Carrossel: troca de conta sozinho a cada 5 s, para o mouse em cima e
+   * recomeça a contagem depois de um clique manual (o índice muda e o efeito
+   * é refeito). Com uma conta só, não há o que girar.
+   */
+  useEffect(() => {
+    if (pausado || accounts.length < 2) return;
+    const timer = window.setInterval(() => setIndice(atual => (atual + 1) % accounts.length), 5000);
+    return () => window.clearInterval(timer);
+  }, [pausado, accounts.length, indice]);
 
   if (variant === "rail") {
     const total = accounts.reduce((sum, account) => sum + account.balance, 0);
@@ -62,7 +74,11 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
   const atual = accounts[Math.min(indice, Math.max(accounts.length - 1, 0))];
 
   return (
-    <div className={`group relative flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}>
+    <div
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+      className={`group relative flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}
+    >
       {/* O cabeçalho saiu do cartão para ele ficar enxuto; ao passar o mouse ele volta como balão. */}
       {accounts.length > 0 && (
         <span
