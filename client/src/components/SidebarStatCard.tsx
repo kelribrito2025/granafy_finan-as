@@ -8,6 +8,11 @@ import type { ReactNode } from "react";
  * ficam como padrão só onde não há um número mais próximo do assunto da
  * página.
  */
+/*
+ * A altura mínima é a mesma do cartão de contas conectadas (ConnectedAccounts):
+ * os dois se revezam no pé da barra lateral, e trocar de página não pode fazer
+ * o rodapé pular de tamanho.
+ */
 export function SidebarStatCard({ kicker, value, hint, tone = "positive" }: {
   kicker: string;
   value: ReactNode;
@@ -17,7 +22,7 @@ export function SidebarStatCard({ kicker, value, hint, tone = "positive" }: {
 }) {
   const ruim = tone === "negative";
   return (
-    <div className={`flex flex-col gap-1.5 rounded-[16px] p-3.5 ${ruim ? "bg-[#FDECEA]" : "bg-[#F1FBF6]"}`}>
+    <div className={`flex min-h-[104px] flex-col justify-center gap-1.5 rounded-[16px] p-3.5 ${ruim ? "bg-[#FDECEA]" : "bg-[#F1FBF6]"}`}>
       <span className={`text-[10px] font-semibold uppercase tracking-[.1em] ${ruim ? "text-[#8E1F16]" : "text-[#0A7A42]"}`}>
         {kicker}
       </span>

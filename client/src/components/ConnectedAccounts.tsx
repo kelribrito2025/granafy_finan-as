@@ -77,7 +77,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
     <div
       onMouseEnter={() => setPausado(true)}
       onMouseLeave={() => setPausado(false)}
-      className={`group relative flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}
+      className={`group relative flex min-h-[104px] flex-col justify-between gap-[11px] rounded-[16px] bg-[#F1FBF6] p-3.5 ${className}`}
     >
       {/* O cabeçalho saiu do cartão para ele ficar enxuto; ao passar o mouse ele volta como balão. */}
       {accounts.length > 0 && (
@@ -105,14 +105,14 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
           {/* Uma conta por vez: o cartão fica do mesmo tamanho com 2 ou 12 contas. */}
           <div className="flex items-center gap-2.5">
             <span
-              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] text-[11px] font-bold text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[12px] font-bold text-white"
               style={{ background: atual.balance < 0 ? "#B3261E" : atual.color }}
             >
               {sigla(atual.name)}
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="truncate text-[11.5px] text-[#4C6355]">{atual.name}</span>
-              <span className={`whitespace-nowrap text-[14.5px] font-bold ${atual.balance >= 0 ? "text-[#0B1F14]" : "text-[#B3261E]"}`}>
+              <span className={`whitespace-nowrap text-[17px] font-bold tracking-[-.01em] ${atual.balance >= 0 ? "text-[#0B1F14]" : "text-[#B3261E]"}`}>
                 {money(atual.balance)}
               </span>
             </div>
