@@ -1,8 +1,7 @@
 import { ArrowUpIcon, BuildingIcon, ChartIcon, ChevronRightIcon, DownloadIcon, ReportsIcon, TagIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
 import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, RelatorioShell, dinheiro } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
-import { totais, useRelatorioDeFluxo } from "@/lib/relatorios";
-import { CATEGORIAS_MOCK, CENTROS_MOCK, CONTAS_MOVIMENTO_MOCK } from "@/lib/relatoriosMock";
+import { totais, useRelatorioDeFluxo, useRelatorioPorCategoria, useRelatorioPorCentroDeCusto } from "@/lib/relatorios";
 import { toast } from "@/lib/toast";
 import type { ReactNode } from "react";
 import { useLocation } from "wouter";
@@ -11,9 +10,6 @@ import { useLocation } from "wouter";
  * Relatórios — o hub. Seis cartões, um por relatório, com o número-resumo dos
  * últimos seis meses; embaixo, a faixa do pacote em PDF. Sem nenhum lançamento
  * pago, os cartões ficam apagados e o passo a passo aparece no lugar.
- *
- * Os três primeiros já leem do banco. Os três últimos (categoria, centro de
- * custo e entradas vs. saídas por conta) mostram amostra até o back deles.
  */
 
 function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa, vazio }: {
@@ -63,10 +59,15 @@ export default function RelatoriosHub() {
   const [, setLocation] = useLocation();
   const podeEscrever = !useSomenteLeitura();
   const { dados, carregando, erro, recarregar } = useRelatorioDeFluxo();
+  const porCategoria = useRelatorioPorCategoria();
+  const porCentro = useRelatorioPorCentroDeCusto();
   const vazio = dados ? !dados.temLancamentos : false;
   const t = totais(dados?.meses ?? []);
   const saldoHoje = (dados?.saldoInicial ?? 0) + t.resultado;
   const contas = dados?.contas.length ?? 0;
+  const categorias = porCategoria.dados?.categorias.length;
+  const centros = porCentro.dados?.centros.length;
+  const maisRecebe = [...(dados?.contas ?? [])].sort((a, b) => b.entradas - a.entradas)[0];
 
   return (
     <RelatorioShell
@@ -124,7 +125,7 @@ export default function RelatoriosHub() {
           href="/relatorios/entradas-vs-saidas-por-categoria" vazio={vazio} icone={TagIcon}
           titulo="Entradas vs. saídas por categoria"
           texto="O peso de cada categoria no que entrou e no que saiu, das maiores para as menores."
-          kicker="Categorias movimentadas" valor={`${CATEGORIAS_MOCK.length} categorias`}
+          kicker="Categorias movimentadas" valor={categorias === undefined ? "…" : `${categorias} ${categorias === 1 ? "categoria" : "categorias"}`}
           previa={(
             <div className="flex w-[150px] flex-col gap-2">
               {[[0, 100], [52, 0], [41, 0], [0, 37]].map(([s, e], i) => (
@@ -137,7 +138,7 @@ export default function RelatoriosHub() {
           href="/relatorios/fluxo-por-centro-de-custo" vazio={vazio} icone={BuildingIcon}
           titulo="Fluxo de caixa por centro de custo"
           texto="Quanto cada área da empresa traz e consome, com saldo inicial, movimento e saldo final por centro."
-          kicker="Centros de custo ativos" valor={`${CENTROS_MOCK.length} centros`}
+          kicker="Centros de custo" valor={centros === undefined ? "…" : `${centros} ${centros === 1 ? "centro" : "centros"}`}
           previa={(
             <div className="flex h-14 items-end gap-[6px]">
               {[[14, 13, 9, 3], [16, 15, 10, 4], [15, 13, 10, 4], [18, 15, 11, 4], [16, 14, 11, 4], [18, 16, 12, 4]].map((pilha, i) => (
@@ -152,7 +153,7 @@ export default function RelatoriosHub() {
           href="/relatorios/entradas-vs-saidas-por-conta" vazio={vazio} icone={ChartIcon}
           titulo="Entradas vs. saídas por conta"
           texto="Compare o movimento de cada conta bancária: quanto entrou, quanto saiu e a margem de cada uma."
-          kicker="Conta que mais recebe" valor={[...CONTAS_MOVIMENTO_MOCK].sort((a, b) => b.entradas - a.entradas)[0]?.nome ?? "—"}
+          kicker="Conta que mais recebe" valor={maisRecebe?.nome ?? "—"}
           previa={(
             <div className="flex h-14 items-end gap-[5px]">
               {[[52, 36], [34, 32], [22, 25], [9, 8]].map(([e, s], i) => (

@@ -239,3 +239,124 @@ export function tetoDoEixo(maior: number) {
   }
   return 10 * potencia;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Por dimensão: categoria e centro de custo.                                */
+
+/** Uma linha do agregado por dimensão: (id, nome) × mês. */
+export type LinhaPorDimensao = {
+  id: number | null;
+  nome: string;
+  mes: string;
+  entradas: number;
+  saidas: number;
+  lancamentos: number;
+};
+
+/**
+ * A chave que junta as linhas da mesma categoria/centro. O id manda quando
+ * existe; sem id (importação antiga, cadastro apagado) vale o nome. Assim uma
+ * categoria renomeada continua uma só, e uma sem cadastro não some.
+ */
+export function chaveDaDimensao(linha: { id: number | null; nome: string }) {
+  return linha.id !== null ? `#${linha.id}` : linha.nome.trim().toLowerCase();
+}
+
+export const SEM_CATEGORIA = "Outras";
+
+export type CategoriaDoRelatorio = {
+  chave: string;
+  nome: string;
+  entradas: number;
+  saidas: number;
+  lancamentos: number;
+};
+
+/** Categorias com movimento no período, da maior para a menor. Sem categoria vira "Outras". */
+export function categoriasDoRelatorio(linhas: LinhaPorDimensao[]): CategoriaDoRelatorio[] {
+  const porChave = new Map<string, CategoriaDoRelatorio>();
+  for (const l of linhas) {
+    const semNome = l.nome.trim() === "";
+    const chave = semNome && l.id === null ? "outras" : chaveDaDimensao(l);
+    const atual = porChave.get(chave) ?? { chave, nome: semNome ? SEM_CATEGORIA : l.nome.trim(), entradas: 0, saidas: 0, lancamentos: 0 };
+    atual.entradas += l.entradas;
+    atual.saidas += l.saidas;
+    atual.lancamentos += l.lancamentos;
+    porChave.set(chave, atual);
+  }
+  return [...porChave.values()]
+    .map(c => ({ ...c, entradas: centavos(c.entradas), saidas: centavos(c.saidas) }))
+    .filter(c => c.entradas > 0 || c.saidas > 0)
+    .sort((a, b) => Math.max(b.entradas, b.saidas) - Math.max(a.entradas, a.saidas));
+}
+
+export type CentroCadastrado = { id: number; name: string; color: string; isActive: boolean };
+
+export type CentroDoRelatorio = {
+  chave: string;
+  nome: string;
+  cor: string;
+  lancamentos: number;
+  saldoInicial: number;
+  entradas: number;
+  saidas: number;
+  /** Saídas de cada mês da janela, para o gráfico empilhado. */
+  saidasPorMes: number[];
+  /** Saldo acumulado ao fim de cada mês. */
+  curva: number[];
+};
+
+/** Cores para centros sem cadastro (ou com a cor padrão), na ordem em que aparecem. */
+export const CORES_DOS_CENTROS = ["#12B85C", "#7EE2A8", "#0A7A42", "#B9C7BE", "#4C6355", "#DCE5DF"];
+
+/**
+ * Um centro de custo por linha: os cadastrados ativos (mesmo parados) mais os
+ * que só existem nos lançamentos. Lançamento sem centro fica de fora — o
+ * relatório é sobre o que foi atribuído. O "saldo inicial" é o acumulado pago
+ * do centro antes do período.
+ */
+export function centrosDoRelatorio(
+  meses: Mes[],
+  linhas: LinhaPorDimensao[],
+  antes: Array<{ id: number | null; nome: string; total: number }>,
+  cadastro: CentroCadastrado[],
+): CentroDoRelatorio[] {
+  const chaves = meses.map(chaveDoMes);
+  const comNome = (l: { nome: string }) => l.nome.trim() !== "";
+  const base = new Map<string, { nome: string; cor: string | null; ativo: boolean }>();
+  for (const c of cadastro) base.set(`#${c.id}`, { nome: c.name, cor: c.color, ativo: c.isActive });
+  for (const l of [...linhas, ...antes].filter(comNome)) {
+    const chave = chaveDaDimensao(l);
+    if (!base.has(chave)) base.set(chave, { nome: l.nome.trim(), cor: null, ativo: true });
+  }
+
+  const centros: CentroDoRelatorio[] = [];
+  let corSeguinte = 0;
+  for (const [chave, info] of base) {
+    const minhas = linhas.filter(l => comNome(l) && chaveDaDimensao(l) === chave);
+    const saldoInicial = centavos(antes.filter(a => comNome(a) && chaveDaDimensao(a) === chave).reduce((s, a) => s + a.total, 0));
+    if (!info.ativo && minhas.length === 0) continue;
+    let saldo = saldoInicial;
+    let entradas = 0;
+    let saidas = 0;
+    let lancamentos = 0;
+    const saidasPorMes: number[] = [];
+    const curva = chaves.map(mes => {
+      let saidasDoMes = 0;
+      for (const l of minhas) {
+        if (l.mes !== mes) continue;
+        entradas += l.entradas;
+        saidas += l.saidas;
+        saidasDoMes += l.saidas;
+        lancamentos += l.lancamentos;
+        saldo += l.entradas - l.saidas;
+      }
+      saidasPorMes.push(centavos(saidasDoMes));
+      return centavos(saldo);
+    });
+    const corPadrao = !info.cor || info.cor.toUpperCase() === "#4C6355";
+    const cor = corPadrao ? CORES_DOS_CENTROS[corSeguinte++ % CORES_DOS_CENTROS.length]! : info.cor!;
+    centros.push({ chave, nome: info.nome, cor, lancamentos, saldoInicial, entradas: centavos(entradas), saidas: centavos(saidas), saidasPorMes, curva });
+  }
+  return centros.sort((a, b) => b.saidas - a.saidas);
+}

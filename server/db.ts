@@ -3247,3 +3247,81 @@ export async function temLancamentoPago(escopo: Escopo) {
     .limit(1);
   return row !== undefined;
 }
+
+/*
+ * Relatórios por dimensão: o movimento pago agrupado por categoria ou por
+ * centro de custo, mês a mês. A dimensão vem da própria linha do lançamento
+ * (id e nome denormalizados), então categoria apagada ou importada sem
+ * cadastro continua aparecendo pelo nome. Transferência fica de fora: não é
+ * receita nem despesa de categoria nenhuma.
+ */
+export type DimensaoDoRelatorio = "categoria" | "centroDeCusto";
+
+function colunasDaDimensao(dimensao: DimensaoDoRelatorio) {
+  return dimensao === "categoria"
+    ? { id: financialTransactions.categoryId, nome: financialTransactions.category }
+    : { id: financialTransactions.costCenterId, nome: financialTransactions.costCenter };
+}
+
+export async function movimentoMensalPorDimensao(escopo: Escopo, dimensao: DimensaoDoRelatorio, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const { id, nome } = colunasDaDimensao(dimensao);
+  const mes = sql<string>`DATE_FORMAT(${financialTransactions.transactionDate}, '%Y-%m')`;
+  const rows = await db
+    .select({
+      id,
+      nome,
+      mes,
+      entradas: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} ELSE 0 END), 0)`,
+      saidas: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} ELSE 0 END), 0)`,
+      lancamentos: sql<string>`COUNT(*)`,
+    })
+    .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      eq(financialTransactions.status, "Pago"),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      gte(financialTransactions.transactionDate, start),
+      lt(financialTransactions.transactionDate, end),
+      aposOSaldoInicial,
+    ))
+    .groupBy(id, nome, mes);
+
+  return rows.map(row => ({
+    id: row.id === null ? null : Number(row.id),
+    nome: String(row.nome ?? ""),
+    mes: String(row.mes),
+    entradas: Number(row.entradas),
+    saidas: Number(row.saidas),
+    lancamentos: Number(row.lancamentos),
+  }));
+}
+
+/** O acumulado pago de cada centro/categoria antes de `before`: o "saldo inicial" da dimensão no período. */
+export async function acumuladoPorDimensao(escopo: Escopo, dimensao: DimensaoDoRelatorio, before: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const { id, nome } = colunasDaDimensao(dimensao);
+  const rows = await db
+    .select({ id, nome, total: sql<string>`COALESCE(SUM(${financialTransactions.amount}), 0)` })
+    .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      eq(financialTransactions.status, "Pago"),
+      sql`${financialTransactions.type} <> 'transferencia'`,
+      lt(financialTransactions.transactionDate, before),
+      aposOSaldoInicial,
+    ))
+    .groupBy(id, nome);
+
+  return rows.map(row => ({
+    id: row.id === null ? null : Number(row.id),
+    nome: String(row.nome ?? ""),
+    total: Number(row.total),
+  }));
+}

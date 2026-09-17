@@ -1,9 +1,7 @@
 import { ChartIcon } from "@/components/IconlyIcons";
-import { EstadoVazioRelatorio, IlustracaoBarras, Kpi, RelatorioShell, dinheiro, numero, type Janela } from "@/components/relatorios/RelatorioShell";
+import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, Kpi, RelatorioShell, dinheiro, numero } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
-import { CONTAS_MOVIMENTO_MOCK, PERIODO_MOCK, usarVazio } from "@/lib/relatoriosMock";
-import { tetoDoEixo } from "@shared/relatorios";
-import { useState } from "react";
+import { tetoDoEixo, useRelatorioDeFluxo } from "@/lib/relatorios";
 import { useLocation } from "wouter";
 
 const pct = (parte: number, todo: number) => (todo > 0 ? ((parte / todo) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : "0,0");
@@ -11,12 +9,12 @@ const sinal = (v: number) => (v >= 0 ? "+" : "−");
 const emMil = (v: number) => (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 export default function EntradasSaidasPorConta() {
-  const vazio = usarVazio();
   const podeEscrever = !useSomenteLeitura();
   const [, setLocation] = useLocation();
-  const [janela, setJanela] = useState<Janela>("6m");
+  const { janela, setJanela, rotuloDoMes, mudarMes, dados, carregando, erro, recarregar } = useRelatorioDeFluxo();
 
-  const contas = CONTAS_MOVIMENTO_MOCK.map(c => ({ ...c, resultado: c.entradas - c.saidas }));
+  const vazio = dados ? !dados.temContas : false;
+  const contas = (dados?.contas ?? []).map(c => ({ ...c, resultado: c.entradas - c.saidas }));
   const totalEntradas = contas.reduce((s, c) => s + c.entradas, 0);
   const totalSaidas = contas.reduce((s, c) => s + c.saidas, 0);
   const totalResultado = totalEntradas - totalSaidas;
@@ -32,12 +30,14 @@ export default function EntradasSaidasPorConta() {
     <RelatorioShell
       icone={ChartIcon}
       titulo="Entradas vs. saídas por conta"
-      subtitulo={vazio ? "nenhuma conta bancária cadastrada" : `${contas.length} contas bancárias · ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate}`}
+      subtitulo={vazio ? "nenhuma conta bancária cadastrada" : dados ? `${contas.length} ${contas.length === 1 ? "conta bancária" : "contas bancárias"} · ${dados.periodo.de} a ${dados.periodo.ate}` : "carregando…"}
       vazio={vazio}
       janela={janela} onJanela={setJanela}
-      mes="Set 2026" onMes={() => undefined}
-      rodape="Aqui o foco é o movimento de cada conta, não o saldo. Para acompanhar saldo inicial e final por banco, use o relatório de fluxo de caixa por conta bancária."
+      mes={rotuloDoMes} onMes={mudarMes}
+      rodape="Só lançamentos pagos. Transferências entre contas próprias contam nas duas contas envolvidas. Aqui o foco é o movimento de cada conta, não o saldo — para saldo inicial e final por banco, use o Fluxo de caixa por conta bancária."
     >
+      {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
+      <>
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi rotulo="Conta que mais recebe" valor={maisRecebe?.nome ?? "—"} apoio={maisRecebe ? `${pct(maisRecebe.entradas, totalEntradas)}% das entradas` : undefined} vazio={vazio} />
         <Kpi rotulo="Conta que mais paga" valor={maisPaga?.nome ?? "—"} apoio={maisPaga ? `${pct(maisPaga.saidas, totalSaidas)}% das saídas` : undefined} vazio={vazio} />
@@ -115,6 +115,8 @@ export default function EntradasSaidasPorConta() {
             </div>
           </section>
         </>
+      )}
+      </>
       )}
     </RelatorioShell>
   );

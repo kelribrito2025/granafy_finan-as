@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  categoriasDoRelatorio,
+  centrosDoRelatorio,
   chaveDoMes,
   contasDoRelatorio,
   diaAnterior,
@@ -11,7 +13,11 @@ import {
   mesesDaJanela,
   rotuloDoPeriodo,
   totais,
+  rotuloDoMes,
+  rotuloCurtoDoMes,
   type ContaBase,
+  type Janela,
+  type Mes,
 } from "@shared/relatorios";
 import { roundCurrency } from "@shared/currency";
 import { escopoDe } from "../escopo";
@@ -35,12 +41,18 @@ const entrada = z.object({
   ate: z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) }).optional(),
 });
 
+/** A janela resolvida: o mês final (hoje no fuso da conta, se não veio) e os meses. */
+async function janelaDe(userId: number, input: { janela: Janela; ate?: Mes }) {
+  const hoje = await userToday(userId);
+  const ate = input.ate ?? mesDe(hoje);
+  const meses = mesesDaJanela(input.janela, ate);
+  return { hoje, ate, meses, inicio: inicioDoMes(meses[0]!), fim: fimExclusivoDoMes(meses[meses.length - 1]!) };
+}
+
 export const relatoriosRouter = router({
   fluxo: protectedProcedure.input(entrada).query(async ({ ctx, input }) => {
     const escopo = escopoDe(ctx);
-    const hoje = await userToday(ctx.user.id);
-    const ate = input.ate ?? mesDe(hoje);
-    const meses = mesesDaJanela(input.janela, ate);
+    const { hoje, ate, meses } = await janelaDe(ctx.user.id, input);
     const anteriores = mesesAnteriores(meses);
     const inicio = inicioDoMes(meses[0]!);
     const fim = fimExclusivoDoMes(meses[meses.length - 1]!);
@@ -80,6 +92,47 @@ export const relatoriosRouter = router({
       anterior: { entradas: anterior.entradas, saidas: anterior.saidas, margem: anterior.margem },
       temLancamentos,
       temContas: contas.length > 0,
+    };
+  }),
+
+  /** Entradas e saídas pagas por categoria, na janela. */
+  porCategoria: protectedProcedure.input(entrada).query(async ({ ctx, input }) => {
+    const escopo = escopoDe(ctx);
+    const { hoje, ate, meses, inicio, fim } = await janelaDe(ctx.user.id, input);
+    const [linhas, temLancamentos] = await Promise.all([
+      db.movimentoMensalPorDimensao(escopo, "categoria", inicio, fim),
+      db.temLancamentoPago(escopo),
+    ]);
+    return {
+      janela: input.janela,
+      ate,
+      hoje,
+      periodo: rotuloDoPeriodo(meses),
+      categorias: categoriasDoRelatorio(linhas),
+      temLancamentos,
+    };
+  }),
+
+  /** O caixa de cada centro de custo na janela: acumulado antes, movimento e saídas mês a mês. */
+  porCentroDeCusto: protectedProcedure.input(entrada).query(async ({ ctx, input }) => {
+    const escopo = escopoDe(ctx);
+    const { hoje, ate, meses, inicio, fim } = await janelaDe(ctx.user.id, input);
+    const [linhas, antes, cadastro, temLancamentos] = await Promise.all([
+      db.movimentoMensalPorDimensao(escopo, "centroDeCusto", inicio, fim),
+      db.acumuladoPorDimensao(escopo, "centroDeCusto", inicio),
+      db.listCostCenters(escopo),
+      db.temLancamentoPago(escopo),
+    ]);
+    const centros = centrosDoRelatorio(meses, linhas, antes, cadastro.map(c => ({ id: c.id, name: c.name, color: c.color, isActive: c.isActive })));
+    return {
+      janela: input.janela,
+      ate,
+      hoje,
+      periodo: rotuloDoPeriodo(meses),
+      meses: meses.map(m => ({ chave: chaveDoMes(m), rotulo: rotuloDoMes(m), rotuloCurto: rotuloCurtoDoMes(m) })),
+      centros,
+      temCentros: centros.length > 0,
+      temLancamentos,
     };
   }),
 });

@@ -1,6 +1,6 @@
 import type { Connection } from "mysql2/promise";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { esquecerBancoDeTeste, movimentoMensalPorConta, temLancamentoPago, usarBancoDeTesteEm } from "./db";
+import { acumuladoPorDimensao, esquecerBancoDeTeste, movimentoMensalPorConta, movimentoMensalPorDimensao, temLancamentoPago, usarBancoDeTesteEm } from "./db";
 import { conectarNoBancoDeTeste, limparTabelas, prepararSchemaDeTeste, temBancoDeTeste, usuarioDeTeste } from "./testDatabase";
 
 /*
@@ -96,5 +96,31 @@ describe.runIf(temBancoDeTeste())("relatórios: movimento mensal por conta", () 
     await c.query("DELETE FROM transactions WHERE companyId = ? AND status = 'Pago'", [EMPRESA]);
     expect(await temLancamentoPago(escopo)).toBe(false);
     expect(await temLancamentoPago({ userId: ANA, companyId: OUTRA })).toBe(true);
+  });
+
+  it("por categoria: agrupa por (id, nome) e mês, só o pago e sem transferência", async () => {
+    await c.query(
+      `UPDATE transactions SET category = 'Mensalidades', categoryId = 77 WHERE companyId = ? AND amount > 0 AND type = 'entrada'`, [EMPRESA]);
+    const linhas = await movimentoMensalPorDimensao(escopo, "categoria", "2026-04-01", "2026-07-01");
+    const ordenadas = [...linhas].sort((x, y) => `${x.mes}${x.nome}`.localeCompare(`${y.mes}${y.nome}`));
+    expect(ordenadas).toEqual([
+      { id: null, nome: "Categoria", mes: "2026-04", entradas: 0, saidas: 7, lancamentos: 1 },
+      { id: 77, nome: "Mensalidades", mes: "2026-04", entradas: 40, saidas: 0, lancamentos: 1 },
+      { id: null, nome: "Categoria", mes: "2026-05", entradas: 0, saidas: 80, lancamentos: 1 },
+      { id: 77, nome: "Mensalidades", mes: "2026-05", entradas: 200.5, saidas: 0, lancamentos: 1 },
+    ]);
+  });
+
+  it("por centro de custo: o movimento da janela e o acumulado antes dela, pela mesma regra", async () => {
+    await c.query(
+      `UPDATE transactions SET costCenter = 'Operação', costCenterId = 5 WHERE companyId = ? AND accountId = ?`, [EMPRESA, bb]);
+    const linhas = await movimentoMensalPorDimensao(escopo, "centroDeCusto", "2026-05-15", "2026-07-01");
+    expect(linhas.filter(l => l.nome === "Operação")).toEqual([
+      { id: 5, nome: "Operação", mes: "2026-05", entradas: 0, saidas: 80, lancamentos: 1 },
+    ]);
+    // Antes de 15/05: o de 10/05 está na data do saldo inicial e não conta; sobra o de 11/05.
+    const antes = await acumuladoPorDimensao(escopo, "centroDeCusto", "2026-05-15");
+    expect(antes.find(a => a.nome === "Operação")).toEqual({ id: 5, nome: "Operação", total: 200.5 });
+    expect(antes.find(a => a.nome === "")).toEqual({ id: null, nome: "", total: 40 - 7 });
   });
 });

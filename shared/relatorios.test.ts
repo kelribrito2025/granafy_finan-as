@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  categoriasDoRelatorio,
+  centrosDoRelatorio,
   chaveDoMes,
   contasDoRelatorio,
   curvaDoSaldo,
@@ -86,5 +88,52 @@ describe("séries dos relatórios", () => {
     expect(tetoDoEixo(96_400)).toBe(100_000);
     expect(tetoDoEixo(2_100)).toBe(2_500);
     expect(tetoDoEixo(0)).toBe(1000);
+  });
+});
+
+describe("relatórios por dimensão", () => {
+  const meses = mesesDaJanela("6m", { year: 2026, month: 9 });
+
+  it("categorias juntam por id, caem no nome sem id, e o vazio vira Outras", () => {
+    const categorias = categoriasDoRelatorio([
+      { id: 7, nome: "Mensalidades", mes: "2026-04", entradas: 1000, saidas: 0, lancamentos: 2 },
+      { id: 7, nome: "Mensalidades (renomeada)", mes: "2026-05", entradas: 500, saidas: 0, lancamentos: 1 },
+      { id: null, nome: "Folha", mes: "2026-04", entradas: 0, saidas: 900, lancamentos: 3 },
+      { id: null, nome: "folha ", mes: "2026-06", entradas: 0, saidas: 100, lancamentos: 1 },
+      { id: null, nome: "", mes: "2026-06", entradas: 0, saidas: 40, lancamentos: 1 },
+      { id: 9, nome: "Parada", mes: "2026-06", entradas: 0, saidas: 0, lancamentos: 0 },
+    ]);
+    expect(categorias.map(c => [c.nome, c.entradas, c.saidas, c.lancamentos])).toEqual([
+      ["Mensalidades", 1500, 0, 3],
+      ["Folha", 0, 1000, 4],
+      ["Outras", 0, 40, 1],
+    ]);
+  });
+
+  it("centros de custo: cadastrados ativos entram mesmo parados, inativos só com movimento, sem centro fica de fora", () => {
+    const centros = centrosDoRelatorio(
+      meses,
+      [
+        { id: 1, nome: "Operação", mes: "2026-04", entradas: 1000, saidas: 400, lancamentos: 2 },
+        { id: 1, nome: "Operação", mes: "2026-05", entradas: 0, saidas: 100, lancamentos: 1 },
+        { id: null, nome: "Importado", mes: "2026-09", entradas: 0, saidas: 50, lancamentos: 1 },
+        { id: 3, nome: "Antigo", mes: "2026-09", entradas: 10, saidas: 0, lancamentos: 1 },
+        { id: null, nome: "", mes: "2026-09", entradas: 0, saidas: 9999, lancamentos: 9 },
+      ],
+      [{ id: 1, nome: "Operação", total: 250 }, { id: null, nome: "", total: 777 }],
+      [
+        { id: 1, name: "Operação", color: "#4C6355", isActive: true },
+        { id: 2, name: "Parado", color: "#123456", isActive: true },
+        { id: 3, name: "Antigo", color: "#4C6355", isActive: false },
+        { id: 4, name: "Inativo sem nada", color: "#4C6355", isActive: false },
+      ],
+    );
+    expect(centros.map(c => c.nome)).toEqual(["Operação", "Importado", "Parado", "Antigo"]);
+    const [operacao, importado, parado] = centros;
+    expect(operacao).toMatchObject({ saldoInicial: 250, entradas: 1000, saidas: 500, lancamentos: 3, cor: "#12B85C" });
+    expect(operacao!.saidasPorMes).toEqual([400, 100, 0, 0, 0, 0]);
+    expect(operacao!.curva).toEqual([850, 750, 750, 750, 750, 750]);
+    expect(importado).toMatchObject({ saldoInicial: 0, saidas: 50, cor: "#0A7A42" });
+    expect(parado).toMatchObject({ saldoInicial: 0, entradas: 0, saidas: 0, cor: "#123456" });
   });
 });

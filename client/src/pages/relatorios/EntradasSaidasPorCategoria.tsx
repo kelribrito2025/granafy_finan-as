@@ -1,8 +1,7 @@
 import { ArrowDownIcon, ArrowUpIcon, TagIcon } from "@/components/IconlyIcons";
-import { EstadoVazioRelatorio, IlustracaoBarras, Kpi, RelatorioShell, dinheiro, numero, type Janela } from "@/components/relatorios/RelatorioShell";
+import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, Kpi, RelatorioShell, dinheiro, numero } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
-import { CATEGORIAS_MOCK, PERIODO_MOCK, usarVazio } from "@/lib/relatoriosMock";
-import { useState } from "react";
+import { useRelatorioPorCategoria } from "@/lib/relatorios";
 import { useLocation } from "wouter";
 
 const pct = (parte: number, todo: number) => (todo > 0 ? ((parte / todo) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : "0,0");
@@ -39,12 +38,12 @@ function ListaPorCategoria({ titulo, icone, tom, total, itens }: {
 }
 
 export default function EntradasSaidasPorCategoria() {
-  const vazio = usarVazio();
   const podeEscrever = !useSomenteLeitura();
   const [, setLocation] = useLocation();
-  const [janela, setJanela] = useState<Janela>("6m");
+  const { janela, setJanela, rotuloDoMes, mudarMes, dados, carregando, erro, recarregar } = useRelatorioPorCategoria();
 
-  const categorias = CATEGORIAS_MOCK;
+  const categorias = dados?.categorias ?? [];
+  const vazio = dados ? !dados.temLancamentos || categorias.length === 0 : false;
   const entradas = categorias.filter(c => c.entradas > 0).map(c => ({ nome: c.nome, valor: c.entradas })).sort((a, b) => b.valor - a.valor);
   const saidas = categorias.filter(c => c.saidas > 0).map(c => ({ nome: c.nome, valor: c.saidas })).sort((a, b) => b.valor - a.valor);
   const totalEntradas = entradas.reduce((s, i) => s + i.valor, 0);
@@ -56,16 +55,18 @@ export default function EntradasSaidasPorCategoria() {
     <RelatorioShell
       icone={TagIcon}
       titulo="Entradas vs. saídas por categoria"
-      subtitulo={vazio ? "nenhuma categoria movimentada ainda" : `${categorias.length} categorias movimentadas · ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate}`}
+      subtitulo={vazio ? "nenhuma categoria movimentada no período" : dados ? `${categorias.length} ${categorias.length === 1 ? "categoria movimentada" : "categorias movimentadas"} · ${dados.periodo.de} a ${dados.periodo.ate}` : "carregando…"}
       vazio={vazio}
       janela={janela} onJanela={setJanela}
-      mes="Set 2026" onMes={() => undefined}
-      rodape="Lançamentos sem categoria ficam agrupados em “Outras” — vale revisá-los na tela de Lançamentos para deixar o relatório mais preciso."
+      mes={rotuloDoMes} onMes={mudarMes}
+      rodape="Só lançamentos pagos, sem transferências. Lançamentos sem categoria ficam agrupados em “Outras” — vale revisá-los na tela de Lançamentos para deixar o relatório mais preciso."
     >
+      {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
+      <>
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi rotulo="Categorias de entrada" valor={`${entradas.length} categorias`} apoio={`${dinheiro(totalEntradas)} no total`} tom="positivo" vazio={vazio} />
-        <Kpi rotulo="Categorias de saída" valor={`${saidas.length} categorias`} apoio={`${dinheiro(totalSaidas)} no total`} tom="negativo" vazio={vazio} />
-        <Kpi rotulo="Maior entrada" valor={entradas[0]?.nome.split(" ")[0] ?? "—"} apoio={entradas[0] ? `${pct(entradas[0].valor, totalEntradas)}% de tudo que entrou` : undefined} vazio={vazio} />
+        <Kpi rotulo="Categorias de entrada" valor={`${entradas.length} ${entradas.length === 1 ? "categoria" : "categorias"}`} apoio={`${dinheiro(totalEntradas)} no total`} tom="positivo" vazio={vazio} />
+        <Kpi rotulo="Categorias de saída" valor={`${saidas.length} ${saidas.length === 1 ? "categoria" : "categorias"}`} apoio={`${dinheiro(totalSaidas)} no total`} tom="negativo" vazio={vazio} />
+        <Kpi rotulo="Maior entrada" valor={entradas[0]?.nome ?? "—"} apoio={entradas[0] ? `${pct(entradas[0].valor, totalEntradas)}% de tudo que entrou` : undefined} vazio={vazio} />
         <Kpi rotulo="Maior saída" valor={saidas[0]?.nome ?? "—"} apoio={saidas[0] ? `${pct(saidas[0].valor, totalSaidas)}% de tudo que saiu` : undefined} vazio={vazio} />
       </div>
 
@@ -73,7 +74,7 @@ export default function EntradasSaidasPorCategoria() {
         <EstadoVazioRelatorio
           ilustracao={<IlustracaoBarras />}
           titulo="Nenhuma categoria para comparar"
-          texto="Este relatório mostra o peso de cada categoria no que entrou e no que saiu do caixa. Classifique os lançamentos e as categorias aparecem aqui, das maiores para as menores."
+          texto="Este relatório mostra o peso de cada categoria no que entrou e no que saiu do caixa neste período. Classifique os lançamentos pagos e as categorias aparecem aqui, das maiores para as menores."
           acaoPrincipal="Novo lançamento"
           onAcaoPrincipal={() => setLocation("/lancamentos")}
           mostrarAcoes={podeEscrever}
@@ -94,7 +95,7 @@ export default function EntradasSaidasPorCategoria() {
                 {ordenadas.map(c => {
                   const liquido = c.entradas - c.saidas;
                   return (
-                    <div key={c.nome} className="grid grid-cols-[200px_1fr_1fr_120px] items-center border-b border-[#F8FAF9] py-[9px]">
+                    <div key={c.chave} className="grid grid-cols-[200px_1fr_1fr_120px] items-center border-b border-[#F8FAF9] py-[9px]">
                       <span className="truncate pr-3.5 text-[12.5px] text-[#28382E]">{c.nome}</span>
                       <span className="flex justify-end pr-[3px]"><span className="h-[18px] rounded-l-[5px] bg-[#F0A6A0]" style={{ width: `${(c.saidas / maiorValor) * 100}%` }} /></span>
                       <span className="flex justify-start border-l-2 border-[#E3EBE6] pl-[3px]"><span className="h-[18px] rounded-r-[5px] bg-[#12B85C]" style={{ width: `${(c.entradas / maiorValor) * 100}%` }} /></span>
@@ -111,6 +112,8 @@ export default function EntradasSaidasPorCategoria() {
             <ListaPorCategoria titulo="Saídas por categoria" icone="saida" tom="negativo" total={totalSaidas} itens={saidas} />
           </div>
         </>
+      )}
+      </>
       )}
     </RelatorioShell>
   );
