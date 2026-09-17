@@ -5,6 +5,7 @@ import {
   ArrowsUpDownIcon,
   ChartIcon,
   CheckIcon,
+  ChevronRightIcon,
   CloseIcon,
   DashboardIcon,
   DocumentIcon,
@@ -17,7 +18,8 @@ import {
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { trpc } from "@/lib/trpc";
 import { startsCollapsed, type SidebarMode } from "@shared/preferences";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 
@@ -28,8 +30,8 @@ type Item = {
   disabled?: boolean;
   /** O item que recebe a contagem de títulos abertos. */
   counter?: boolean;
-  /** Sub-abas, mostradas na barra inteira quando o item está ativo. */
-  children?: Array<{ label: string; path: string }>;
+  /** Submenu flutuante: o item ganha uma setinha e, clicado, abre estas opções. */
+  children?: Array<{ label: string; path: string; icon: IconlyIcon }>;
 };
 
 /**
@@ -68,9 +70,9 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
       {
         label: "Relatórios", icon: ReportsIcon, path: "/relatorios",
         children: [
-          { label: "Entradas vs. saídas", path: "/relatorios/entradas-vs-saidas" },
-          { label: "Fluxo de caixa geral", path: "/relatorios/fluxo-de-caixa-geral" },
-          { label: "Fluxo por conta bancária", path: "/relatorios/fluxo-por-conta" },
+          { label: "Entradas vs. saídas", path: "/relatorios/entradas-vs-saidas", icon: ArrowsUpDownIcon },
+          { label: "Fluxo de caixa geral", path: "/relatorios/fluxo-de-caixa-geral", icon: TrendUpIcon },
+          { label: "Fluxo por conta bancária", path: "/relatorios/fluxo-por-conta", icon: WalletIcon },
         ],
       },
       { label: "DRE", icon: ReportIcon, path: "/dre" },
@@ -100,12 +102,84 @@ function isActive(location: string, path: string | undefined) {
   return path === "/" ? location === "/" : location.startsWith(path);
 }
 
+/**
+ * O submenu flutuante de um item com filhos. Vai para o body por portal: a
+ * barra tem overflow-hidden e transform, e qualquer coisa desenhada dentro
+ * dela seria cortada na borda. Na tela larga abre à direita do item; no
+ * celular, embaixo dele, porque a gaveta já ocupa mais da metade da tela.
+ */
+function Submenu({ ancora, filhos, location, onEscolher, onFechar }: {
+  ancora: HTMLElement;
+  filhos: NonNullable<Item["children"]>;
+  location: string;
+  onEscolher: (path: string) => void;
+  onFechar: () => void;
+}) {
+  const caixa = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const medir = () => {
+      const r = ancora.getBoundingClientRect();
+      const larga = window.innerWidth >= 1280;
+      setPos(larga ? { top: r.top - 6, left: r.right + 12 } : { top: r.bottom + 6, left: r.left });
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [ancora]);
+
+  useEffect(() => {
+    const fora = (e: MouseEvent) => {
+      const alvo = e.target as Node;
+      if (caixa.current?.contains(alvo) || ancora.contains(alvo)) return;
+      onFechar();
+    };
+    const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", tecla);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", tecla); };
+  }, [ancora, onFechar]);
+
+  if (!pos) return null;
+  return createPortal(
+    <div
+      ref={caixa}
+      role="menu"
+      style={{ top: pos.top, left: pos.left }}
+      className="fixed z-[120] flex min-w-[232px] flex-col gap-0.5 rounded-[16px] border border-[#E3EBE6] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,20,.18)]"
+    >
+      {filhos.map(filho => {
+        const aceso = location.startsWith(filho.path);
+        const Icone = filho.icon;
+        return (
+          <button
+            key={filho.path}
+            type="button"
+            role="menuitem"
+            onClick={() => onEscolher(filho.path)}
+            className={`flex w-full items-center gap-3 rounded-[11px] px-3 py-[10px] text-left text-[14px] transition ${
+              aceso ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#28382E] hover:bg-[#F8FAF9]"
+            }`}
+          >
+            <Icone size={17} className={aceso ? "text-[#0A7A42]" : "text-[#4C6355]"} />
+            {filho.label}
+          </button>
+        );
+      })}
+    </div>,
+    document.body,
+  );
+}
+
 /** Um item da barra inteira: ícone, nome e, quando houver, a contagem. */
-function WideItem({ item, active, count, onSelect }: {
+function WideItem({ item, active, count, aberto = false, onSelect }: {
   item: Item;
   active: boolean;
   count: number | null;
-  onSelect: (item: Item) => void;
+  /** Só para itens com submenu: se o flutuante está aberto (a setinha vira). */
+  aberto?: boolean;
+  onSelect: (item: Item, ancora: HTMLElement) => void;
 }) {
   const { icon: Icon, label, disabled = false } = item;
   return (
@@ -113,7 +187,9 @@ function WideItem({ item, active, count, onSelect }: {
       type="button"
       disabled={disabled}
       title={disabled ? "Página em desenvolvimento" : undefined}
-      onClick={() => onSelect(item)}
+      aria-haspopup={item.children ? "menu" : undefined}
+      aria-expanded={item.children ? aberto : undefined}
+      onClick={e => onSelect(item, e.currentTarget)}
       /*
        * A forma é a mesma do menu do admin do sistema — 12px de raio, 11px de
        * altura interna, 13,5px de texto. `rounded-xl` NÃO servia: o projeto
@@ -131,6 +207,9 @@ function WideItem({ item, active, count, onSelect }: {
     >
       <Icon size={16} />
       <span className="truncate">{label}</span>
+      {item.children && (
+        <ChevronRightIcon size={14} className={`ml-auto shrink-0 transition-transform ${aberto ? "rotate-90" : ""} ${active ? "text-white" : "text-[#8A968D]"}`} />
+      )}
       {count !== null && count > 0 && (
         <span className={`ml-auto rounded-[6px] px-2 py-0.5 text-[11px] font-bold ${active ? "bg-white/20 text-white" : "bg-[#F1F4F2] text-[#4C6355]"}`}>
           {count}
@@ -146,7 +225,7 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
   active: boolean;
   count: number | null;
   tooltips: boolean;
-  onSelect: (item: Item) => void;
+  onSelect: (item: Item, ancora: HTMLElement) => void;
 }) {
   const { icon: Icon, label, disabled = false } = item;
   return (
@@ -156,7 +235,8 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
       // Sem tooltip próprio o title do navegador é o que sobra de acessível.
       title={tooltips ? undefined : disabled ? `${label} · em desenvolvimento` : label}
       aria-label={label}
-      onClick={() => onSelect(item)}
+      aria-haspopup={item.children ? "menu" : undefined}
+      onClick={e => onSelect(item, e.currentTarget)}
       className={`group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] transition active:scale-[.96] ${
         active
           ? "bg-[#12B85C] text-white"
@@ -166,6 +246,9 @@ function RailItem({ item, active, count, tooltips, onSelect }: {
       }`}
     >
       <Icon size={19} />
+      {item.children && (
+        <ChevronRightIcon size={10} className={`absolute bottom-[5px] right-[5px] ${active ? "text-white/80" : "text-[#C5DACE]/70"}`} />
+      )}
       {count !== null && count > 0 && (
         <span className="absolute right-[5px] top-[5px] flex h-4 min-w-4 items-center justify-center rounded-lg border-2 border-[#0B1F14] bg-[#B3261E] px-1 text-[9.5px] font-bold text-white">
           {count > 99 ? "99+" : count}
@@ -231,13 +314,27 @@ export function AppSidebar({ open, onClose, footer }: {
     }
   };
 
-  const select = (item: Item) => {
+  /* O submenu aberto, com o botão que o abriu: o flutuante se posiciona por ele. */
+  const [submenu, setSubmenu] = useState<{ item: Item; ancora: HTMLElement } | null>(null);
+  useEffect(() => setSubmenu(null), [location]);
+
+  const select = (item: Item, ancora: HTMLElement) => {
+    if (item.children) {
+      setSubmenu(atual => (atual?.item === item ? null : { item, ancora }));
+      return;
+    }
     onClose();
     if (!item.path) {
       toast.info(`${item.label} ainda não está disponível.`);
       return;
     }
     setLocation(item.path);
+  };
+
+  const escolherFilho = (path: string) => {
+    setSubmenu(null);
+    onClose();
+    setLocation(`${path}${window.location.search}`);
   };
 
   const countOf = (item: Item) => (item.counter && showBadges ? openTitles : null);
@@ -275,32 +372,14 @@ export function AppSidebar({ open, onClose, footer }: {
             {group.title}
           </span>
           {group.items.map(item => (
-            <div key={item.label} className="flex flex-col gap-[3px]">
-              <WideItem
-                item={item}
-                active={isActive(location, item.path)}
-                count={countOf(item)}
-                onSelect={select}
-              />
-              {/* As sub-abas abrem só com o pai aceso: fechadas, o menu fica do tamanho de sempre. */}
-              {item.children && isActive(location, item.path) && (
-                <div className="ml-3 flex flex-col gap-px border-l border-[#E3EBE6] py-1 pl-5">
-                  {item.children.map(filho => {
-                    const aceso = location.startsWith(filho.path);
-                    return (
-                      <button
-                        key={filho.path}
-                        type="button"
-                        onClick={() => { setLocation(`${filho.path}${window.location.search}`); onClose(); }}
-                        className={`rounded-[9px] px-2.5 py-2 text-left text-[12.5px] transition ${aceso ? "bg-[#F1FBF6] font-bold text-[#0A7A42]" : "text-[#4C6355] hover:bg-[#F8FAF9]"}`}
-                      >
-                        {filho.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <WideItem
+              key={item.label}
+              item={item}
+              active={isActive(location, item.path)}
+              count={countOf(item)}
+              aberto={submenu?.item === item}
+              onSelect={select}
+            />
           ))}
         </div>
       ))}
@@ -311,7 +390,7 @@ export function AppSidebar({ open, onClose, footer }: {
   const rail = (
     <div
       onMouseEnter={() => mode === "hover" && setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      onMouseLeave={() => { if (!submenu) setHovering(false); }}
       className="relative hidden shrink-0 xl:block"
     >
       {/* Recolhida, a barra é verde-escuro: o mesmo #0B1F14 do painel de marca
@@ -371,6 +450,15 @@ export function AppSidebar({ open, onClose, footer }: {
 
   return (
     <>
+      {submenu?.item.children && (
+        <Submenu
+          ancora={submenu.ancora}
+          filhos={submenu.item.children}
+          location={location}
+          onEscolher={escolherFilho}
+          onFechar={() => setSubmenu(null)}
+        />
+      )}
       {open && (
         <button
           type="button"
