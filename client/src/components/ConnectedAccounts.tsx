@@ -62,7 +62,17 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
   const atual = accounts[Math.min(indice, Math.max(accounts.length - 1, 0))];
 
   return (
-    <div className={`flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}>
+    <div className={`group relative flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}>
+      {/* O cabeçalho saiu do cartão para ele ficar enxuto; ao passar o mouse ele volta como balão. */}
+      {accounts.length > 0 && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute -top-2 left-1/2 z-[90] -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-[9px] bg-[#0B1F14] px-[11px] py-[7px] text-[11.5px] font-semibold text-white opacity-0 shadow-[0_8px_22px_rgba(11,31,20,.22)] transition-opacity duration-[90ms] group-hover:opacity-100"
+        >
+          Contas conectadas · {indice + 1} de {accounts.length}
+          <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-[#0B1F14]" />
+        </span>
+      )}
       {accountsQuery.isLoading ? (
         <span className="block text-[11.5px] text-[#4C6355]">Carregando saldos...</span>
       ) : !atual ? (
@@ -77,7 +87,7 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
       ) : (
         <>
           {/* Uma conta por vez: o cartão fica do mesmo tamanho com 2 ou 12 contas. */}
-          <div className="flex items-center gap-2.5" title={`${atual.name}: ${money(atual.balance)}`}>
+          <div className="flex items-center gap-2.5">
             <span
               className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] text-[11px] font-bold text-white"
               style={{ background: atual.balance < 0 ? "#B3261E" : atual.color }}
