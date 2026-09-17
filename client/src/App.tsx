@@ -19,6 +19,9 @@ import RelatoriosHub from "@/pages/relatorios/RelatoriosHub";
 import EntradasVsSaidas from "@/pages/relatorios/EntradasVsSaidas";
 import FluxoCaixaGeral from "@/pages/relatorios/FluxoCaixaGeral";
 import FluxoPorConta from "@/pages/relatorios/FluxoPorConta";
+import EntradasSaidasPorCategoria from "@/pages/relatorios/EntradasSaidasPorCategoria";
+import FluxoPorCentroDeCusto from "@/pages/relatorios/FluxoPorCentroDeCusto";
+import EntradasSaidasPorConta from "@/pages/relatorios/EntradasSaidasPorConta";
 import { type ReactNode, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -125,6 +128,9 @@ function Router() {
       <Route path="/relatorios/entradas-vs-saidas"><ProtectedPage><EntradasVsSaidas /></ProtectedPage></Route>
       <Route path="/relatorios/fluxo-de-caixa-geral"><ProtectedPage><FluxoCaixaGeral /></ProtectedPage></Route>
       <Route path="/relatorios/fluxo-por-conta"><ProtectedPage><FluxoPorConta /></ProtectedPage></Route>
+      <Route path="/relatorios/entradas-vs-saidas-por-categoria"><ProtectedPage><EntradasSaidasPorCategoria /></ProtectedPage></Route>
+      <Route path="/relatorios/fluxo-por-centro-de-custo"><ProtectedPage><FluxoPorCentroDeCusto /></ProtectedPage></Route>
+      <Route path="/relatorios/entradas-vs-saidas-por-conta"><ProtectedPage><EntradasSaidasPorConta /></ProtectedPage></Route>
       <Route path="/balanco-patrimonial"><ProtectedPage><BalanceSheetPage /></ProtectedPage></Route>
       <Route path="/organizacao"><ProtectedPage><OrganizationPage /></ProtectedPage></Route>
       <Route path="/configuracoes"><ProtectedPage><SoDono><SettingsPage /></SoDono></ProtectedPage></Route>

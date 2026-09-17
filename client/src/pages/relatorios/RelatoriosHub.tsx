@@ -1,15 +1,19 @@
-import { ArrowUpIcon, ChevronRightIcon, DownloadIcon, ReportsIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
+import { ArrowUpIcon, BuildingIcon, ChartIcon, ChevronRightIcon, DownloadIcon, ReportsIcon, TagIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
 import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, RelatorioShell, dinheiro } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 import { totais, useRelatorioDeFluxo } from "@/lib/relatorios";
+import { CATEGORIAS_MOCK, CENTROS_MOCK, CONTAS_MOVIMENTO_MOCK } from "@/lib/relatoriosMock";
 import { toast } from "@/lib/toast";
 import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 
 /*
- * Relatórios — o hub. Três cartões, um por relatório, com o número-resumo dos
+ * Relatórios — o hub. Seis cartões, um por relatório, com o número-resumo dos
  * últimos seis meses; embaixo, a faixa do pacote em PDF. Sem nenhum lançamento
- * pago, os três cartões ficam apagados e o passo a passo aparece no lugar.
+ * pago, os cartões ficam apagados e o passo a passo aparece no lugar.
+ *
+ * Os três primeiros já leem do banco. Os três últimos (categoria, centro de
+ * custo e entradas vs. saídas por conta) mostram amostra até o back deles.
  */
 
 function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa, vazio }: {
@@ -112,6 +116,47 @@ export default function RelatoriosHub() {
             <div className="flex w-[150px] flex-col gap-2">
               {[100, 62, 34, 22].map((p, i) => (
                 <span key={i} className="flex items-center gap-2"><span className="h-1.5 w-4 rounded bg-[#DCE5DF]" /><span className="h-1.5 flex-1 overflow-hidden rounded bg-[#EDF2EE]"><span className={`block h-full ${i === 2 ? "bg-[#F0A6A0]" : "bg-[#12B85C]"}`} style={{ width: `${p}%` }} /></span></span>
+              ))}
+            </div>
+          )}
+        />
+        <Cartao
+          href="/relatorios/entradas-vs-saidas-por-categoria" vazio={vazio} icone={TagIcon}
+          titulo="Entradas vs. saídas por categoria"
+          texto="O peso de cada categoria no que entrou e no que saiu, das maiores para as menores."
+          kicker="Categorias movimentadas" valor={`${CATEGORIAS_MOCK.length} categorias`}
+          previa={(
+            <div className="flex w-[150px] flex-col gap-2">
+              {[[0, 100], [52, 0], [41, 0], [0, 37]].map(([s, e], i) => (
+                <span key={i} className="flex items-center gap-0.5"><span className="flex flex-1 justify-end"><span className="h-1.5 rounded-l bg-[#F0A6A0]" style={{ width: `${s}%` }} /></span><span className="h-2.5 w-px bg-[#DCE5DF]" /><span className="flex flex-1"><span className="h-1.5 rounded-r bg-[#12B85C]" style={{ width: `${e}%` }} /></span></span>
+              ))}
+            </div>
+          )}
+        />
+        <Cartao
+          href="/relatorios/fluxo-por-centro-de-custo" vazio={vazio} icone={BuildingIcon}
+          titulo="Fluxo de caixa por centro de custo"
+          texto="Quanto cada área da empresa traz e consome, com saldo inicial, movimento e saldo final por centro."
+          kicker="Centros de custo ativos" valor={`${CENTROS_MOCK.length} centros`}
+          previa={(
+            <div className="flex h-14 items-end gap-[6px]">
+              {[[14, 13, 9, 3], [16, 15, 10, 4], [15, 13, 10, 4], [18, 15, 11, 4], [16, 14, 11, 4], [18, 16, 12, 4]].map((pilha, i) => (
+                <span key={i} className="flex w-[14px] flex-col justify-end overflow-hidden rounded-t-[3px]">
+                  {pilha.map((h, j) => <span key={j} style={{ height: h, background: ["#12B85C", "#7EE2A8", "#0A7A42", "#B9C7BE"][j] }} />)}
+                </span>
+              ))}
+            </div>
+          )}
+        />
+        <Cartao
+          href="/relatorios/entradas-vs-saidas-por-conta" vazio={vazio} icone={ChartIcon}
+          titulo="Entradas vs. saídas por conta"
+          texto="Compare o movimento de cada conta bancária: quanto entrou, quanto saiu e a margem de cada uma."
+          kicker="Conta que mais recebe" valor={[...CONTAS_MOVIMENTO_MOCK].sort((a, b) => b.entradas - a.entradas)[0]?.nome ?? "—"}
+          previa={(
+            <div className="flex h-14 items-end gap-[5px]">
+              {[[52, 36], [34, 32], [22, 25], [9, 8]].map(([e, s], i) => (
+                <span key={i} className="contents"><span className="w-[11px] rounded-t-[3px] bg-[#12B85C]" style={{ height: e }} /><span className="w-[11px] rounded-t-[3px] bg-[#F0A6A0]" style={{ height: s }} /></span>
               ))}
             </div>
           )}
