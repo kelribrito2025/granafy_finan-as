@@ -48,7 +48,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   {
     title: "Painel",
     items: [
-      { label: "Visão geral dois", icon: DashboardIcon, path: "/" },
+      { label: "Visão geral", icon: DashboardIcon, path: "/" },
       { label: "Fluxo de caixa", icon: TrendUpIcon, path: "/fluxo-de-caixa" },
     ],
   },
