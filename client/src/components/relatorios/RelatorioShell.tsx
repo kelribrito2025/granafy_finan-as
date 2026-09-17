@@ -5,6 +5,9 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { toast } from "@/lib/toast";
 import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
+import { JANELAS, type Janela } from "@shared/relatorios";
+
+export type { Janela };
 
 /*
  * A casca comum das telas de Relatórios: barra lateral, título,
@@ -15,8 +18,6 @@ import { useLocation } from "wouter";
  * eles viram os parâmetros da consulta.
  */
 
-export type Janela = "6m" | "12m" | "ano";
-export const JANELAS: Array<[Janela, string]> = [["6m", "6 meses"], ["12m", "12 meses"], ["ano", "Ano"]];
 
 export const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -80,7 +81,7 @@ export function RelatorioShell({ icone, titulo, subtitulo, vazio, janela, onJane
               aria-label="Exportar"
               title="Exportar"
               disabled={vazio}
-              onClick={() => toast.info("A exportação entra junto com os dados reais.")}
+              onClick={() => toast.info("A exportação em PDF e CSV chega em breve.")}
               className={toolButton}
             >
               <DownloadIcon size={17} />
@@ -180,3 +181,32 @@ export function IlustracaoBarras() {
 export const dinheiro = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 export const numero = (v: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(v);
 export const mil = (v: number) => `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(v / 1000)} mil`;
+
+/** Enquanto a consulta não voltou: os blocos da tela, cinzas, no lugar deles. */
+export function CarregandoRelatorio() {
+  return (
+    <div className="flex flex-col gap-5" aria-busy="true" aria-label="Carregando relatório">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="flex flex-col gap-3 rounded-[20px] bg-white p-[22px] ring-1 ring-[#E1E8E3]">
+            <span className="h-2.5 w-[45%] rounded bg-[#F1F4F2]" />
+            <span className="h-6 w-[70%] rounded bg-[#EDF2EE]" />
+            <span className="h-2 w-[58%] rounded-full bg-[#F1F4F2]" />
+          </div>
+        ))}
+      </div>
+      <div className="h-[320px] rounded-[20px] bg-white ring-1 ring-[#E1E8E3]" />
+    </div>
+  );
+}
+
+/** A consulta falhou: diz o que houve e oferece tentar de novo. */
+export function ErroDoRelatorio({ mensagem, onTentar }: { mensagem: string; onTentar: () => void }) {
+  return (
+    <section className="flex flex-col items-center gap-3 rounded-[20px] bg-white px-6 py-12 text-center ring-1 ring-[#E1E8E3]">
+      <span className="text-[16px] font-bold">Não foi possível montar o relatório</span>
+      <span className="max-w-[520px] text-[13px] text-[#4C6355]">{mensagem}</span>
+      <button type="button" onClick={onTentar} className="mt-2 h-10 rounded-[12px] bg-[#12B85C] px-5 text-[13px] font-bold text-white hover:bg-[#0F9E4E]">Tentar de novo</button>
+    </section>
+  );
+}

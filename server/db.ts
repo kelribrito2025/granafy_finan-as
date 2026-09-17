@@ -3186,3 +3186,64 @@ export async function desfazerEnvioDeAlerta(userId: number, dados: { companyId: 
     eq(alertDispatches.sentOn, dados.sentOn),
   ));
 }
+
+/*
+ * Relatórios: o movimento pago, agregado por conta e por mês.
+ *
+ * Uma consulta só para as três telas — entradas vs. saídas, fluxo geral e
+ * fluxo por conta leem o mesmo agregado e diferem só em como somam. A regra do
+ * saldo inicial com data é a mesma `aposOSaldoInicial` das cinco somas de
+ * saldo: o que veio até a data do saldo inicial já está nele e não conta.
+ *
+ * Transferência vem separada (e não filtrada) porque o consolidado a ignora e
+ * o por-conta precisa dela: para a conta, receber da conta irmã é entrada.
+ */
+export async function movimentoMensalPorConta(escopo: Escopo, start: string, end: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const mes = sql<string>`DATE_FORMAT(${financialTransactions.transactionDate}, '%Y-%m')`;
+  const transferencia = sql<number>`(${financialTransactions.type} = 'transferencia')`;
+  const rows = await db
+    .select({
+      accountId: financialTransactions.accountId,
+      mes,
+      transferencia,
+      entradas: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} > 0 THEN ${financialTransactions.amount} ELSE 0 END), 0)`,
+      saidas: sql<string>`COALESCE(SUM(CASE WHEN ${financialTransactions.amount} < 0 THEN -${financialTransactions.amount} ELSE 0 END), 0)`,
+    })
+    .from(financialTransactions)
+    .leftJoin(financialAccounts, eq(financialAccounts.id, financialTransactions.accountId))
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      eq(financialTransactions.status, "Pago"),
+      gte(financialTransactions.transactionDate, start),
+      lt(financialTransactions.transactionDate, end),
+      aposOSaldoInicial,
+    ))
+    .groupBy(financialTransactions.accountId, mes, transferencia);
+
+  return rows.map(row => ({
+    accountId: row.accountId === null ? null : Number(row.accountId),
+    mes: String(row.mes),
+    transferencia: Number(row.transferencia) === 1,
+    entradas: Number(row.entradas),
+    saidas: Number(row.saidas),
+  }));
+}
+
+/** Se a empresa tem algum lançamento pago: decide entre relatório e estado vazio. */
+export async function temLancamentoPago(escopo: Escopo) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [row] = await db
+    .select({ id: financialTransactions.id })
+    .from(financialTransactions)
+    .where(and(
+      eq(financialTransactions.userId, escopo.userId),
+      eq(financialTransactions.companyId, escopo.companyId),
+      eq(financialTransactions.status, "Pago"),
+    ))
+    .limit(1);
+  return row !== undefined;
+}

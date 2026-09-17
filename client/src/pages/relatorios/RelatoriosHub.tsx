@@ -1,24 +1,19 @@
 import { ArrowUpIcon, ChevronRightIcon, DownloadIcon, ReportsIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
-import { EstadoVazioRelatorio, IlustracaoBarras, RelatorioShell, dinheiro } from "@/components/relatorios/RelatorioShell";
+import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, RelatorioShell, dinheiro } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
-import { CONTAS_MOCK, MESES_MOCK, PERIODO_MOCK, SALDO_INICIAL_MOCK, totais } from "@/lib/relatoriosMock";
+import { totais, useRelatorioDeFluxo } from "@/lib/relatorios";
 import { toast } from "@/lib/toast";
 import type { ReactNode } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useLocation } from "wouter";
 
 /*
- * Relatórios — o hub. Três cartões, um por relatório; embaixo, a faixa do
- * pacote em PDF. Enquanto a tela roda com amostra, `?vazio=1` mostra a versão
- * sem dados, para as duas serem conferidas sem mexer no banco.
+ * Relatórios — o hub. Três cartões, um por relatório, com o número-resumo dos
+ * últimos seis meses; embaixo, a faixa do pacote em PDF. Sem nenhum lançamento
+ * pago, os três cartões ficam apagados e o passo a passo aparece no lugar.
  */
 
-export function usarVazio() {
-  const busca = useSearch();
-  return new URLSearchParams(busca).get("vazio") === "1";
-}
-
-function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa, vazio, busca }: {
-  href: string; icone: IconlyIcon; titulo: string; texto: string; kicker: string; valor: string; tom?: "positivo"; previa: ReactNode; vazio: boolean; busca: string;
+function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa, vazio }: {
+  href: string; icone: IconlyIcon; titulo: string; texto: string; kicker: string; valor: string; tom?: "positivo" | "negativo"; previa: ReactNode; vazio: boolean;
 }) {
   const [, setLocation] = useLocation();
   if (vazio) {
@@ -40,7 +35,7 @@ function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa,
   return (
     <button
       type="button"
-      onClick={() => setLocation(`${href}${busca}`)}
+      onClick={() => setLocation(href)}
       className="group flex flex-col gap-[18px] rounded-[20px] bg-white p-[26px] text-left ring-1 ring-[#E1E8E3] transition hover:-translate-y-[3px] hover:shadow-[0_14px_30px_rgba(11,31,20,.10)]"
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#DFF6EA] text-[#0A7A42]"><Icone size={24} /></span>
@@ -51,7 +46,7 @@ function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa,
       <div className="flex min-h-[56px] items-end justify-center py-1.5">{previa}</div>
       <div className="mt-auto flex flex-col gap-2 border-t border-[#F1F4F2] pt-4">
         <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-[#8A968D]">{kicker}</span>
-        <span className={`text-[20px] font-bold ${tom === "positivo" ? "text-[#0A7A42]" : "text-[#0B1F14]"}`}>{valor}</span>
+        <span className={`text-[20px] font-bold ${tom === "positivo" ? "text-[#0A7A42]" : tom === "negativo" ? "text-[#B3261E]" : "text-[#0B1F14]"}`}>{valor}</span>
         <span className="mt-2 flex h-10 items-center justify-center gap-2 rounded-[11px] bg-[#F1FBF6] text-[13px] font-bold text-[#0A7A42] transition group-hover:bg-[#12B85C] group-hover:text-white">
           Abrir relatório <ChevronRightIcon size={15} />
         </span>
@@ -61,29 +56,32 @@ function Cartao({ href, icone: Icone, titulo, texto, kicker, valor, tom, previa,
 }
 
 export default function RelatoriosHub() {
-  const vazio = usarVazio();
-  const busca = vazio ? "?vazio=1" : "";
   const [, setLocation] = useLocation();
   const podeEscrever = !useSomenteLeitura();
-  const t = totais(MESES_MOCK);
-  const saldoHoje = SALDO_INICIAL_MOCK + t.resultado;
+  const { dados, carregando, erro, recarregar } = useRelatorioDeFluxo();
+  const vazio = dados ? !dados.temLancamentos : false;
+  const t = totais(dados?.meses ?? []);
+  const saldoHoje = (dados?.saldoInicial ?? 0) + t.resultado;
+  const contas = dados?.contas.length ?? 0;
 
   return (
     <RelatorioShell
       icone={ReportsIcon}
       titulo="Relatórios"
-      subtitulo={vazio ? "nenhum dado para consolidar ainda" : `escolha um relatório para abrir · dados de ${PERIODO_MOCK.de} a ${PERIODO_MOCK.ate}`}
+      subtitulo={vazio ? "nenhum dado para consolidar ainda" : dados ? `escolha um relatório para abrir · dados de ${dados.periodo.de} a ${dados.periodo.ate}` : "carregando…"}
       vazio={vazio}
       rodape={vazio
         ? "Os relatórios usam apenas lançamentos pagos — por isso podem levar um ciclo para refletir importações recentes."
         : "Os relatórios usam apenas lançamentos pagos. Títulos a pagar e a receber aparecem na projeção do fluxo de caixa, não aqui."}
     >
+      {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
+      <>
       <div className="grid gap-5 lg:grid-cols-3">
         <Cartao
-          href="/relatorios/entradas-vs-saidas" busca={busca} vazio={vazio} icone={ArrowUpIcon}
+          href="/relatorios/entradas-vs-saidas" vazio={vazio} icone={ArrowUpIcon}
           titulo="Entradas vs. saídas geral"
           texto="Compare quanto entrou e quanto saiu do caixa, mês a mês, com o resultado líquido de cada período."
-          kicker="Resultado nos últimos 6 meses" valor={`+ ${dinheiro(t.resultado)}`} tom="positivo"
+          kicker="Resultado nos últimos 6 meses" valor={`${t.resultado >= 0 ? "+" : "−"} ${dinheiro(Math.abs(t.resultado))}`} tom={t.resultado >= 0 ? "positivo" : "negativo"}
           previa={(
             <div className="flex h-14 items-end gap-[5px]">
               {[[30, 24], [38, 33], [48, 28], [56, 34]].map(([e, s], i) => (
@@ -93,10 +91,10 @@ export default function RelatoriosHub() {
           )}
         />
         <Cartao
-          href="/relatorios/fluxo-de-caixa-geral" busca={busca} vazio={vazio} icone={TrendUpIcon}
+          href="/relatorios/fluxo-de-caixa-geral" vazio={vazio} icone={TrendUpIcon}
           titulo="Fluxo de caixa geral"
           texto="A curva do saldo consolidado de todas as contas, com saldo inicial, movimentações e saldo final."
-          kicker="Saldo consolidado hoje" valor={dinheiro(saldoHoje)}
+          kicker="Saldo consolidado" valor={dinheiro(saldoHoje)}
           previa={(
             <svg width="150" height="56" viewBox="0 0 150 56" fill="none" aria-hidden="true">
               <polygon points="0,44 30,38 60,26 90,30 120,14 150,6 150,56 0,56" fill="#12B85C" opacity=".12" />
@@ -106,10 +104,10 @@ export default function RelatoriosHub() {
           )}
         />
         <Cartao
-          href="/relatorios/fluxo-por-conta" busca={busca} vazio={vazio} icone={WalletIcon}
+          href="/relatorios/fluxo-por-conta" vazio={vazio} icone={WalletIcon}
           titulo="Fluxo de caixa por conta bancária"
           texto="Veja o movimento de cada banco separadamente e o peso de cada conta no caixa da empresa."
-          kicker="Contas acompanhadas" valor={`${CONTAS_MOCK.length} contas`}
+          kicker="Contas acompanhadas" valor={`${contas} ${contas === 1 ? "conta" : "contas"}`}
           previa={(
             <div className="flex w-[150px] flex-col gap-2">
               {[100, 62, 34, 22].map((p, i) => (
@@ -136,8 +134,10 @@ export default function RelatoriosHub() {
             <span className="text-[15px] font-bold">Precisa dos três juntos?</span>
             <span className="text-[13px] text-[#C5DACE]">Exporte um PDF único com entradas vs. saídas, fluxo geral e fluxo por conta no mesmo período.</span>
           </div>
-          <button type="button" onClick={() => toast.info("O pacote em PDF entra junto com os dados reais.")} className="h-11 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold hover:bg-[#0F9E4E]">Exportar pacote em PDF</button>
+          <button type="button" onClick={() => toast.info("O pacote em PDF chega em breve.")} className="h-11 whitespace-nowrap rounded-[12px] bg-[#12B85C] px-5 text-[13.5px] font-bold hover:bg-[#0F9E4E]">Exportar pacote em PDF</button>
         </div>
+      )}
+      </>
       )}
     </RelatorioShell>
   );

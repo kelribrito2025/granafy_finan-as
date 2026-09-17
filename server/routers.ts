@@ -42,6 +42,7 @@ import { importsRouter } from "./routers/imports";
 import { onboardingRouter } from "./routers/onboarding";
 import { organizationRouter } from "./routers/organization";
 import { reconciliationRouter } from "./routers/reconciliation";
+import { relatoriosRouter } from "./routers/relatorios";
 import { settledRouter } from "./routers/settled";
 import { settingsRouter } from "./routers/settings";
 import { transactionsRouter } from "./routers/transactions";
@@ -88,6 +89,7 @@ export const appRouter = router({
   dre: dreRouter,
   payables: payablesRouter,
   reconciliation: reconciliationRouter,
+  relatorios: relatoriosRouter,
   imports: importsRouter,
   onboarding: onboardingRouter,
   organization: organizationRouter,
