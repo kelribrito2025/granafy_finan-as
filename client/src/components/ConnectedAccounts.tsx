@@ -63,14 +63,6 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
 
   return (
     <div className={`flex flex-col gap-[11px] rounded-2xl bg-[#F1FBF6] px-3.5 py-[13px] ${className}`}>
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#0A7A42]">
-          Contas conectadas
-        </span>
-        {accounts.length > 0 && (
-          <span className="whitespace-nowrap text-[10.5px] text-[#4C6355]">{indice + 1} de {accounts.length}</span>
-        )}
-      </div>
       {accountsQuery.isLoading ? (
         <span className="block text-[11.5px] text-[#4C6355]">Carregando saldos...</span>
       ) : !atual ? (
