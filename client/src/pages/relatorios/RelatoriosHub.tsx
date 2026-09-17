@@ -98,7 +98,7 @@ export default function RelatoriosHub() {
           tom={lucro === undefined ? undefined : lucro >= 0 ? "positivo" : "negativo"}
           previa={(
             <div className="flex w-[150px] flex-col gap-[7px]">
-              {[["Receita", 100, "#12B85C"], ["Custos", 46, "#F0A6A0"], ["Despesas", 28, "#F0A6A0"], ["Lucro", 26, "#0A7A42"]].map(([nome, p, cor]) => (
+              {[["Receita", 100, "#12B85C"], ["Custos", 46, "#F0A6A0"]].map(([nome, p, cor]) => (
                 <span key={nome as string} className="flex items-center gap-2"><span className="w-12 text-[10px] text-[#8A968D]">{nome}</span><span className="h-1.5 flex-1 overflow-hidden rounded bg-[#EDF2EE]"><span className="block h-full" style={{ width: `${p}%`, background: cor as string }} /></span></span>
               ))}
             </div>
