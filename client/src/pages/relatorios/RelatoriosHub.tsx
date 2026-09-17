@@ -1,14 +1,15 @@
-import { ArrowUpIcon, BuildingIcon, ChartIcon, ChevronRightIcon, DownloadIcon, ReportsIcon, TagIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
+import { ArrowUpIcon, BuildingIcon, ChartIcon, ChevronRightIcon, DownloadIcon, ReportIcon, ReportsIcon, TagIcon, TrendUpIcon, WalletIcon, type IconlyIcon } from "@/components/IconlyIcons";
 import { CarregandoRelatorio, ErroDoRelatorio, EstadoVazioRelatorio, IlustracaoBarras, RelatorioShell, dinheiro } from "@/components/relatorios/RelatorioShell";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 import { totais, useRelatorioDeFluxo, useRelatorioPorCategoria, useRelatorioPorCentroDeCusto } from "@/lib/relatorios";
 import { toast } from "@/lib/toast";
+import { trpc } from "@/lib/trpc";
 import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 
 /*
- * Relatórios — o hub. Seis cartões, um por relatório, com o número-resumo dos
- * últimos seis meses; embaixo, a faixa do pacote em PDF. Sem nenhum lançamento
+ * Relatórios — o hub. Sete cartões, um por relatório, a DRE em primeiro, com o
+ * número-resumo de cada um; embaixo, a faixa do pacote em PDF. Sem nenhum lançamento
  * pago, os cartões ficam apagados e o passo a passo aparece no lugar.
  */
 
@@ -68,6 +69,12 @@ export default function RelatoriosHub() {
   const categorias = porCategoria.dados?.categorias.length;
   const centros = porCentro.dados?.centros.length;
   const maisRecebe = [...(dados?.contas ?? [])].sort((a, b) => b.entradas - a.entradas)[0];
+  /* A DRE do mês corrente, em regime de caixa, para o cartão não contradizer os outros relatórios (que são só do pago). */
+  const dre = trpc.dre.statement.useQuery(
+    { year: dados?.ate.year ?? 2000, month: dados?.ate.month ?? 1, regime: "caixa" },
+    { enabled: dados !== undefined, staleTime: 60_000 },
+  );
+  const lucro = dre.data?.totals.lucroLiquido;
 
   return (
     <RelatorioShell
@@ -82,6 +89,21 @@ export default function RelatoriosHub() {
       {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
       <>
       <div className="grid gap-5 lg:grid-cols-3">
+        <Cartao
+          href="/dre" vazio={vazio} icone={ReportIcon}
+          titulo="DRE"
+          texto="Demonstração do resultado do exercício: receitas, custos, despesas e o lucro do mês, com comparação ao mês anterior."
+          kicker={dre.data ? `Lucro líquido · ${dre.data.label}` : "Lucro líquido do mês"}
+          valor={lucro === undefined ? "…" : `${lucro >= 0 ? "+" : "−"} ${dinheiro(Math.abs(lucro))}`}
+          tom={lucro === undefined ? undefined : lucro >= 0 ? "positivo" : "negativo"}
+          previa={(
+            <div className="flex w-[150px] flex-col gap-[7px]">
+              {[["Receita", 100, "#12B85C"], ["Custos", 46, "#F0A6A0"], ["Despesas", 28, "#F0A6A0"], ["Lucro", 26, "#0A7A42"]].map(([nome, p, cor]) => (
+                <span key={nome as string} className="flex items-center gap-2"><span className="w-12 text-[10px] text-[#8A968D]">{nome}</span><span className="h-1.5 flex-1 overflow-hidden rounded bg-[#EDF2EE]"><span className="block h-full" style={{ width: `${p}%`, background: cor as string }} /></span></span>
+              ))}
+            </div>
+          )}
+        />
         <Cartao
           href="/relatorios/entradas-vs-saidas" vazio={vazio} icone={ArrowUpIcon}
           titulo="Entradas vs. saídas geral"

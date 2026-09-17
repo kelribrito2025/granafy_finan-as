@@ -8,7 +8,6 @@ import {
   CloseIcon,
   DashboardIcon,
   DocumentIcon,
-  ReportIcon,
   ReportsIcon,
   TrendUpIcon,
   WalletIcon,
@@ -28,6 +27,8 @@ type Item = {
   disabled?: boolean;
   /** O item que recebe a contagem de títulos abertos. */
   counter?: boolean;
+  /** Outras rotas em que o item fica aceso: a DRE mora dentro de Relatórios. */
+  tambemEm?: string[];
 };
 
 /**
@@ -63,8 +64,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   {
     title: "Análise",
     items: [
-      { label: "Relatórios", icon: ReportsIcon, path: "/relatorios" },
-      { label: "DRE", icon: ReportIcon, path: "/dre" },
+      { label: "Relatórios", icon: ReportsIcon, path: "/relatorios", tambemEm: ["/dre"] },
       { label: "Balanço Patrimonial", icon: ChartIcon, path: "/balanco-patrimonial" },
     ],
   },
@@ -109,8 +109,9 @@ function PanelIcon({ size = 18, className = "" }: { size?: number; className?: s
   );
 }
 
-function isActive(location: string, path: string | undefined) {
+function isActive(location: string, path: string | undefined, tambemEm: string[] = []) {
   if (!path) return false;
+  if (tambemEm.some(outro => location.startsWith(outro))) return true;
   return path === "/" ? location === "/" : location.startsWith(path);
 }
 
@@ -292,7 +293,7 @@ export function AppSidebar({ open, onClose, footer }: {
             <WideItem
               key={item.label}
               item={item}
-              active={isActive(location, item.path)}
+              active={isActive(location, item.path, item.tambemEm)}
               count={countOf(item)}
               onSelect={select}
             />
@@ -325,7 +326,7 @@ export function AppSidebar({ open, onClose, footer }: {
                 <RailItem
                   key={item.label}
                   item={item}
-                  active={isActive(location, item.path)}
+                  active={isActive(location, item.path, item.tambemEm)}
                   count={countOf(item)}
                   tooltips={preferences.sidebarTooltips && !hovering}
                   onSelect={select}
