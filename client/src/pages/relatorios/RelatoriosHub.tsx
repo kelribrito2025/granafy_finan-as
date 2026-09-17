@@ -62,7 +62,8 @@ export default function RelatoriosHub() {
   const { dados, carregando, erro, recarregar } = useRelatorioDeFluxo();
   const porCategoria = useRelatorioPorCategoria();
   const porCentro = useRelatorioPorCentroDeCusto();
-  const vazio = dados ? !dados.temLancamentos : false;
+  /* Sem conta cadastrada ou sem lançamento pago, não há relatório para abrir: só o passo a passo. */
+  const vazio = dados ? !dados.temContas || !dados.temLancamentos : false;
   const t = totais(dados?.meses ?? []);
   const saldoHoje = (dados?.saldoInicial ?? 0) + t.resultado;
   const contas = dados?.contas.length ?? 0;
@@ -88,6 +89,7 @@ export default function RelatoriosHub() {
     >
       {erro ? <ErroDoRelatorio mensagem={erro} onTentar={recarregar} /> : !dados && carregando ? <CarregandoRelatorio /> : (
       <>
+      {!vazio && (
       <div className="grid gap-5 lg:grid-cols-3">
         <Cartao
           href="/dre" vazio={vazio} icone={ReportIcon}
@@ -185,6 +187,7 @@ export default function RelatoriosHub() {
           )}
         />
       </div>
+      )}
 
       {vazio ? (
         <EstadoVazioRelatorio
