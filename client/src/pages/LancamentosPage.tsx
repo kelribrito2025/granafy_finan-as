@@ -57,6 +57,7 @@ import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useSomenteLeitura } from "@/hooks/useSomenteLeitura";
 import { useRegistrarExportacao } from "@/hooks/useRegistrarExportacao";
+import { ExportarLancamentosModal } from "@/components/ExportarLancamentosModal";
 
 
 
@@ -980,41 +981,12 @@ export default function LancamentosPage() {
   };
 
   /*
-   * O CSV é o que está na tela, não o mês inteiro.
-   *
-   * Exportava `transactions`, a resposta crua do servidor: quem filtrasse por
-   * "Pendente" e exportasse levava também os pagos, sem nada avisando. E como
-   * o arquivo vai para o contador, ninguém do outro lado tinha como perceber.
-   *
-   * Sai de `groupedTransactions` porque é exatamente o que foi desenhado —
-   * filtros e ordenação de uma vez, sem repetir a regra num segundo lugar e
-   * arriscar que os dois se afastem com o tempo.
+   * A exportação mora no modal (ExportarLancamentosModal): contas, período,
+   * situação e formato escolhidos lá, e o servidor devolve o recorte pedido —
+   * não o que está na tela. O registro de acesso continua sendo feito aqui.
    */
   const registrarExportacao = useRegistrarExportacao();
-  const exportTransactions = () => {
-    registrarExportacao("Lançamentos");
-    const linhas = groupedTransactions.flatMap(group => group.items);
-    if (linhas.length === 0) {
-      return toast.info(
-        filtrosAtivos
-          ? "Nenhum lançamento corresponde aos filtros. Limpe os filtros para exportar o mês."
-          : "Não há lançamentos para exportar neste mês."
-      );
-    }
-    const header = ["Data", "Tipo", "Descrição", "Contato", "Categoria", "Valor", "Conta", "Status", "Recorrente"];
-    const rows = linhas.map(item => [item.transactionDate, item.type, item.description, item.contact, item.category, item.amount.toFixed(2), item.account, item.status, item.recurring ? "Sim" : "Não"]);
-    const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\n");
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    // O nome avisa que é recorte. Um arquivo chamado "lancamentos-2026-09"
-    // com metade do mês dentro é o tipo de coisa que só aparece na conciliação
-    // do contador, semanas depois.
-    const sufixo = filtrosAtivos ? "-filtrado" : "";
-    anchor.download = `lancamentos-${period.year}-${String(period.month).padStart(2, "0")}${sufixo}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
+  const [exportarAberto, setExportarAberto] = useState(false);
 
   const toolButton = "flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#4C6355] ring-1 ring-[#DFE6E1] transition hover:bg-[#F1FBF6] hover:text-[#0A7A42] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -1057,9 +1029,9 @@ export default function LancamentosPage() {
             )}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Hint label="Exportar CSV"><button type="button" aria-label="Exportar lançamentos" onClick={exportTransactions} disabled={contaVazia} className={toolButton}><DownloadIcon size={17} /></button></Hint>
+                <Hint label="Exportar lançamentos"><button type="button" aria-label="Exportar lançamentos" onClick={() => setExportarAberto(true)} disabled={contaVazia} className={toolButton}><DownloadIcon size={17} /></button></Hint>
               </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar CSV</TooltipContent>
+              <TooltipContent side="bottom" sideOffset={8} className="rounded-lg bg-[#0B1F14] px-2.5 py-1.5 text-[11px] font-semibold text-white">Exportar lançamentos</TooltipContent>
             </Tooltip>
             {podeEscrever && (
             <button type="button" onClick={() => { setEditing(null); setModalOpen(true); }} className="flex h-10 items-center gap-2 rounded-[12px] bg-[#12B85C] px-3.5 text-[13px] font-bold text-white transition hover:bg-[#0F9E4E] active:scale-[.98] sm:px-4"><PlusIcon size={15} /><span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span></button>
@@ -1313,6 +1285,14 @@ export default function LancamentosPage() {
           pendente={deleteManyMutation.isPending}
           onCancelar={() => setExcluindoLote(false)}
           onConfirmar={confirmarExclusaoEmLote}
+        />
+      )}
+      {exportarAberto && (
+        <ExportarLancamentosModal
+          mes={{ year: monthCursor.getFullYear(), month: monthCursor.getMonth() + 1 }}
+          contas={organizationOptions.accounts}
+          onClose={() => setExportarAberto(false)}
+          onExportado={() => registrarExportacao("Lançamentos")}
         />
       )}
       {seriesPrompt && <SeriesScopeDialog action={seriesPrompt.action} transaction={seriesPrompt.transaction} pending={mutationPending || deleteMutation.isPending} onCancel={() => setSeriesPrompt(null)} onConfirm={scope => { if (seriesPrompt.action === "save") void commitSave(seriesPrompt.input, seriesPrompt.transaction, scope); else void commitDelete(seriesPrompt.transaction, scope); }} />}{categorizeOpen && <CategorizeModal selectedCount={selected.length} selectedTypes={selectedTypes} options={organizationOptions} pending={updateManyMutation.isPending} onClose={() => setCategorizeOpen(false)} onSave={categorizeSelected} />}

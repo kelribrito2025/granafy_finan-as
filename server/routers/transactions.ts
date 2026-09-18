@@ -118,6 +118,21 @@ type Retrato = z.infer<typeof retratoSchema>;
 /** Quantos lançamentos apagados de uma vez ainda dão direito a "Desfazer". */
 const LIMITE_DESFAZER = 500;
 
+/** Teto de linhas de um arquivo exportado. */
+const LIMITE_EXPORTACAO = 20_000;
+
+const exportacaoSchema = z.object({
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+  /** Exclusivo: o primeiro dia fora do recorte. */
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+  status: z.enum(["todos", "Pago", "Pendente"]).default("todos"),
+}).refine(v => v.end > v.start, { message: "O fim precisa vir depois do início" });
+
+async function lancamentosParaExportar(escopo: Escopo, input: { start: string; end: string; status: "todos" | "Pago" | "Pendente" }) {
+  const registros = await db.listTransactionsByPeriod(escopo, input.start, input.end);
+  return input.status === "todos" ? registros : registros.filter(registro => registro.status === input.status);
+}
+
 function retratoDe(record: TransactionRecord): Retrato {
   return {
     type: record.type,
@@ -1021,6 +1036,37 @@ export const transactionsRouter = router({
       }
       await db.deleteTransaction(escopoDe(ctx), input.id);
       return { success: true, deletedCount: 1, apagados: [retratoDe(existing)] } as const;
+    }),
+
+  /*
+   * Exportação de lançamentos: um recorte livre (início inclusivo, fim
+   * exclusivo), com situação opcional. `resumoExportacao` alimenta o modal
+   * (quantos lançamentos por conta); `exportar` devolve as linhas do arquivo.
+   * O teto de linhas evita que um clique baixe o razão inteiro de anos.
+   */
+  resumoExportacao: protectedProcedure.input(exportacaoSchema).query(async ({ ctx, input }) => {
+    const linhas = await lancamentosParaExportar(escopoDe(ctx), input);
+    const porConta = new Map<number, { accountId: number; account: string; count: number }>();
+    for (const linha of linhas) {
+      const chave = linha.accountId ?? 0;
+      const atual = porConta.get(chave) ?? { accountId: chave, account: linha.accountId ? linha.account : "Sem conta", count: 0 };
+      atual.count += 1;
+      porConta.set(chave, atual);
+    }
+    return { contas: [...porConta.values()].sort((a, b) => a.account.localeCompare(b.account, "pt-BR")), total: linhas.length, limite: LIMITE_EXPORTACAO };
+  }),
+
+  exportar: protectedProcedure
+    .input(exportacaoSchema.extend({ accountIds: z.array(z.number().int().min(0)).max(200).optional() }))
+    .query(async ({ ctx, input }) => {
+      const todas = await lancamentosParaExportar(escopoDe(ctx), input);
+      const escolhidas = input.accountIds ? new Set(input.accountIds) : null;
+      const filtradas = escolhidas ? todas.filter(linha => escolhidas.has(linha.accountId ?? 0)) : todas;
+      return {
+        items: filtradas.slice(0, LIMITE_EXPORTACAO).map(toTransaction),
+        total: filtradas.length,
+        truncado: filtradas.length > LIMITE_EXPORTACAO,
+      };
     }),
 
   /**
