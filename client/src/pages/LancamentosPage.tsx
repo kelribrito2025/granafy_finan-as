@@ -1,4 +1,5 @@
 import { CartaoVazio } from "@/components/CartaoVazio";
+import { rotuloCurtoDoMes } from "@shared/relatorios";
 import { Hint } from "@/components/Hint";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { roundCurrency } from "@shared/currency";
@@ -49,8 +50,8 @@ import { monogram, monogramSource, rowStatus, type RowStatus } from "@/lib/trans
 import { buildTransactionDisplayGroups, type TransactionSortKey, type TransactionSortState } from "@/lib/transactionSort";
 import { trpc } from "@/lib/trpc";
 import { usePanoramaDaConta } from "@/hooks/useSemContas";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useDismissOnOutside } from "@/hooks/useDismissOnOutside";
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "@/lib/toast";
 import { useLocation } from "wouter";
 import { usePrivacy } from "@/contexts/PrivacyContext";
@@ -261,7 +262,38 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
   const subtitle = rowSubtitle(transaction, status, showDate);
   // O menu de ações fecha ao clicar fora e no Esc, como os outros popovers.
   const menuAnchor = useRef<HTMLDivElement>(null);
-  useDismissOnOutside(menuOpen, menuAnchor, onCloseMenu);
+  const menuCaixa = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  /*
+   * O menu vai para o body por portal: a lista recorta o que escapa da linha
+   * (contenção de renderização) e as linhas de baixo pintavam por cima dele.
+   * Fora da lista, ele fica acima de tudo; a posição é a do botão "⋮".
+   */
+  useLayoutEffect(() => {
+    if (!menuOpen) { setMenuPos(null); return; }
+    const medir = () => {
+      const r = menuAnchor.current?.getBoundingClientRect();
+      if (r) setMenuPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    window.addEventListener("scroll", medir, true);
+    return () => { window.removeEventListener("resize", medir); window.removeEventListener("scroll", medir, true); };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const fora = (event: MouseEvent) => {
+      const alvo = event.target as Node;
+      if (menuAnchor.current?.contains(alvo) || menuCaixa.current?.contains(alvo)) return;
+      onCloseMenu();
+    };
+    const tecla = (event: KeyboardEvent) => { if (event.key === "Escape") onCloseMenu(); };
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", tecla);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", tecla); };
+  }, [menuOpen, onCloseMenu]);
   // Só três fundos: selecionado, atrasado e o resto. Pintar todo pago de verde
   // deixaria a tela inteira verde e o alerta de atraso deixaria de saltar.
   const background = selected
@@ -378,12 +410,13 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       </button>
       </Hint>
       )}
-      {menuOpen && (
-        <div className="popover-enter absolute right-0 top-9 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
+      {menuOpen && menuPos && createPortal(
+        <div ref={menuCaixa} style={{ top: menuPos.top, right: menuPos.right }} className="popover-enter fixed z-[120] w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
           <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button>
           <button type="button" onClick={onEdit} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><EditIcon size={15} />Editar</button>
           <button type="button" onClick={onDelete} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium text-[#B3261E] hover:bg-[#FDECEA]"><DeleteIcon size={15} />Excluir</button>
-        </div>
+        </div>,
+        document.body,
       )}
       </>)}
       </div>
@@ -988,7 +1021,7 @@ export default function LancamentosPage() {
             <div className="mr-auto"><h1 className="text-[24px] font-bold tracking-[-0.035em] sm:text-[28px]">Lançamentos</h1><p className="mt-0.5 text-[12px] text-[#8A968D]">{contaVazia ? "nenhum lançamento salvo na sua conta" : "Dados reais salvos na sua conta"}</p></div>
             <div className="order-3 mx-auto flex w-full items-center justify-center gap-2 lg:order-none lg:w-auto">
               <button type="button" aria-label="Mês anterior" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}><ChevronRightIcon size={15} className="rotate-180" /></button>
-              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <div className="flex h-10 min-w-[120px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{rotuloCurtoDoMes({ year: monthCursor.getFullYear(), month: monthCursor.getMonth() + 1 }, true)}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}><ChevronRightIcon size={15} /></button>
             </div>
             <label className={`relative order-4 min-w-[200px] flex-1 lg:order-none lg:max-w-[280px] ${contaVazia ? "pointer-events-none opacity-50" : ""}`}>

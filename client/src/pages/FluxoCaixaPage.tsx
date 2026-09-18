@@ -1,4 +1,5 @@
 import { CartaoVazio } from "@/components/CartaoVazio";
+import { rotuloCurtoDoMes } from "@shared/relatorios";
 import { Hint } from "@/components/Hint";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { PageIcon } from "@/components/PageIcon";
@@ -509,7 +510,7 @@ export default function FluxoCaixaPage() {
               <button type="button" aria-label="Mês anterior" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} className="rotate-180" />
               </button>
-              <div className="flex h-10 min-w-[174px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{monthLabel}</div>
+              <div className="flex h-10 min-w-[120px] items-center justify-center rounded-[12px] bg-white px-4 text-[13px] font-bold ring-1 ring-[#DFE6E1]">{rotuloCurtoDoMes(period, true)}</div>
               <button type="button" aria-label="Próximo mês" onClick={() => setCursor(current => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className={toolButton}>
                 <ChevronRightIcon size={15} />
               </button>
