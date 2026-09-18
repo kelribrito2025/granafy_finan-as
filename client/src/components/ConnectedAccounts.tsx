@@ -111,21 +111,23 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
               {sigla(atual.name)}
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-px">
-              <span className="truncate text-[11.5px] text-[#4C6355]">{atual.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-[11.5px] text-[#4C6355]">{atual.name}</span>
+                {accounts.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label="Próxima conta"
+                    onClick={() => setIndice((indice + 1) % accounts.length)}
+                    className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[6px] text-[#0A7A42] transition hover:bg-[#DFF6EA]"
+                  >
+                    <ChevronRightIcon size={14} />
+                  </button>
+                )}
+              </div>
               <span className={`whitespace-nowrap text-[17px] font-bold tracking-[-.01em] ${atual.balance >= 0 ? "text-[#0B1F14]" : "text-[#B3261E]"}`}>
                 {money(atual.balance)}
               </span>
             </div>
-            {accounts.length > 1 && (
-              <button
-                type="button"
-                aria-label="Próxima conta"
-                onClick={() => setIndice((indice + 1) % accounts.length)}
-                className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] text-[#0A7A42] transition hover:bg-[#DFF6EA]"
-              >
-                <ChevronRightIcon size={14} />
-              </button>
-            )}
           </div>
           <div className="flex items-center gap-[5px]">
             {accounts.length > 1 && (
