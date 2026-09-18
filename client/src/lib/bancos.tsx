@@ -7,10 +7,22 @@
  * estático do próprio app (não dependem do storage de anexos).
  */
 
-export type BankPreset = { id: string; name: string; initials: string; color: string; logo?: string };
+export type BankPreset = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  logo?: string;
+  /**
+   * Como a logo ocupa o quadrado. "cover" (padrão) preenche tudo, como um
+   * ícone de app; "contain" deixa a arte inteira sobre fundo branco, para
+   * logotipos horizontais que não podem ser cortados.
+   */
+  logoAjuste?: "cover" | "contain";
+};
 
 export const BANK_PRESETS: readonly BankPreset[] = [
-  { id: "efi", name: "Efi Bank", initials: "EF", color: "#F28C28", logo: "/manus-storage/efi-bank-logo_221c9925.png" },
+  { id: "efi", name: "Efi Bank", initials: "EF", color: "#F28C28", logo: "/manus-storage/efi-bank-logo_221c9925.png", logoAjuste: "contain" },
   { id: "conta-simples", name: "Conta Simples", initials: "CS", color: "#1A1A0F", logo: "/bancos/conta-simples.png" },
   { id: "cloudwalk", name: "CloudWalk", initials: "CW", color: "#171A2B", logo: "/bancos/cloudwalk.png" },
   { id: "picpay", name: "PicPay", initials: "PP", color: "#11C76F", logo: "/bancos/picpay.png" },
@@ -53,9 +65,15 @@ export function BankMark({ institution, color, size = "normal", fallback }: {
   const preset = presetDoBanco(institution);
   const classe = TAMANHO[size];
   if (preset?.logo) {
+    const contain = preset.logoAjuste === "contain";
+    /* Estilo ícone de app: a arte preenche o quadrado; a cor do banco fica
+       atrás para arte com cantos transparentes (o círculo do PicPay). */
     return (
-      <span className={`flex ${classe} shrink-0 items-center justify-center overflow-hidden bg-white p-1 ring-1 ring-[#E1E8E3]`}>
-        <img src={preset.logo} alt={`Logo ${preset.name}`} className="h-full w-full object-contain" />
+      <span
+        className={`flex ${classe} shrink-0 items-center justify-center overflow-hidden ${contain ? "bg-white p-1 ring-1 ring-[#E1E8E3]" : ""}`}
+        style={contain ? undefined : { backgroundColor: preset.color }}
+      >
+        <img src={preset.logo} alt={`Logo ${preset.name}`} className={`h-full w-full ${contain ? "object-contain" : "object-cover"}`} />
       </span>
     );
   }
