@@ -115,6 +115,8 @@ const retratoSchema = z.object({
   fingerprint: z.string().max(64).nullable(),
 });
 type Retrato = z.infer<typeof retratoSchema>;
+/** Quantos lançamentos apagados de uma vez ainda dão direito a "Desfazer". */
+const LIMITE_DESFAZER = 500;
 
 function retratoDe(record: TransactionRecord): Retrato {
   return {
@@ -1029,7 +1031,7 @@ export const transactionsRouter = router({
    * de novo sem par, como qualquer lançamento recém-criado.
    */
   restaurar: escritaProcedure
-    .input(z.object({ lancamentos: z.array(retratoSchema).min(1).max(500) }))
+    .input(z.object({ lancamentos: z.array(retratoSchema).min(1).max(LIMITE_DESFAZER) }))
     .mutation(async ({ ctx, input }) => {
       await assertPeriodsOpen(escopoDe(ctx), input.lancamentos.map(row => ({ accountId: row.accountId, date: row.transactionDate })));
       const criados = await db.createTransactionSeries(escopoDe(ctx), input.lancamentos);
@@ -1043,7 +1045,13 @@ export const transactionsRouter = router({
     const alvos = await db.getTransactionsByIds(escopoDe(ctx), ids);
     await assertPeriodsOpen(escopoDe(ctx), alvos.map(record => ({ accountId: record.accountId, date: record.transactionDate })));
     const deletedCount = await db.deleteTransactions(escopoDe(ctx), ids);
-    return { success: true, requestedCount: ids.length, deletedCount } as const;
+    /*
+     * O retrato só volta até o limite do `restaurar`: mandar 20 mil linhas de
+     * volta para o navegador só para talvez desfazer não compensa, e um lote
+     * desse tamanho é importação, não um clique errado.
+     */
+    const apagados = alvos.length <= LIMITE_DESFAZER ? alvos.map(retratoDe) : [];
+    return { success: true, requestedCount: ids.length, deletedCount, apagados } as const;
   }),
 });
 

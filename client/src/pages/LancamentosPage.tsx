@@ -923,7 +923,26 @@ export default function LancamentosPage() {
       const result = await deleteManyMutation.mutateAsync({ ids: selected });
       setSelected([]);
       setExcluindoLote(false);
-      toast.success(`${result.deletedCount.toLocaleString("pt-BR")} lançamento${result.deletedCount === 1 ? " removido" : "s removidos"} do banco`);
+      const quantos = result.deletedCount.toLocaleString("pt-BR");
+      const titulo = `${quantos} lançamento${result.deletedCount === 1 ? " excluído" : "s excluídos"}`;
+      if (result.apagados.length === 0) {
+        // Lote acima do limite do desfazer: só o aviso.
+        toast.success(titulo);
+        return;
+      }
+      const apagados = [...result.apagados];
+      toast.desfazer({
+        titulo,
+        detalhe: `${monthLabel} · clique em Desfazer para trazê-los de volta`,
+        onDesfazer: async () => {
+          try {
+            const volta = await restoreMutation.mutateAsync({ lancamentos: apagados });
+            toast.success(`${volta.restauradosCount.toLocaleString("pt-BR")} lançamento${volta.restauradosCount === 1 ? " restaurado" : "s restaurados"}`);
+          } catch (error) {
+            toast.error(safeErrorMessage(error, "Não foi possível desfazer a exclusão."));
+          }
+        },
+      });
     } catch (error) {
       toast.error(safeErrorMessage(error, "Não foi possível excluir os lançamentos selecionados. Tente novamente."));
     }
