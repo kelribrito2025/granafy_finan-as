@@ -298,11 +298,12 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
      * pula sozinha enquanto se rola. 46px é a altura real desta linha.
      *
      * `menuOpen` desliga a otimização na linha aberta — o menu de ações
-     * escapa dos limites dela, e `contain` cortaria o balão.
+     * escapa dos limites dela, e `contain` cortaria o balão. A classe
+     * `linha-preguicosa` faz o mesmo no hover e no foco (index.css): o balão
+     * do clipe de anexo também sai da linha, e era cortado pela de baixo.
      */
     <div
-      className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background} ${menuOpen ? "z-20" : ""}`}
-      style={menuOpen ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 46px" }}
+      className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background} ${menuOpen ? "z-20" : "linha-preguicosa hover:z-20 focus-within:z-20"}`}
     >
       {podeEscrever ? <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} /> : <span aria-hidden="true" />}
       <div className="flex min-w-0 items-center gap-3">

@@ -229,6 +229,21 @@
     [class^="gf-barrinha"] { animation: none; transform: scaleY(.62); }
   }
 
+  /*
+   * Linha da lista de lançamentos: só é desenhada quando entra na tela
+   * (content-visibility), com a altura real reservada para a rolagem não
+   * pular. No hover e no foco a contenção sai, porque ela recorta o que
+   * escapa da linha — o balão de dica do clipe, por exemplo.
+   */
+  .linha-preguicosa {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 46px;
+  }
+  .linha-preguicosa:hover,
+  .linha-preguicosa:focus-within {
+    content-visibility: visible;
+  }
+
   .popover-enter {
     transform-origin: top right;
     animation: popover-in 180ms var(--ease-out) both;
