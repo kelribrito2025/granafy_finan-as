@@ -771,13 +771,6 @@ export default function LancamentosPage() {
     () => transactions.filter(item => selected.includes(item.id)).reduce((sum, item) => sum + item.amount, 0),
     [selected, transactions]
   );
-  const periodLabel = useMemo(() => {
-    const last = new Date(Date.UTC(period.year, period.month, 0)).getUTCDate();
-    const short = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" })
-      .format(new Date(Date.UTC(period.year, period.month - 1, 1)))
-      .replace(".", "");
-    return `01–${last} ${short} ${period.year}`;
-  }, [period.month, period.year]);
   const initials = (user?.name || user?.email || "NV").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("");
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(monthCursor).replace(/^./, letter => letter.toUpperCase());
   const mutationPending = createMutation.isPending || updateMutation.isPending;
@@ -1064,9 +1057,6 @@ export default function LancamentosPage() {
                   </button>
                 ))}
               </div>
-              <span className="flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[13px] text-[#28382E] ring-1 ring-[#E3EAE5]">
-                <ChartIcon size={14} />{periodLabel}
-              </span>
               {accountFilter !== "todos" && <FilterChip label={`Conta: ${accountFilter}`} onClear={() => setAccountFilter("todos")} />}
               {categoryFilter !== "todos" && <FilterChip label={`Categoria: ${categoryFilter}`} onClear={() => setCategoryFilter("todos")} />}
               {statusFilter !== "todos" && <FilterChip label={`Situação: ${statusFilter === "Pago" ? "Pago" : "Em aberto"}`} onClear={() => setStatusFilter("todos")} />}
