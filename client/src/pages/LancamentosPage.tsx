@@ -301,7 +301,7 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
      * escapa dos limites dela, e `contain` cortaria o balão.
      */
     <div
-      className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background}`}
+      className={`relative ${ROW_GRID} rounded-[14px] px-3 py-2.5 text-[13.5px] transition ${background} ${menuOpen ? "z-20" : ""}`}
       style={menuOpen ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 46px" }}
     >
       {podeEscrever ? <SelectionCheckbox checked={selected} label={`Selecionar ${transaction.description}`} onChange={onToggleSelect} /> : <span aria-hidden="true" />}
@@ -364,11 +364,19 @@ function TransactionGridRow({ transaction, status, selected, showDate, pendingSt
       {/* Sem dica, o "⋮" é o único botão da linha que não se explica: os outros
           têm rótulo ao lado ou cor que os denuncia. */}
       {podeEscrever && (<>
+      {/* Com o menu aberto o balão sai: o botão segue focado depois do clique e
+          a dica ficava acesa por cima das opções, tampando o "Duplicar". */}
+      {menuOpen ? (
+        <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-[#0A7A42]">
+          <MenuIcon size={16} />
+        </button>
+      ) : (
       <Hint label="Ações do lançamento" placement="left">
-      <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded={menuOpen} onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4C6355] hover:bg-white">
+      <button type="button" aria-label={`Ações de ${transaction.description}`} aria-expanded={false} onClick={onMenu} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#4C6355] hover:bg-white">
         <MenuIcon size={16} />
       </button>
       </Hint>
+      )}
       {menuOpen && (
         <div className="popover-enter absolute right-0 top-9 z-30 w-[160px] rounded-[15px] bg-white p-1.5 text-left shadow-[0_16px_42px_rgba(11,31,20,.2)] ring-1 ring-[#E1E8E3]">
           <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2 text-[12px] font-medium hover:bg-[#F1F4F2]"><DocumentIcon size={15} />Duplicar</button>
