@@ -11,8 +11,8 @@ export type BankPreset = { id: string; name: string; initials: string; color: st
 
 export const BANK_PRESETS: readonly BankPreset[] = [
   { id: "efi", name: "Efi Bank", initials: "EF", color: "#F28C28", logo: "/manus-storage/efi-bank-logo_221c9925.png" },
-  { id: "conta-simples", name: "Conta Simples", initials: "CS", color: "#00A86B" },
-  { id: "cloudwalk", name: "CloudWalk", initials: "CW", color: "#1A1A0F", logo: "/bancos/cloudwalk.png" },
+  { id: "conta-simples", name: "Conta Simples", initials: "CS", color: "#1A1A0F", logo: "/bancos/conta-simples.png" },
+  { id: "cloudwalk", name: "CloudWalk", initials: "CW", color: "#171A2B", logo: "/bancos/cloudwalk.png" },
   { id: "picpay", name: "PicPay", initials: "PP", color: "#11C76F", logo: "/bancos/picpay.png" },
   { id: "nubank", name: "Nubank", initials: "NU", color: "#820AD1" },
   { id: "itau", name: "Itaú", initials: "IT", color: "#EC7000" },
