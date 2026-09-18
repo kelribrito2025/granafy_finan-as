@@ -81,6 +81,69 @@ const transactionValuesSchema = transactionValuesBaseSchema.superRefine(refineTr
  */
 const seriesScopeSchema = z.enum(["single", "following"]).default("single");
 
+/*
+ * O retrato de um lançamento apagado, para o "Desfazer" do toast.
+ *
+ * A exclusão devolve estes campos e o cliente os manda de volta em
+ * `restaurar` se a pessoa clicar a tempo. São as colunas de TransactionValues
+ * como saem do banco (valor com sinal, em texto); o dono e a empresa NÃO vêm
+ * daqui — são carimbados pelo escopo na hora de inserir.
+ */
+const retratoSchema = z.object({
+  type: z.enum(["entrada", "saida", "transferencia"]),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  settledAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  description: z.string().max(180),
+  contact: z.string().max(120),
+  category: z.string().max(120),
+  amount: z.string().regex(/^-?\d+(\.\d{1,2})?$/),
+  account: z.string().max(80),
+  accountId: z.number().int().nullable(),
+  categoryId: z.number().int().nullable(),
+  costCenter: z.string().max(120),
+  costCenterId: z.number().int().nullable(),
+  status: z.enum(["Pago", "Pendente"]),
+  recurring: z.boolean(),
+  recurringMonths: z.number().int().nullable(),
+  recurrenceGroupId: z.string().max(36).nullable(),
+  recurrenceIndex: z.number().int().nullable(),
+  attachmentKey: z.string().max(255).nullable(),
+  attachmentName: z.string().max(180).nullable(),
+  transferGroupId: z.string().max(36).nullable(),
+  importBatchId: z.string().max(36).nullable(),
+  externalId: z.string().max(160).nullable(),
+  fingerprint: z.string().max(64).nullable(),
+});
+type Retrato = z.infer<typeof retratoSchema>;
+
+function retratoDe(record: TransactionRecord): Retrato {
+  return {
+    type: record.type,
+    transactionDate: record.transactionDate,
+    settledAt: record.settledAt,
+    description: record.description,
+    contact: record.contact,
+    category: record.category,
+    amount: record.amount,
+    account: record.account,
+    accountId: record.accountId,
+    categoryId: record.categoryId,
+    costCenter: record.costCenter,
+    costCenterId: record.costCenterId,
+    status: record.status,
+    recurring: record.recurring,
+    recurringMonths: record.recurringMonths,
+    recurrenceGroupId: record.recurrenceGroupId,
+    recurrenceIndex: record.recurrenceIndex,
+    attachmentKey: record.attachmentKey,
+    attachmentName: record.attachmentName,
+    transferGroupId: record.transferGroupId,
+    importBatchId: record.importBatchId,
+    externalId: record.externalId,
+    fingerprint: record.fingerprint,
+  };
+}
+
 const transactionUpdateSchema = transactionValuesBaseSchema
   .extend({ id: z.number().int().positive(), scope: seriesScopeSchema })
   .superRefine(refineTransactionValues);
@@ -943,18 +1006,34 @@ export const transactionsRouter = router({
 
       if (input.scope === "following" && existing.recurrenceGroupId) {
         const group = await db.getRecurrenceGroup(escopoDe(ctx), existing.recurrenceGroupId);
-        const ids = selectSeriesTargets(group, existing).map(record => record.id);
-        const deletedCount = await db.deleteTransactions(escopoDe(ctx), ids);
-        return { success: true, deletedCount } as const;
+        const alvos = selectSeriesTargets(group, existing);
+        const deletedCount = await db.deleteTransactions(escopoDe(ctx), alvos.map(record => record.id));
+        return { success: true, deletedCount, apagados: alvos.map(retratoDe) } as const;
       }
 
       // Apagar só uma perna deixaria o saldo de uma das contas errado para sempre.
       if (existing.transferGroupId) {
+        const pernas = await db.getTransferGroup(escopoDe(ctx), existing.transferGroupId);
         const deletedCount = await db.deleteTransferGroup(escopoDe(ctx), existing.transferGroupId);
-        return { success: true, deletedCount } as const;
+        return { success: true, deletedCount, apagados: pernas.map(retratoDe) } as const;
       }
       await db.deleteTransaction(escopoDe(ctx), input.id);
-      return { success: true, deletedCount: 1 } as const;
+      return { success: true, deletedCount: 1, apagados: [retratoDe(existing)] } as const;
+    }),
+
+  /**
+   * O "Desfazer" da exclusão: reinsere os retratos que `delete` devolveu.
+   * Ganham ids novos; grupos de transferência e de série voltam pelos mesmos
+   * identificadores, então as pernas e as parcelas continuam ligadas. O que
+   * não volta é a conciliação: a movimentação bancária que estava casada fica
+   * de novo sem par, como qualquer lançamento recém-criado.
+   */
+  restaurar: escritaProcedure
+    .input(z.object({ lancamentos: z.array(retratoSchema).min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      await assertPeriodsOpen(escopoDe(ctx), input.lancamentos.map(row => ({ accountId: row.accountId, date: row.transactionDate })));
+      const criados = await db.createTransactionSeries(escopoDe(ctx), input.lancamentos);
+      return { success: true, restauradosCount: criados.length } as const;
     }),
 
   deleteMany: escritaProcedure.input(z.object({

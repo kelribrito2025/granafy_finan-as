@@ -705,6 +705,7 @@ export default function LancamentosPage() {
   const updateMutation = trpc.transactions.update.useMutation();
   const duplicateMutation = trpc.transactions.duplicate.useMutation({ onSuccess: refresh });
   const deleteMutation = trpc.transactions.delete.useMutation({ onSuccess: refresh });
+  const restoreMutation = trpc.transactions.restaurar.useMutation({ onSuccess: refresh });
   const [seriesPrompt, setSeriesPrompt] = useState<
     | { action: "save"; transaction: Transaction; input: TransactionInput }
     | { action: "delete"; transaction: Transaction }
@@ -841,9 +842,25 @@ export default function LancamentosPage() {
       setSelected(current => current.filter(item => item !== transaction.id));
       setActionOpen(null);
       setSeriesPrompt(null);
-      toast.success(result.deletedCount > 1
-        ? `${result.deletedCount} lançamentos removidos`
-        : "Lançamento removido do banco");
+      /*
+       * O toast de desfazer (29E): a exclusão já aconteceu; clicar em Desfazer
+       * a tempo reinsere o que `delete` devolveu. O detalhe repete o que a
+       * pessoa acabou de ver na linha, para ela ter certeza do que sumiu.
+       */
+      const mes = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(new Date(`${transaction.transactionDate}T00:00:00Z`));
+      const valor = `${transaction.amount < 0 ? "− " : "+ "}${formatMoney(Math.abs(transaction.amount))}`;
+      toast.desfazer({
+        titulo: result.deletedCount > 1 ? `${result.deletedCount} lançamentos excluídos` : "Lançamento excluído",
+        detalhe: `${transaction.description} · ${mes} · ${valor}`,
+        onDesfazer: async () => {
+          try {
+            const volta = await restoreMutation.mutateAsync({ lancamentos: [...result.apagados] });
+            toast.success(volta.restauradosCount > 1 ? `${volta.restauradosCount} lançamentos restaurados` : "Lançamento restaurado");
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Não foi possível desfazer a exclusão");
+          }
+        },
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível excluir");
     }
