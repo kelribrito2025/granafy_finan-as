@@ -189,6 +189,7 @@ export const organizationRouter = router({
         .map(account => ({
           id: account.id,
           name: account.name,
+          institution: account.institution,
           color: account.color,
           balance: Number(account.initialBalance) + (balances.get(account.id) ?? 0),
         })),

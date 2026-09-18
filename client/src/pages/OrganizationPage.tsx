@@ -26,6 +26,7 @@ import { ModalIcon } from "@/components/ModalIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { CartaoSkeleton, ChartSkeleton, TableSkeleton } from "@/components/PageSkeleton";
 import { buildCategoryTree, type CategoryNode, type FlatCategory } from "@/lib/categoryTree";
+import { BANK_PRESETS, BankMark, type BankPresetId } from "@/lib/bancos";
 import { RULE_MATCH_LABELS, RULE_MATCH_TYPES, type RuleMatchType } from "@shared/categoryRules";
 import { formatMoney as formatMoneyWithPreferences } from "@/lib/appFormat";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -229,26 +230,6 @@ function CategoryGroupCard({ title, tone, nodes, total, onEdit, onAddChild }: {
   );
 }
 
-type BankPreset = { id: string; name: string; initials: string; color: string; logo?: string };
-
-const BANK_PRESETS: readonly BankPreset[] = [
-  { id: "efi", name: "Efi Bank", initials: "EF", color: "#F28C28", logo: "/manus-storage/efi-bank-logo_221c9925.png" },
-  { id: "conta-simples", name: "Conta Simples", initials: "CS", color: "#00A86B" },
-  { id: "cloudwalk", name: "CloudWalk", initials: "CW", color: "#635BFF" },
-  { id: "nubank", name: "Nubank", initials: "NU", color: "#820AD1" },
-  { id: "itau", name: "Itaú", initials: "IT", color: "#EC7000" },
-  { id: "bradesco", name: "Bradesco", initials: "BR", color: "#CC092F" },
-] as const;
-
-type BankPresetId = (typeof BANK_PRESETS)[number]["id"] | "outro";
-
-function BankMark({ institution, color, compact = false }: { institution: string; color: string; compact?: boolean }) {
-  const preset = BANK_PRESETS.find(item => item.name.toLowerCase() === institution.toLowerCase());
-  const sizeClass = compact ? "h-7 min-w-7 rounded-lg" : "h-10 min-w-10 rounded-xl";
-  if (preset?.logo) return <span className={`flex ${sizeClass} items-center justify-center overflow-hidden bg-white p-1 ring-1 ring-[#E1E8E3]`}><img src={preset.logo} alt={`Logo ${preset.name}`} className="h-full w-full object-contain" /></span>;
-  return <span className={`flex ${sizeClass} items-center justify-center px-1.5 font-extrabold text-white ${compact ? "text-[9px]" : "text-[12px]"}`} style={{ backgroundColor: preset?.color ?? color }}>{preset?.initials ?? institution.slice(0, 2).toUpperCase()}</span>;
-}
-
 function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { account?: Account | null; /** O tipo já escolhido por quem abriu — os cartões do estado vazio. */ tipoInicial?: Account["accountType"]; pending: boolean; onClose: () => void; onSave: (values: { name: string; institution: string; accountType: Account["accountType"]; color: string; initialBalance: number; initialBalanceDate: string | null }) => Promise<void> }) {
   const matchedPreset = BANK_PRESETS.find(item => item.name.toLowerCase() === account?.institution.toLowerCase());
   const [institutionChoice, setInstitutionChoice] = useState<BankPresetId>(matchedPreset?.id ?? "outro");
@@ -311,7 +292,7 @@ function AccountModal({ account, tipoInicial, pending, onClose, onSave }: { acco
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {BANK_PRESETS.map(preset => {
               const selected = institutionChoice === preset.id;
-              return <button key={preset.id} type="button" aria-pressed={selected} onClick={() => selectPreset(preset)} className={`flex min-h-[70px] flex-col items-center justify-center rounded-xl px-2 py-2.5 text-center ring-1 transition active:scale-[.98] ${selected ? "bg-[#F1FBF6] text-[#0A7A42] ring-2 ring-[#12B85C]" : "bg-[#F8FAF9] text-[#4C6355] ring-[#E1E8E3] hover:bg-[#F1F4F2]"}`}><BankMark institution={preset.name} color={preset.color} compact /><strong className="mt-1.5 text-[10.5px] leading-tight">{preset.name}</strong></button>;
+              return <button key={preset.id} type="button" aria-pressed={selected} onClick={() => selectPreset(preset)} className={`flex min-h-[70px] flex-col items-center justify-center rounded-xl px-2 py-2.5 text-center ring-1 transition active:scale-[.98] ${selected ? "bg-[#F1FBF6] text-[#0A7A42] ring-2 ring-[#12B85C]" : "bg-[#F8FAF9] text-[#4C6355] ring-[#E1E8E3] hover:bg-[#F1F4F2]"}`}><BankMark institution={preset.name} color={preset.color} size="compact" /><strong className="mt-1.5 text-[10.5px] leading-tight">{preset.name}</strong></button>;
             })}
             <button type="button" aria-pressed={institutionChoice === "outro"} onClick={selectOther} className={`flex min-h-[70px] flex-col items-center justify-center rounded-xl px-2 py-2.5 text-center ring-1 transition active:scale-[.98] ${institutionChoice === "outro" ? "bg-[#F1FBF6] text-[#0A7A42] ring-2 ring-[#12B85C]" : "bg-[#F8FAF9] text-[#4C6355] ring-[#E1E8E3] hover:bg-[#F1F4F2]"}`}><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#DDE5E0] text-[15px] font-bold text-[#4C6355]">+</span><strong className="mt-1.5 text-[10.5px] leading-tight">Outro</strong></button>
           </div>

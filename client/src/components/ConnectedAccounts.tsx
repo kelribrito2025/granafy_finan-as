@@ -1,4 +1,5 @@
 import { ChevronRightIcon } from "@/components/IconlyIcons";
+import { BankMark } from "@/lib/bancos";
 import { formatMoney as money, valuesHidden } from "@/lib/appFormat";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
@@ -104,12 +105,12 @@ export function ConnectedAccounts({ className = "", variant = "card" }: {
         <>
           {/* Uma conta por vez: o cartão fica do mesmo tamanho com 2 ou 12 contas. */}
           <div className="flex items-center gap-2.5">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-[12px] font-bold text-white"
-              style={{ background: atual.balance < 0 ? "#B3261E" : atual.color }}
-            >
-              {sigla(atual.name)}
-            </span>
+            <BankMark
+              institution={atual.institution || atual.name}
+              color={atual.balance < 0 ? "#B3261E" : atual.color}
+              size="sidebar"
+              fallback={sigla(atual.name)}
+            />
             <div className="flex min-w-0 flex-1 flex-col gap-px">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-[11.5px] text-[#4C6355]">{atual.name}</span>
