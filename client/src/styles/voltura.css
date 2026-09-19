@@ -74,6 +74,9 @@
   --v-warn-soft: rgba(196, 150, 20, 0.16);
   --v-warn-ink: #8a6a12;
 
+  /* Traço de apoio por cima do cartão aceso, igual nos dois temas. */
+  --v-on-acid-line: rgba(20, 24, 26, 0.18);
+
   /* Sombra de menu suspenso. */
   --v-shadow-pop: 0 18px 44px rgba(26, 31, 23, 0.16);
 
@@ -205,8 +208,15 @@
   /* No escuro o lima já lê sobre o canvas: texto e preenchimento são o mesmo. */
   --v-acid-ink: var(--v-acid);
 
-  --v-fill-soft: var(--v-fill-soft);
-  --v-fill: var(--v-fill);
+  --v-fill-soft: rgba(236, 239, 232, 0.04);
+  --v-fill: rgba(236, 239, 232, 0.06);
+
+  --v-acid-soft: rgba(211, 242, 63, 0.12);
+  --v-pos-ink: var(--v-pos);
+  --v-neg-soft: rgba(236, 106, 94, 0.14);
+  --v-neg-ink: #ff968c;
+  --v-warn-soft: rgba(240, 193, 110, 0.14);
+  --v-warn-ink: #f0c16e;
 
   --v-shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.45);
 

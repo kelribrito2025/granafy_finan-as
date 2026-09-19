@@ -4,6 +4,8 @@ import { Hint } from "@/components/Hint";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AuroraSurface } from "@/components/AuroraSurface";
 import { GranafyLoader } from "@/components/GranafyLoader";
+// O design system Voltura, com escopo nesta tela (ver DESIGN.md na raiz).
+import "@/styles/voltura.css";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -570,8 +572,8 @@ export default function PagasRecebidasPage() {
   const mesInteiro = (valor: string) => (filtrosAtivos ? `mês inteiro: ${valor}` : undefined);
 
   return (
-    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
-      <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
+    <main className="voltura vg-pagina">
+      <div className="flex w-full">
         <AppSidebar
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
@@ -588,7 +590,7 @@ export default function PagasRecebidasPage() {
           }
         />
 
-        <section className="flex min-w-0 flex-1 flex-col gap-5">
+        <section className="vg-casca vg-conteudo flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ArrowsUpDownIcon} />

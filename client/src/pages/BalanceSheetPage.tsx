@@ -1,6 +1,8 @@
 import { CartaoVazio } from "@/components/CartaoVazio";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AppSidebar } from "@/components/AppSidebar";
+// O design system Voltura, com escopo nesta tela (ver DESIGN.md na raiz).
+import "@/styles/voltura.css";
 import {
   ArchiveIcon,
   ArrowDownIcon,
@@ -715,15 +717,15 @@ function EvolutionChart({ points }: { points: EvolutionPoint[] }) {
         role="img"
         aria-label="Evolução do patrimônio líquido"
       >
-        {[47, 95, 143].map(y => <line key={y} x1="0" y1={y} x2={chart.width} y2={y} stroke="#1F3D2B" strokeWidth="1" />)}
+        {[47, 95, 143].map(y => <line key={y} x1="0" y1={y} x2={chart.width} y2={y} stroke="var(--v-on-acid-line, #1F3D2B)" strokeWidth="1" />)}
         {chart.plotted.length > 1 && (
           <>
-            <polygon points={`${line} ${chart.width},${chart.height} 0,${chart.height}`} fill="#12B85C" opacity=".16" />
-            <polyline points={line} fill="none" stroke="#12B85C" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+            <polygon points={`${line} ${chart.width},${chart.height} 0,${chart.height}`} fill="var(--v-text-on-acid, #12B85C)" opacity=".16" />
+            <polyline points={line} fill="none" stroke="var(--v-text-on-acid, #12B85C)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
           </>
         )}
       </svg>
-      <ChartDot x={last.x} y={last.y} width={chart.width} height={chart.height} size={10} color="#7EE2A8" />
+      <ChartDot x={last.x} y={last.y} width={chart.width} height={chart.height} size={10} color="var(--v-text-on-acid, #7EE2A8)" />
     </div>
   );
 }
@@ -1248,8 +1250,8 @@ export default function BalanceSheetPage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
-      <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
+    <main className="voltura vg-pagina">
+      <div className="flex w-full">
         <AppSidebar
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
@@ -1262,7 +1264,7 @@ export default function BalanceSheetPage() {
             />
           }
         />
-        <section className="flex min-w-0 flex-1 flex-col gap-4">
+        <section className="vg-casca vg-conteudo flex min-w-0 flex-1 flex-col gap-4">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ChartIcon} />

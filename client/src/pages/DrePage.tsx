@@ -5,6 +5,8 @@ import { PageIcon } from "@/components/PageIcon";
 import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
+// O design system Voltura, com escopo nesta tela (ver DESIGN.md na raiz).
+import "@/styles/voltura.css";
 import {
   ChevronRightIcon,
   DocumentIcon,
@@ -555,8 +557,8 @@ export default function DrePage() {
   const lucroVariation = statement?.lines.find(line => line.key === "lucro_liquido")?.variation ?? null;
 
   return (
-    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
-      <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
+    <main className="voltura vg-pagina">
+      <div className="flex w-full">
         <AppSidebar
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
@@ -572,7 +574,7 @@ export default function DrePage() {
           ) : undefined}
         />
 
-        <section className="flex min-w-0 flex-1 flex-col gap-5">
+        <section className="vg-casca vg-conteudo flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={DocumentIcon} />
