@@ -142,7 +142,8 @@ export function ExportarLancamentosModal({ mes, contas, onClose, onExportado }: 
           <button type="button" aria-label="Fechar" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#F1F4F2] text-[#28382E] transition hover:bg-[#E3EBE6]"><CloseIcon size={15} /></button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-[22px] py-5">
+        {/* Cada bloco mantém a altura (shrink-0): sem isso o flex os esmagava em vez de deixar a área rolar. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-[22px] py-5 [&>*]:shrink-0">
           <div className="flex flex-col gap-[9px]">
             <div className="flex items-baseline gap-2.5">
               <span className={rotulo}>Contas bancárias</span>
