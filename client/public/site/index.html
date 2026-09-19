@@ -90,12 +90,12 @@
     mask-image:radial-gradient(70% 60% at 50% 30%, rgba(0,0,0,0) 20%, #000 100%);
   }
   .hero-texto {
-    max-width:900px; margin:0 auto; padding:88px 24px 56px; width:100%;
+    max-width:1120px; margin:0 auto; padding:88px 24px 56px; width:100%;
     display:flex; flex-direction:column; align-items:center; text-align:center; gap:22px;
   }
   .hero-texto h1 {
-    margin:0; font-size:clamp(36px, 5.6vw, 64px); font-weight:700; letter-spacing:-.04em; line-height:1.04;
-    text-wrap:balance; max-width:21ch;
+    margin:0; font-size:clamp(34px, 4.4vw, 62px); font-weight:700; letter-spacing:-.04em; line-height:1.06;
+    text-wrap:balance;
   }
   .hero-texto h1 em { font-style:normal; color:var(--acento-texto); }
   .hero-texto p { margin:0; font-size:clamp(15px, 1.6vw, 19px); line-height:1.6; color:var(--texto-suave); max-width:600px; text-wrap:pretty; }
@@ -175,7 +175,9 @@
     .hero-painel { padding:0 16px; }
     :root { --sobra:90px; }
     .hero-texto { padding:56px 20px 40px; }
-    .hero-texto h1 { max-width:none; }
+    /* Em tela estreita a quebra fixa em duas linhas não cabe; o título
+       quebra sozinho. */
+    .hero-texto h1 br { display:none; }
     .btn-contorno, .btn-escuro { height:50px; padding:0 20px; font-size:14.5px; }
     .barra-topo { padding-left:16px !important; padding-right:16px !important; gap:12px !important; }
     .cta-topo { padding:0 14px !important; }
@@ -228,7 +230,9 @@
   <div class="hero">
     <div class="hero-texto">
       <span class="hero-selo"><b>Novo</b>Relatórios de caixa e DRE no mesmo lugar</span>
-      <h1>O financeiro da sua empresa fechado <em>antes do café da tarde</em>.</h1>
+      <!-- Duas linhas, com a quebra depois de "empresa": a segunda é a mais longa e
+           é ela que dita o tamanho da fonte. -->
+      <h1>O financeiro da sua empresa<br>fechado <em>antes do café da tarde</em>.</h1>
       <p>Saldo consolidado, contas a pagar e receber, conciliação e DRE. Sem planilha, sem digitar lançamento por lançamento.</p>
       <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding-top:4px">
         <a href="/cadastro" class="btn-contorno">
