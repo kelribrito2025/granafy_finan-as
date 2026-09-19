@@ -2266,3 +2266,88 @@
 .voltura .drawer-enter textarea::placeholder {
   color: var(--v-text-mute);
 }
+
+/* --------------------------------------------------------------------------
+   Tipo e forma das telas que não foram remarcadas.
+
+   Traduzir só a cor deixava cada tela com a tipografia e a geometria antigas
+   ao lado da Visão geral, que é o desenho do sistema. Aqui o resto do
+   caminho: a barra do topo ganha a forma da barra do painel, os títulos e os
+   números grandes passam para o tipo de display, os rótulos em caixa alta
+   ganham o espacejamento do sistema e os raios dos cartões passam para os do
+   pacote. Continua sendo tradução — nenhuma tela foi remarcada.
+   -------------------------------------------------------------------------- */
+
+/* A barra do topo: mesma faixa com filete embaixo do painel da Visão geral. */
+.voltura .vg-conteudo > header {
+  margin: -16px -16px 0;
+  padding: 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--v-hairline);
+}
+
+@media (min-width: 640px) {
+  .voltura .vg-conteudo > header {
+    margin: -20px -20px 0;
+    padding: 18px 20px;
+  }
+}
+
+/* Dígitos alinhados em coluna, que é como o sistema mostra qualquer cifra. */
+.voltura .vg-casca {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Números grandes: o tipo de display carrega a hierarquia. */
+.voltura .vg-casca .text-\[22px\],
+.voltura .vg-casca .text-\[24px\],
+.voltura .vg-casca .text-\[26px\],
+.voltura .vg-casca .text-\[28px\],
+.voltura .vg-casca .text-\[30px\],
+.voltura .vg-casca .text-\[32px\],
+.voltura .vg-casca .text-\[34px\],
+.voltura .vg-casca .text-\[36px\],
+.voltura .vg-casca .text-\[40px\],
+.voltura .vg-casca .text-\[42px\],
+.voltura .vg-casca .text-2xl,
+.voltura .vg-casca .text-3xl {
+  font-family: var(--v-font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Títulos: cartão, seção e página. */
+.voltura .vg-casca h1,
+.voltura .vg-casca h2,
+.voltura .vg-casca h3,
+.voltura .vg-casca h4,
+.voltura .vg-casca .text-xl,
+.voltura .vg-casca .text-lg,
+.voltura .vg-casca .text-\[15px\].font-bold,
+.voltura .vg-casca .text-\[16px\].font-bold,
+.voltura .vg-casca .text-\[17px\].font-bold,
+.voltura .vg-casca .text-\[18px\].font-bold,
+.voltura .vg-casca .text-\[14px\].font-bold {
+  font-family: var(--v-font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* Rótulos e cabeçalhos de tabela em caixa alta. */
+.voltura .vg-casca .uppercase {
+  font-family: var(--v-font-body);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+/* Raios: cartão do pacote, bloco interno do pacote. */
+.voltura .vg-casca .rounded-\[20px\] { border-radius: var(--v-r-xl); }
+.voltura .vg-casca .rounded-\[16px\],
+.voltura .vg-casca .rounded-xl { border-radius: var(--v-r-md); }
+
+/* O cartão do sistema é recortado por um filete, não por sombra. */
+.voltura .vg-casca .bg-white.rounded-\[20px\],
+.voltura .vg-casca .bg-white.rounded-\[16px\] {
+  border: 1px solid var(--v-hairline);
+  box-shadow: none;
+}
