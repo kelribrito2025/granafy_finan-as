@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1200, initial-scale=1" />
+    <title>Voltura — cover</title>
+    <link rel="stylesheet" href="../css/system.css" />
+    <style>
+      html,
+      body {
+        width: 1200px;
+        height: 800px;
+        overflow: hidden;
+        background: var(--v-citrine);
+      }
+
+      .cv-stage {
+        width: 1200px;
+        height: 800px;
+        position: relative;
+        background:
+          radial-gradient(120% 90% at 0% 0%, #c4d156 0%, var(--v-citrine) 38%, #a8b440 100%);
+        padding: 28px;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 28px;
+      }
+
+      /* a thin citrine grain to give edges a tactile feel */
+      .cv-stage::before {
+        content: "";
+        position: absolute;
+        inset: 28px;
+        border: 1px solid rgba(20, 24, 26, 0.18);
+        border-radius: 30px;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+      }
+
+      /* ---------- Left panel: dark inset ---------- */
+      .cv-panel {
+        position: relative;
+        background: var(--v-inkwell);
+        border-radius: var(--v-r-2xl);
+        padding: 52px 48px;
+        display: flex;
+        flex-direction: column;
+        color: var(--v-text);
+        overflow: hidden;
+        box-shadow: inset 0 0 0 1px #1a1f20;
+      }
+
+      /* faint topo backdrop in left panel */
+      .cv-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(100% 80% at 0% 100%, rgba(211, 242, 63, 0.08), transparent 55%),
+          url("../images/topo-lines.png") center / cover no-repeat;
+        opacity: 0.55;
+        z-index: 0;
+        mix-blend-mode: screen;
+      }
+      .cv-panel > * { position: relative; z-index: 1; }
+
+      .cv-corner {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--v-moss);
+      }
+      .cv-corner__star {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cv-corner__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--v-acid);
+        box-shadow: 0 0 0 4px rgba(211, 242, 63, 0.18);
+      }
+
+      .cv-name {
+        margin-top: 64px;
+        font-family: var(--v-font-display);
+        font-size: 148px;
+        font-weight: 600;
+        letter-spacing: -0.05em;
+        line-height: 0.86;
+        color: var(--v-bone);
+      }
+      .cv-name span {
+        color: var(--v-acid);
+      }
+      .cv-tag {
+        margin-top: 20px;
+        font-family: var(--v-font-body);
+        font-size: 18px;
+        line-height: 1.45;
+        color: var(--v-bone-soft);
+        max-width: 36ch;
+      }
+
+      .cv-meta {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .cv-meta__rule {
+        height: 1px;
+        background: linear-gradient(90deg, var(--v-hairline), transparent);
+      }
+      .cv-meta__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      .cv-meta__lbl {
+        font-family: var(--v-font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--v-moss);
+        display: block;
+        margin-bottom: 8px;
+      }
+      .cv-meta__val {
+        font-family: var(--v-font-display);
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--v-bone);
+        font-variant-numeric: tabular-nums;
+      }
+      .cv-type-row {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+      }
+      .cv-type-row__big {
+        font-family: var(--v-font-display);
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--v-bone);
+      }
+      .cv-type-row__small {
+        font-family: var(--v-font-body);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--v-moss);
+      }
+      .cv-type-row__mono {
+        margin-left: auto;
+        font-family: var(--v-font-mono);
+        font-size: 14px;
+        color: var(--v-bone-soft);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.04em;
+      }
+
+      .cv-pals {
+        display: flex;
+        gap: 0;
+        border-radius: var(--v-r-md);
+        overflow: hidden;
+        border: 1px solid var(--v-hairline);
+      }
+      .cv-pal {
+        flex: 1;
+        padding: 14px 12px 12px;
+        font-family: var(--v-font-mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-height: 76px;
+      }
+      .cv-pal__hex {
+        align-self: flex-start;
+      }
+      .cv-pal--inkwell { background: var(--v-inkwell-deep); color: var(--v-moss); }
+      .cv-pal--slate { background: var(--v-slate); color: var(--v-moss); }
+      .cv-pal--acid { background: var(--v-acid); color: var(--v-text-on-acid); }
+      .cv-pal--bone { background: var(--v-bone); color: var(--v-text-on-acid); }
+      .cv-pal--coral { background: var(--v-cat-coral); color: #1f0a02; }
+      .cv-pal--blue { background: var(--v-cat-blue); color: #061528; }
+
+      /* ---------- Right column: focal specimen + side strip ---------- */
+      .cv-right {
+        display: grid;
+        grid-template-rows: 1fr auto;
+        gap: 22px;
+      }
+
+      .cv-focal {
+        position: relative;
+        border-radius: var(--v-r-2xl);
+        background:
+          radial-gradient(120% 90% at 18% 4%, #e8ff62 0%, var(--v-acid) 55%, var(--v-acid-lo) 100%);
+        color: var(--v-text-on-acid);
+        padding: 44px 40px 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        overflow: hidden;
+        box-shadow:
+          0 0 0 1px var(--v-acid-deep),
+          0 30px 80px -20px rgba(20, 24, 26, 0.45),
+          0 0 70px -10px rgba(211, 242, 63, 0.6);
+      }
+      .cv-focal::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(60% 50% at 92% 100%, rgba(255, 255, 255, 0.28), transparent 70%);
+        pointer-events: none;
+      }
+
+      .cv-focal__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .cv-focal__head-lbl {
+        font-family: var(--v-font-body);
+        font-size: 11.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: rgba(20, 24, 26, 0.78);
+      }
+      .cv-focal__head-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(20, 24, 26, 0.18);
+        color: var(--v-text-on-acid);
+        font-family: var(--v-font-body);
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .cv-focal__small {
+        display: flex;
+        gap: 36px;
+      }
+      .cv-focal__small div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .cv-focal__small-num {
+        font-family: var(--v-font-display);
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        color: var(--v-text-on-acid);
+      }
+      .cv-focal__small-lbl {
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: rgba(20, 24, 26, 0.62);
+      }
+
+      .cv-focal__bal-lbl {
+        font-size: 11.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: rgba(20, 24, 26, 0.6);
+      }
+      .cv-focal__bal {
+        font-family: var(--v-font-display);
+        font-size: 88px;
+        font-weight: 600;
+        letter-spacing: -0.045em;
+        line-height: 0.92;
+        margin-top: 8px;
+        color: var(--v-text-on-acid);
+        font-variant-numeric: tabular-nums;
+      }
+      .cv-focal__bal span {
+        opacity: 0.6;
+      }
+      .cv-focal__bal-sub {
+        margin-top: 12px;
+        font-family: var(--v-font-mono);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        color: rgba(20, 24, 26, 0.72);
+      }
+
+      .cv-focal__dist {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .cv-focal__dist-bar {
+        display: flex;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        gap: 3px;
+        background: rgba(20, 24, 26, 0.18);
+      }
+      .cv-focal__dist-bar span {
+        background: var(--v-text-on-acid);
+      }
+      .cv-focal__dist-bar span:nth-child(2) { background: var(--v-cat-coral); }
+      .cv-focal__dist-bar span:nth-child(3) { background: var(--v-cat-magenta); }
+      .cv-focal__dist-bar span:nth-child(4) { background: var(--v-cat-blue); }
+      .cv-focal__dist-legend {
+        display: flex;
+        gap: 18px;
+        font-family: var(--v-font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(20, 24, 26, 0.62);
+      }
+      .cv-focal__dist-legend strong {
+        color: var(--v-text-on-acid);
+        font-weight: 600;
+        margin-left: 4px;
+      }
+
+      /* ---------- Right column: spark/info strip ---------- */
+      .cv-strip {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .cv-tile {
+        background: var(--v-inkwell);
+        border-radius: var(--v-r-xl);
+        padding: 22px 22px 20px;
+        color: var(--v-bone);
+        box-shadow: inset 0 0 0 1px var(--v-hairline);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 138px;
+      }
+      .cv-tile__lbl {
+        font-family: var(--v-font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--v-moss);
+      }
+      .cv-tile__num {
+        font-family: var(--v-font-display);
+        font-size: 36px;
+        font-weight: 600;
+        letter-spacing: -0.028em;
+        line-height: 1;
+        color: var(--v-bone);
+        font-variant-numeric: tabular-nums;
+      }
+      .cv-tile__sub {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-pos);
+        font-variant-numeric: tabular-nums;
+      }
+      .cv-tile__spark {
+        margin-top: auto;
+      }
+      .cv-tile__spark svg {
+        width: 100%;
+        height: 36px;
+        display: block;
+      }
+
+      .cv-tile--rows {
+        gap: 8px;
+      }
+      .cv-tile__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-top: 1px solid var(--v-hairline);
+      }
+      .cv-tile__row:first-of-type { border-top: 0; padding-top: 0; }
+      .cv-tile__row-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--v-moss);
+      }
+      .cv-tile__avatar {
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+      }
+      .cv-tile__row-right {
+        font-family: var(--v-font-display);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--v-bone);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cv-stage">
+      <!-- ============= Left dark panel ============= -->
+      <section class="cv-panel">
+        <div class="cv-corner">
+          <span class="cv-corner__star">
+            <span class="cv-corner__dot"></span>
+            v.alpha · 2026
+          </span>
+          <span>Dark · Editorial · Acid</span>
+        </div>
+
+        <h1 class="cv-name">Voltur<span>a</span></h1>
+        <p class="cv-tag">A dark crypto cockpit on a citrine field. One luminous focal card always carries the eye; everything else is engineered to read as quiet instrumentation.</p>
+
+        <div class="cv-meta">
+          <hr class="cv-meta__rule" style="border: 0; height: 1px; background: var(--v-hairline);" />
+
+          <div>
+            <div class="cv-type-row">
+              <span class="cv-type-row__big">Aa 0123</span>
+              <span class="cv-type-row__small">Space Grotesk · Inter · JetBrains Mono</span>
+              <span class="cv-type-row__mono">−0.02em</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="cv-pals">
+              <div class="cv-pal cv-pal--inkwell"><span class="cv-pal__hex">#15191A</span><span>Inkwell</span></div>
+              <div class="cv-pal cv-pal--slate"><span class="cv-pal__hex">#1D2123</span><span>Slate</span></div>
+              <div class="cv-pal cv-pal--acid"><span class="cv-pal__hex">#D3F23F</span><span>Acid</span></div>
+              <div class="cv-pal cv-pal--bone"><span class="cv-pal__hex">#ECEFE8</span><span>Bone</span></div>
+              <div class="cv-pal cv-pal--coral"><span class="cv-pal__hex">#E58940</span><span>Coral</span></div>
+              <div class="cv-pal cv-pal--blue"><span class="cv-pal__hex">#3A8FD9</span><span>Blue</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============= Right column ============= -->
+      <section class="cv-right">
+        <!-- Luminous focal specimen -->
+        <article class="cv-focal" aria-labelledby="cv-focal-title">
+          <header class="cv-focal__head">
+            <span class="cv-focal__head-lbl" id="cv-focal-title">Overview</span>
+            <span class="cv-focal__head-chip">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M5 19l14 -14" /><path d="M9 5l10 0l0 10" /></svg>
+              +5.21%
+            </span>
+          </header>
+
+          <div class="cv-focal__small">
+            <div>
+              <span class="cv-focal__small-num">150</span>
+              <span class="cv-focal__small-lbl">Transactions</span>
+            </div>
+            <div>
+              <span class="cv-focal__small-num">3</span>
+              <span class="cv-focal__small-lbl">Wallets</span>
+            </div>
+          </div>
+
+          <div>
+            <span class="cv-focal__bal-lbl">Available balance</span>
+            <div class="cv-focal__bal">$46,200<span>.90</span></div>
+            <div class="cv-focal__bal-sub">4,820.910 USDT · settled 24m ago</div>
+          </div>
+
+          <div class="cv-focal__dist">
+            <span style="font-family: var(--v-font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(20,24,26,0.6)">Allocation</span>
+            <div class="cv-focal__dist-bar">
+              <span style="flex: 0 0 56%"></span>
+              <span style="flex: 0 0 22%"></span>
+              <span style="flex: 0 0 14%"></span>
+              <span style="flex: 0 0 8%"></span>
+            </div>
+            <div class="cv-focal__dist-legend">
+              <span>BTC<strong>56%</strong></span>
+              <span>USDT<strong>22%</strong></span>
+              <span>ETH<strong>14%</strong></span>
+              <span>DASH<strong>8%</strong></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Two supporting tiles -->
+        <div class="cv-strip">
+          <div class="cv-tile">
+            <span class="cv-tile__lbl">7D chart · BTC</span>
+            <span class="cv-tile__num">$22,079</span>
+            <span class="cv-tile__sub">▲ 16.30% · 7d</span>
+            <div class="cv-tile__spark">
+              <svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="cv-spark" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#d3f23f" stop-opacity="0.38" />
+                    <stop offset="100%" stop-color="#d3f23f" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M0 30 L20 28 L40 32 L60 22 L80 26 L100 18 L120 22 L140 12 L160 18 L180 8 L200 12 L200 40 L0 40 Z" fill="url(#cv-spark)" />
+                <path d="M0 30 L20 28 L40 32 L60 22 L80 26 L100 18 L120 22 L140 12 L160 18 L180 8 L200 12" fill="none" stroke="#d3f23f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="cv-tile cv-tile--rows">
+            <span class="cv-tile__lbl">Movers</span>
+            <div class="cv-tile__row">
+              <span class="cv-tile__row-left"><span class="cv-tile__avatar" style="background: var(--v-cat-coral)"></span>BTC</span>
+              <span class="cv-tile__row-right" style="color: var(--v-pos)">+1.84%</span>
+            </div>
+            <div class="cv-tile__row">
+              <span class="cv-tile__row-left"><span class="cv-tile__avatar" style="background: var(--v-cat-magenta)"></span>ETH</span>
+              <span class="cv-tile__row-right" style="color: var(--v-pos)">+0.94%</span>
+            </div>
+            <div class="cv-tile__row">
+              <span class="cv-tile__row-left"><span class="cv-tile__avatar" style="background: var(--v-cat-blue)"></span>DASH</span>
+              <span class="cv-tile__row-right" style="color: var(--v-neg)">−0.92%</span>
+            </div>
+            <div class="cv-tile__row">
+              <span class="cv-tile__row-left"><span class="cv-tile__avatar" style="background: var(--v-cat-green)"></span>USDT</span>
+              <span class="cv-tile__row-right" style="color: var(--v-moss)">±0.01%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

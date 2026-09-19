@@ -1,0 +1,124 @@
+{
+  "name": "Voltura",
+  "description": "A dark-luxe trading workspace where inky olive panels float on a sun-baked citrine field and one acid-lime focal card always carries the eye.",
+  "theme": "dark",
+  "concept": "Voltura treats a crypto cockpit like a piece of industrial signage. Deep charcoal-olive cards sit on a saturated citrine canvas, separated by hairline borders rather than heavy shadows. A single luminous lime panel anchors every screen, so the layout reads as a constellation of muted instruments orbiting one bright signal.",
+  "palette": [
+    {
+      "name": "Citrine Field",
+      "value": "#B8C44A",
+      "role": "Outer page canvas, the warm olive-lime ground the app sits on"
+    },
+    {
+      "name": "Inkwell",
+      "value": "#15191A",
+      "role": "Primary app surface and sidebar; the deep olive-charcoal that holds the data grid"
+    },
+    {
+      "name": "Slate Panel",
+      "value": "#1D2123",
+      "role": "Lifted card surface inside the dark canvas"
+    },
+    {
+      "name": "Acid Lime",
+      "value": "#D3F23F",
+      "role": "Signature focal accent for the highlight card, primary buttons, and active states"
+    },
+    {
+      "name": "Bone",
+      "value": "#ECEFE8",
+      "role": "Primary text and high-contrast labels on dark surfaces"
+    },
+    {
+      "name": "Moss Mute",
+      "value": "#7A8278",
+      "role": "Secondary text, captions, and muted iconography"
+    },
+    {
+      "name": "Hairline",
+      "value": "#262B2C",
+      "role": "1px borders, dividers, and subtle card edges"
+    },
+    {
+      "name": "Signal Coral",
+      "value": "#E58940",
+      "role": "Categorical accent for distribution bars and warning chips"
+    }
+  ],
+  "fonts": [
+    {
+      "name": "Space Grotesk",
+      "provider": "Google Fonts",
+      "usage": "Display numbers, balances, KPIs, and headlines",
+      "cssImport": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    },
+    {
+      "name": "Inter",
+      "provider": "Google Fonts",
+      "usage": "Interface body text, labels, navigation, and table copy",
+      "cssImport": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    },
+    {
+      "name": "JetBrains Mono",
+      "provider": "Google Fonts",
+      "usage": "Ticker symbols, transaction IDs, and inline code-style values",
+      "cssImport": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+    }
+  ],
+  "iconPack": {
+    "name": "Tabler Icons",
+    "url": "https://tabler.io/icons",
+    "license": "MIT",
+    "usage": "Used for sidebar navigation, action buttons, asset tags, and dashboard utility icons with consistent 1.5px outline strokes.",
+    "examples": [
+      {
+        "name": "Search",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-search\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0\" /> <path d=\"M21 21l-6 -6\" /> </svg>"
+      },
+      {
+        "name": "Sun",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-sun\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0\" /> <path d=\"M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7\" /> </svg>"
+      },
+      {
+        "name": "Moon",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-moon\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008\" /> </svg>"
+      },
+      {
+        "name": "Layers Intersect",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-layers-intersect\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M8 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -8\" /> <path d=\"M4 10a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -8\" /> </svg>"
+      },
+      {
+        "name": "Bolt",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-bolt\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11\" /> </svg>"
+      },
+      {
+        "name": "Check",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-check\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M5 12l5 5l10 -10\" /> </svg>"
+      },
+      {
+        "name": "Bell",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-bell\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6\" /> <path d=\"M9 17v1a3 3 0 0 0 6 0v-1\" /> </svg>"
+      },
+      {
+        "name": "Settings",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-settings\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065\" /> <path d=\"M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0\" /> </svg>"
+      },
+      {
+        "name": "User",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon icon-tabler icons-tabler-outline icon-tabler-user\" > <path stroke=\"none\" d=\"M0 0h24v24H0z\" fill=\"none\" /> <path d=\"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0\" /> <path d=\"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2\" /> </svg>"
+      }
+    ]
+  },
+  "logo": {
+    "name": "Voltura node mark",
+    "svg": "<svg viewBox=\"0 0 318.75 330.05\" xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M291.67,201.01c-13.58-10.8-27.47-22.56-41.49-35.34,14.38-13.45,28.65-25.98,42.68-37.63,33.14-27.51,34.7-77.82,3.3-107.29-.49-.46-.98-.92-1.47-1.38-31.88-29.92-82.82-24.47-107.81,11.4-8.47,12.16-17.63,24.58-27.51,37.17-9.88-12.58-19.04-25.01-27.51-37.17C106.87-5.1,55.94-10.54,24.06,19.38c-.49.46-.98.92-1.47,1.38-31.4,29.47-29.84,79.79,3.3,107.29,14.03,11.65,28.31,24.17,42.68,37.63-14.02,12.78-27.91,24.54-41.49,35.34-34.2,27.19-36.35,78.36-4.49,108.26l1.47,1.38c31.4,29.47,81.51,24.74,106.86-10.06,8.87-12.19,18.35-24.59,28.46-37.14,10.11,12.55,19.59,24.95,28.46,37.14,25.35,34.81,75.46,39.53,106.86,10.06l1.47-1.38c31.85-29.9,29.7-81.07-4.49-108.26Z\"/></svg>"
+  },
+  "tags": [
+    "Dark",
+    "Dashboard",
+    "Crypto",
+    "Trading",
+    "Editorial",
+    "Acid"
+  ]
+}

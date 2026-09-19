@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voltura — Dark crypto cockpit</title>
+    <link rel="stylesheet" href="../css/system.css" />
+    <style>
+      :root {
+        --pv-frame: var(--v-citrine);
+      }
+
+      body {
+        background: var(--pv-frame);
+      }
+
+      /* ---- Sidebar polish ---------------------------------------------- */
+      .pv-sidebar {
+        gap: var(--v-sp-6);
+      }
+      .pv-sidebar__section {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .pv-sidebar__section-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--v-moss-deep);
+        padding: 0 var(--v-sp-3) var(--v-sp-2);
+      }
+
+      /* ---- Top bar ----------------------------------------------------- */
+      .pv-topbar {
+        padding: var(--v-sp-5) var(--v-sp-7);
+      }
+      .pv-topbar__title {
+        display: flex;
+        align-items: baseline;
+        gap: var(--v-sp-3);
+      }
+      .pv-topbar__crumb {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--v-moss);
+      }
+      .pv-topbar__right {
+        display: flex;
+        align-items: center;
+        gap: var(--v-sp-2);
+      }
+      .pv-iconbtn {
+        width: 38px;
+        height: 38px;
+        border-radius: var(--v-r-pill);
+        background: transparent;
+        border: 1px solid var(--v-hairline);
+        color: var(--v-text);
+        display: inline-grid;
+        place-items: center;
+        cursor: pointer;
+        position: relative;
+      }
+      .pv-iconbtn:hover {
+        border-color: var(--v-hairline-strong);
+        background: rgba(236, 239, 232, 0.04);
+      }
+      .pv-iconbtn__dot {
+        position: absolute;
+        top: 8px;
+        right: 9px;
+        width: 6px;
+        height: 6px;
+        border-radius: var(--v-r-pill);
+        background: var(--v-acid);
+        box-shadow: 0 0 0 2px var(--v-canvas);
+      }
+      .pv-currency {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--v-sp-2);
+        height: 38px;
+        padding: 0 12px 0 14px;
+        border-radius: var(--v-r-pill);
+        border: 1px solid var(--v-hairline);
+        background: transparent;
+        color: var(--v-text);
+        font-family: inherit;
+        font-size: var(--v-fs-13);
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .pv-currency__sym {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: var(--v-r-pill);
+        background: var(--v-acid);
+        color: var(--v-text-on-acid);
+        font-family: var(--v-font-display);
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .pv-profile {
+        width: 38px;
+        height: 38px;
+        border-radius: var(--v-r-pill);
+        background: var(--v-cat-magenta);
+        color: #20081a;
+        display: inline-grid;
+        place-items: center;
+        font-family: var(--v-font-display);
+        font-weight: 600;
+        font-size: 13px;
+        border: 1px solid rgba(236, 239, 232, 0.08);
+      }
+
+      /* ---- Hero grid --------------------------------------------------- */
+      .pv-hero {
+        display: grid;
+        grid-template-columns: 1.05fr 1.6fr;
+        gap: var(--v-grid-gap);
+      }
+
+      .pv-focal {
+        display: flex;
+        flex-direction: column;
+        gap: var(--v-sp-5);
+        padding: var(--v-sp-7);
+        min-height: 280px;
+      }
+      .pv-focal__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .pv-focal__label {
+        font-size: var(--v-fs-12);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: var(--v-tracking-cap);
+        color: rgba(20, 24, 26, 0.78);
+      }
+      .pv-focal__mini {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--v-sp-4);
+      }
+      .pv-focal__mini-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .pv-focal__mini-num {
+        font-family: var(--v-font-display);
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        color: var(--v-text-on-acid);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-focal__mini-lbl {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: rgba(20, 24, 26, 0.62);
+      }
+      .pv-focal__balance {
+        font-family: var(--v-font-display);
+        font-size: clamp(40px, 4.6vw, 60px);
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        line-height: 0.95;
+        color: var(--v-text-on-acid);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-focal__sub {
+        display: flex;
+        align-items: center;
+        gap: var(--v-sp-3);
+        font-size: var(--v-fs-13);
+        color: rgba(20, 24, 26, 0.72);
+      }
+      .pv-focal__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 10px;
+        height: 24px;
+        border-radius: var(--v-r-pill);
+        background: rgba(20, 24, 26, 0.16);
+        color: var(--v-text-on-acid);
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-focal__actions {
+        display: flex;
+        gap: var(--v-sp-2);
+        margin-top: auto;
+      }
+
+      /* ---- Portfolio card --------------------------------------------- */
+      .pv-port {
+        display: flex;
+        flex-direction: column;
+        gap: var(--v-sp-5);
+      }
+      .pv-port__rows {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--v-sp-3);
+      }
+      .pv-port__cell {
+        position: relative;
+        padding: var(--v-sp-4);
+        border-radius: var(--v-r-md);
+        background: rgba(236, 239, 232, 0.025);
+        border: 1px solid var(--v-hairline);
+        display: flex;
+        flex-direction: column;
+        gap: var(--v-sp-3);
+      }
+      .pv-port__head {
+        display: flex;
+        align-items: center;
+        gap: var(--v-sp-3);
+      }
+      .pv-port__name {
+        font-size: var(--v-fs-13);
+        font-weight: 600;
+        color: var(--v-text);
+        line-height: 1.1;
+      }
+      .pv-port__tk {
+        font-family: var(--v-font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--v-text-mute);
+      }
+      .pv-port__num {
+        font-family: var(--v-font-display);
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--v-text);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+      .pv-port__delta {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-pos);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-port__delta--neg {
+        color: var(--v-neg);
+      }
+      .pv-port__more {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        color: var(--v-text-mute);
+        cursor: pointer;
+      }
+
+      /* ---- Distribution bar block ------------------------------------- */
+      .pv-dist {
+        gap: var(--v-sp-4);
+      }
+      .pv-dist__row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: var(--v-sp-5);
+        align-items: center;
+      }
+      .pv-dist__lbl-title {
+        font-size: var(--v-fs-13);
+        font-weight: 600;
+        color: var(--v-text);
+      }
+      .pv-dist__lbl-sub {
+        font-size: var(--v-fs-12);
+        color: var(--v-text-mute);
+        margin-top: 2px;
+      }
+      .pv-dist__legend {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--v-sp-4);
+        margin-top: var(--v-sp-2);
+      }
+      .pv-dist__legitem {
+        display: flex;
+        align-items: center;
+        gap: var(--v-sp-2);
+        font-size: var(--v-fs-12);
+      }
+      .pv-dist__legdot {
+        width: 8px;
+        height: 8px;
+        border-radius: var(--v-r-pill);
+        flex: 0 0 8px;
+      }
+      .pv-dist__legname {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--v-text-mute);
+      }
+      .pv-dist__legval {
+        margin-left: auto;
+        color: var(--v-text);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      /* ---- Split row chart + tx -------------------------------------- */
+      .pv-split {
+        display: grid;
+        grid-template-columns: 1.55fr 1fr;
+        gap: var(--v-grid-gap);
+      }
+
+      .pv-chartcard__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--v-sp-3);
+      }
+      .pv-chartcard__filters {
+        display: flex;
+        align-items: center;
+        gap: var(--v-sp-3);
+      }
+      .pv-chartcard__tip {
+        position: absolute;
+        background: var(--v-surface);
+        border: 1px solid var(--v-hairline-strong);
+        border-radius: var(--v-r-md);
+        padding: 10px 12px;
+        color: var(--v-text);
+        font-size: var(--v-fs-12);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+        white-space: nowrap;
+      }
+      .pv-chartcard__tipnum {
+        font-family: var(--v-font-display);
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-chartcard__tipdelta {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-pos);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-chart {
+        position: relative;
+        width: 100%;
+        height: 260px;
+      }
+      .pv-chart svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* ---- Transactions ---------------------------------------------- */
+      .pv-tx__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--v-sp-3);
+      }
+      .pv-tx__group {
+        font-size: var(--v-fs-12);
+        text-transform: uppercase;
+        letter-spacing: var(--v-tracking-cap);
+        color: var(--v-text-mute);
+        padding: var(--v-sp-3) 0 var(--v-sp-2);
+      }
+      .pv-tx__row {
+        display: grid;
+        grid-template-columns: 32px 1fr auto;
+        gap: var(--v-sp-3);
+        align-items: center;
+        padding: var(--v-sp-3) 0;
+        border-top: 1px solid var(--v-hairline);
+      }
+      .pv-tx__icon {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--v-r-pill);
+        display: grid;
+        place-items: center;
+        background: rgba(143, 226, 122, 0.12);
+        color: var(--v-pos);
+      }
+      .pv-tx__icon--neg {
+        background: rgba(236, 106, 94, 0.12);
+        color: var(--v-neg);
+      }
+      .pv-tx__title {
+        font-size: var(--v-fs-13);
+        font-weight: 600;
+        color: var(--v-text);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-tx__sub {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-text-mute);
+        margin-top: 2px;
+      }
+      .pv-tx__amt {
+        text-align: right;
+        font-family: var(--v-font-display);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--v-text);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-tx__time {
+        text-align: right;
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-text-mute);
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-tx__footer {
+        margin-top: var(--v-sp-4);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--v-sp-3) var(--v-sp-4);
+        border: 1px dashed var(--v-hairline);
+        border-radius: var(--v-r-md);
+        color: var(--v-text-mute);
+        font-size: var(--v-fs-12);
+      }
+
+      /* ---- Bottom signal band ---------------------------------------- */
+      .pv-signal {
+        position: relative;
+        overflow: hidden;
+        padding: var(--v-sp-7);
+        border: 1px solid var(--v-hairline);
+        border-radius: var(--v-r-xl);
+        background: var(--v-surface);
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: var(--v-sp-8);
+        min-height: 220px;
+        isolation: isolate;
+      }
+      .pv-signal::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(80% 100% at 0% 50%, rgba(29, 33, 35, 0) 0%, rgba(29, 33, 35, 0.92) 60%, var(--v-surface) 100%),
+          url("../images/topo-lines.png") center / cover no-repeat;
+        opacity: 0.85;
+        z-index: -1;
+      }
+      .pv-signal__mark {
+        width: 36px;
+        height: 36px;
+        color: var(--v-acid);
+        display: inline-flex;
+      }
+      .pv-signal__title {
+        font-family: var(--v-font-display);
+        font-size: clamp(26px, 2.6vw, 34px);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.05;
+        color: var(--v-text);
+        margin: 0;
+        max-width: 22ch;
+      }
+      .pv-signal__lead {
+        color: var(--v-text-mute);
+        font-size: var(--v-fs-14);
+        line-height: 1.55;
+        max-width: 48ch;
+        margin: var(--v-sp-3) 0 var(--v-sp-5);
+      }
+      .pv-signal__cta {
+        display: flex;
+        gap: var(--v-sp-2);
+      }
+      .pv-signal__stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--v-sp-5);
+        align-self: center;
+        padding-left: var(--v-sp-5);
+        border-left: 1px solid var(--v-hairline);
+      }
+      .pv-signal__stat-lbl {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--v-text-mute);
+        margin-bottom: 6px;
+      }
+      .pv-signal__stat-num {
+        font-family: var(--v-font-display);
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1;
+        color: var(--v-text);
+        font-variant-numeric: tabular-nums;
+      }
+      .pv-signal__stat-sub {
+        font-family: var(--v-font-mono);
+        font-size: 11px;
+        color: var(--v-pos);
+        margin-top: 4px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---- Misc ------------------------------------------------------ */
+      .pv-pill-tabs--ghost {
+        background: transparent;
+        border-color: var(--v-hairline);
+      }
+      .pv-content {
+        padding: var(--v-sp-6) var(--v-sp-7) var(--v-sp-7);
+        display: grid;
+        gap: var(--v-grid-gap);
+      }
+
+      @media (max-width: 1180px) {
+        .pv-hero,
+        .pv-split,
+        .pv-signal {
+          grid-template-columns: 1fr;
+        }
+        .pv-port__rows {
+          grid-template-columns: 1fr 1fr;
+        }
+        .pv-signal__stats {
+          border-left: 0;
+          padding-left: 0;
+          border-top: 1px solid var(--v-hairline);
+          padding-top: var(--v-sp-5);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- shared inline icon sprite (Tabler) -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h6v8h-6z" /><path d="M14 4h6v4h-6z" /><path d="M14 12h6v8h-6z" /><path d="M4 16h6v4h-6z" />
+        </symbol>
+        <symbol id="i-briefcase" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" /><path d="M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" /><path d="M12 12l0 .01" /><path d="M3 13a20 20 0 0 0 18 0" />
+        </symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 3v18h18" /><path d="M9 17v-5" /><path d="M13 17v-3" /><path d="M17 17v-7" />
+        </symbol>
+        <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 10h14l-4 -4" /><path d="M17 14h-14l4 4" />
+        </symbol>
+        <symbol id="i-news" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-11a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h14" /><path d="M8 8l4 0" /><path d="M8 12l4 0" /><path d="M8 16l4 0" />
+        </symbol>
+        <symbol id="i-calc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 3m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M8 7m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v1a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z" /><path d="M8 14l0 .01" /><path d="M12 14l0 .01" /><path d="M16 14l0 .01" /><path d="M8 17l0 .01" /><path d="M12 17l0 .01" /><path d="M16 17l0 .01" />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 5a2 2 0 0 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /><path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M21 21l-6 -6" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14" /><path d="M5 12h14" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+        </symbol>
+        <symbol id="i-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5l0 14" /><path d="M18 13l-6 6" /><path d="M6 13l6 6" />
+        </symbol>
+        <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5l0 14" /><path d="M18 11l-6 -6" /><path d="M6 11l6 -6" />
+        </symbol>
+        <symbol id="i-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        </symbol>
+        <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /><path d="M11 15h1" /><path d="M12 15v3" />
+        </symbol>
+        <symbol id="i-chevdown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6l6 -6" />
+        </symbol>
+        <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" />
+        </symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+        </symbol>
+        <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12" /><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="v-app">
+      <div class="v-shell">
+        <!-- =================== Sidebar =================== -->
+        <aside class="v-sidebar pv-sidebar">
+          <div class="v-brand">
+            <span class="v-brand__mark" aria-hidden="true">
+              <svg viewBox="0 0 318.75 330.05" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                <path fill="currentColor" d="M291.67,201.01c-13.58-10.8-27.47-22.56-41.49-35.34,14.38-13.45,28.65-25.98,42.68-37.63,33.14-27.51,34.7-77.82,3.3-107.29-.49-.46-.98-.92-1.47-1.38-31.88-29.92-82.82-24.47-107.81,11.4-8.47,12.16-17.63,24.58-27.51,37.17-9.88-12.58-19.04-25.01-27.51-37.17C106.87-5.1,55.94-10.54,24.06,19.38c-.49.46-.98.92-1.47,1.38-31.4,29.47-29.84,79.79,3.3,107.29,14.03,11.65,28.31,24.17,42.68,37.63-14.02,12.78-27.91,24.54-41.49,35.34-34.2,27.19-36.35,78.36-4.49,108.26l1.47,1.38c31.4,29.47,81.51,24.74,106.86-10.06,8.87-12.19,18.35-24.59,28.46-37.14,10.11,12.55,19.59,24.95,28.46,37.14,25.35,34.81,75.46,39.53,106.86,10.06l1.47-1.38c31.85-29.9,29.7-81.07-4.49-108.26Z" />
+              </svg>
+            </span>
+            <span class="v-brand__name">Voltura</span>
+          </div>
+
+          <label class="v-search">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-search" /></svg>
+            <input type="search" placeholder="Search markets" />
+            <span class="v-mono" style="color: var(--v-moss-deep); font-size: 10px">⌘K</span>
+          </label>
+
+          <div class="pv-sidebar__section">
+            <span class="pv-sidebar__section-label">Workspace</span>
+            <ul class="v-nav">
+              <li class="v-nav__item v-nav__item--active">
+                <svg class="icon" aria-hidden="true"><use href="#i-dashboard" /></svg>
+                Dashboard
+              </li>
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-briefcase" /></svg>
+                Portfolio
+              </li>
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-chart" /></svg>
+                Markets
+              </li>
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-swap" /></svg>
+                Transactions
+              </li>
+            </ul>
+          </div>
+
+          <div class="pv-sidebar__section">
+            <span class="pv-sidebar__section-label">Research</span>
+            <ul class="v-nav">
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-news" /></svg>
+                Signals
+              </li>
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-calc" /></svg>
+                Yield calculator
+              </li>
+            </ul>
+          </div>
+
+          <div class="v-nav__footer">
+            <hr class="v-divider" />
+            <ul class="v-nav" style="margin-top: var(--v-sp-3)">
+              <li class="v-nav__item">
+                <svg class="icon" aria-hidden="true"><use href="#i-settings" /></svg>
+                Settings
+              </li>
+            </ul>
+          </div>
+        </aside>
+
+        <!-- =================== Main =================== -->
+        <main class="v-main">
+          <header class="v-topbar pv-topbar">
+            <div class="pv-topbar__title">
+              <h1 class="v-h1">Dashboard</h1>
+              <span class="pv-topbar__crumb">Overview · May 24</span>
+            </div>
+
+            <div class="pv-topbar__right">
+              <div class="v-pill-tabs pv-pill-tabs--ghost" role="tablist" aria-label="Range">
+                <button class="v-pill-tabs__item">1D</button>
+                <button class="v-pill-tabs__item v-pill-tabs__item--active">1W</button>
+                <button class="v-pill-tabs__item">1M</button>
+                <button class="v-pill-tabs__item">YTD</button>
+              </div>
+              <button class="pv-currency" type="button">
+                <span class="pv-currency__sym">$</span>
+                USD
+                <svg class="icon icon--sm" aria-hidden="true" style="color: var(--v-moss)"><use href="#i-chevdown" /></svg>
+              </button>
+              <button class="pv-iconbtn" aria-label="New transfer">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+              </button>
+              <button class="pv-iconbtn" aria-label="Notifications">
+                <svg class="icon" aria-hidden="true"><use href="#i-bell" /></svg>
+                <span class="pv-iconbtn__dot"></span>
+              </button>
+              <span class="pv-profile" aria-label="Operator profile">AK</span>
+            </div>
+          </header>
+
+          <div class="pv-content">
+            <!-- ============= Hero row ============= -->
+            <section class="pv-hero">
+              <!-- Focal -->
+              <article class="v-card v-card--focal pv-focal" aria-labelledby="pv-focal-title">
+                <div class="pv-focal__head">
+                  <span class="pv-focal__label" id="pv-focal-title">Overview</span>
+                  <span class="pv-focal__chip">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 19l14 -14" /><path d="M9 5l10 0l0 10" /></svg>
+                    +5.21%
+                  </span>
+                </div>
+
+                <div class="pv-focal__mini">
+                  <div class="pv-focal__mini-block">
+                    <span class="pv-focal__mini-num">150</span>
+                    <span class="pv-focal__mini-lbl">Transactions</span>
+                  </div>
+                  <div class="pv-focal__mini-block">
+                    <span class="pv-focal__mini-num">3</span>
+                    <span class="pv-focal__mini-lbl">Wallets</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="pv-focal__label" style="margin-bottom: 8px">Available balance</div>
+                  <div class="pv-focal__balance">$46,200<span style="opacity: 0.68">.90</span></div>
+                  <div class="pv-focal__sub" style="margin-top: 10px">
+                    <span style="font-family: var(--v-font-mono); font-weight: 600">4,820.910 USDT</span>
+                    <span style="opacity: 0.5">·</span>
+                    <span>Settled 24m ago</span>
+                  </div>
+                </div>
+
+                <div class="pv-focal__actions">
+                  <button class="v-btn v-btn--on-acid">
+                    Buy
+                    <svg class="icon icon--sm" aria-hidden="true" style="stroke-width: 1.8"><use href="#i-arrow-right" /></svg>
+                  </button>
+                  <button class="v-btn" style="color: var(--v-text-on-acid); border-color: rgba(20, 24, 26, 0.22)">Send</button>
+                  <button class="v-btn v-btn--ghost" style="color: rgba(20, 24, 26, 0.72)">Convert</button>
+                </div>
+              </article>
+
+              <!-- Portfolio -->
+              <article class="v-card pv-port" aria-labelledby="pv-port-title">
+                <header class="v-card__head">
+                  <div>
+                    <h2 class="v-card__title" id="pv-port-title">My portfolio</h2>
+                    <p class="v-caption" style="margin: 4px 0 0">7 assets · refreshed in 12s</p>
+                  </div>
+                  <div class="v-card__actions">
+                    <button class="v-btn v-btn--secondary v-btn--sm">
+                      Go to portfolio
+                      <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+                    </button>
+                  </div>
+                </header>
+
+                <div class="pv-port__rows">
+                  <div class="pv-port__cell">
+                    <span class="pv-port__more"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-dots" /></svg></span>
+                    <div class="pv-port__head">
+                      <span class="v-avatar v-avatar--coral" aria-hidden="true">₿</span>
+                      <div>
+                        <div class="pv-port__name">Bitcoin</div>
+                        <div class="pv-port__tk">BTC</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="pv-port__num">$28,418.20</div>
+                      <div class="pv-port__delta">+1.84% · 0.42 BTC</div>
+                    </div>
+                  </div>
+
+                  <div class="pv-port__cell">
+                    <span class="pv-port__more"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-dots" /></svg></span>
+                    <div class="pv-port__head">
+                      <span class="v-avatar v-avatar--green" aria-hidden="true">T</span>
+                      <div>
+                        <div class="pv-port__name">Tether</div>
+                        <div class="pv-port__tk">USDT</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="pv-port__num">$11,742.05</div>
+                      <div class="pv-port__delta" style="color: var(--v-moss)">±0.01% · 11,742</div>
+                    </div>
+                  </div>
+
+                  <div class="pv-port__cell">
+                    <span class="pv-port__more"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-dots" /></svg></span>
+                    <div class="pv-port__head">
+                      <span class="v-avatar v-avatar--blue" aria-hidden="true">D</span>
+                      <div>
+                        <div class="pv-port__name">Dash</div>
+                        <div class="pv-port__tk">DASH</div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="pv-port__num">$3,810.65</div>
+                      <div class="pv-port__delta pv-port__delta--neg">−0.92% · 142.4 DASH</div>
+                    </div>
+                  </div>
+                </div>
+
+                <hr class="v-divider" />
+
+                <div class="pv-dist__row">
+                  <div>
+                    <div class="pv-dist__lbl-title">Asset distribution</div>
+                    <div class="pv-dist__lbl-sub">By holding value</div>
+                  </div>
+                  <div>
+                    <div class="v-dist__bar" role="img" aria-label="Distribution: BTC 61%, USDT 25%, DASH 8%, ETH 6%">
+                      <span class="v-dist__seg" style="flex: 0 0 61%; background: var(--v-cat-coral)"></span>
+                      <span class="v-dist__seg" style="flex: 0 0 25%; background: var(--v-cat-green)"></span>
+                      <span class="v-dist__seg" style="flex: 0 0 8%; background: var(--v-cat-blue)"></span>
+                      <span class="v-dist__seg" style="flex: 0 0 6%; background: var(--v-cat-magenta)"></span>
+                    </div>
+                    <div class="pv-dist__legend">
+                      <div class="pv-dist__legitem">
+                        <span class="pv-dist__legdot" style="background: var(--v-cat-coral)"></span>
+                        <span class="pv-dist__legname">BTC</span>
+                        <span class="pv-dist__legval">61%</span>
+                      </div>
+                      <div class="pv-dist__legitem">
+                        <span class="pv-dist__legdot" style="background: var(--v-cat-green)"></span>
+                        <span class="pv-dist__legname">USDT</span>
+                        <span class="pv-dist__legval">25%</span>
+                      </div>
+                      <div class="pv-dist__legitem">
+                        <span class="pv-dist__legdot" style="background: var(--v-cat-blue)"></span>
+                        <span class="pv-dist__legname">DASH</span>
+                        <span class="pv-dist__legval">8%</span>
+                      </div>
+                      <div class="pv-dist__legitem">
+                        <span class="pv-dist__legdot" style="background: var(--v-cat-magenta)"></span>
+                        <span class="pv-dist__legname">ETH</span>
+                        <span class="pv-dist__legval">6%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <!-- ============= Split row ============= -->
+            <section class="pv-split">
+              <!-- Chart -->
+              <article class="v-card" aria-labelledby="pv-chart-title">
+                <header class="pv-chartcard__head">
+                  <div>
+                    <h2 class="v-card__title" id="pv-chart-title">Chart</h2>
+                    <p class="v-caption" style="margin: 4px 0 0">Cumulative balance · USD</p>
+                  </div>
+                  <div class="pv-chartcard__filters">
+                    <div class="v-pill-tabs">
+                      <button class="v-pill-tabs__item v-pill-tabs__item--active">BTC</button>
+                      <button class="v-pill-tabs__item">ETH</button>
+                      <button class="v-pill-tabs__item">All</button>
+                    </div>
+                    <button class="v-btn v-btn--secondary v-btn--sm">
+                      <svg class="icon icon--sm" aria-hidden="true"><use href="#i-cal" /></svg>
+                      Feb 17 — May 24
+                      <svg class="icon icon--sm" aria-hidden="true"><use href="#i-chevdown" /></svg>
+                    </button>
+                  </div>
+                </header>
+
+                <div class="pv-chart">
+                  <svg viewBox="0 0 720 260" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="pv-area" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#d3f23f" stop-opacity="0.32" />
+                        <stop offset="100%" stop-color="#d3f23f" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+
+                    <!-- y grid + labels -->
+                    <g class="v-chart__axis">
+                      <text x="0" y="32" dominant-baseline="middle">60k</text>
+                      <text x="0" y="84" dominant-baseline="middle">45k</text>
+                      <text x="0" y="136" dominant-baseline="middle">30k</text>
+                      <text x="0" y="188" dominant-baseline="middle">15k</text>
+                    </g>
+                    <g class="v-chart__grid">
+                      <line x1="32" x2="720" y1="32" y2="32" />
+                      <line x1="32" x2="720" y1="84" y2="84" />
+                      <line x1="32" x2="720" y1="136" y2="136" />
+                      <line x1="32" x2="720" y1="188" y2="188" />
+                    </g>
+
+                    <!-- area -->
+                    <path
+                      d="M32 168 L80 152 L128 174 L176 138 L224 152 L272 118 L320 132 L368 96 L416 122 L464 84 L512 110 L560 70 L608 96 L656 60 L704 88 L720 86 L720 220 L32 220 Z"
+                      fill="url(#pv-area)"
+                    />
+                    <!-- line -->
+                    <path
+                      d="M32 168 L80 152 L128 174 L176 138 L224 152 L272 118 L320 132 L368 96 L416 122 L464 84 L512 110 L560 70 L608 96 L656 60 L704 88 L720 86"
+                      class="v-chart__line"
+                    />
+
+                    <!-- focus marker on Feb 25 -->
+                    <line x1="464" y1="32" x2="464" y2="220" stroke="rgba(211,242,63,0.35)" stroke-dasharray="3 4" />
+                    <circle cx="464" cy="84" r="6" fill="#d3f23f" />
+                    <circle cx="464" cy="84" r="3" fill="#14181a" />
+
+                    <!-- x labels -->
+                    <g class="v-chart__axis">
+                      <text x="32" y="240" text-anchor="start">00:00</text>
+                      <text x="180" y="240" text-anchor="middle">05:00</text>
+                      <text x="320" y="240" text-anchor="middle">10:00</text>
+                      <text x="464" y="240" text-anchor="middle">15:00</text>
+                      <text x="608" y="240" text-anchor="middle">20:00</text>
+                      <text x="720" y="240" text-anchor="end">24:00</text>
+                    </g>
+                  </svg>
+
+                  <div class="pv-chartcard__tip" style="left: calc(64% - 70px); top: 18px">
+                    <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--v-text-mute)">Feb 25 · 16:42</span>
+                    <span class="pv-chartcard__tipnum">$22,079.20</span>
+                    <span class="pv-chartcard__tipdelta">▲ 16.30% · +3,094</span>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Transactions -->
+              <article class="v-card" aria-labelledby="pv-tx-title">
+                <header class="pv-tx__head">
+                  <div>
+                    <h2 class="v-card__title" id="pv-tx-title">Transactions</h2>
+                    <p class="v-caption" style="margin: 4px 0 0">Recent activity</p>
+                  </div>
+                  <nav class="v-tabs" aria-label="Transactions filter">
+                    <button class="v-tabs__item v-tabs__item--active">All</button>
+                    <button class="v-tabs__item">Send</button>
+                    <button class="v-tabs__item">Receive</button>
+                  </nav>
+                </header>
+
+                <div>
+                  <div class="pv-tx__group">12 May 2024</div>
+                  <div class="pv-tx__row">
+                    <span class="pv-tx__icon" aria-hidden="true"><svg class="icon icon--sm"><use href="#i-arrow-down" /></svg></span>
+                    <div>
+                      <div class="pv-tx__title">0.020009 BTC</div>
+                      <div class="pv-tx__sub">Received from 543B43</div>
+                    </div>
+                    <div>
+                      <div class="pv-tx__amt">+$580.20</div>
+                      <div class="pv-tx__time">15:22</div>
+                    </div>
+                  </div>
+
+                  <div class="pv-tx__group">04 May 2024</div>
+
+                  <div class="pv-tx__row">
+                    <span class="pv-tx__icon" aria-hidden="true"><svg class="icon icon--sm"><use href="#i-arrow-down" /></svg></span>
+                    <div>
+                      <div class="pv-tx__title">0.020009 BTC</div>
+                      <div class="pv-tx__sub">Received from 543B43</div>
+                    </div>
+                    <div>
+                      <div class="pv-tx__amt">+$580.20</div>
+                      <div class="pv-tx__time">09:11</div>
+                    </div>
+                  </div>
+
+                  <div class="pv-tx__row">
+                    <span class="pv-tx__icon pv-tx__icon--neg" aria-hidden="true"><svg class="icon icon--sm"><use href="#i-arrow-up" /></svg></span>
+                    <div>
+                      <div class="pv-tx__title">0.020009 BTC</div>
+                      <div class="pv-tx__sub">Sent to 5439A3</div>
+                    </div>
+                    <div>
+                      <div class="pv-tx__amt">−$580.20</div>
+                      <div class="pv-tx__time">02:50</div>
+                    </div>
+                  </div>
+
+                  <div class="pv-tx__row">
+                    <span class="pv-tx__icon" aria-hidden="true"><svg class="icon icon--sm"><use href="#i-arrow-down" /></svg></span>
+                    <div>
+                      <div class="pv-tx__title">123.40 USDT</div>
+                      <div class="pv-tx__sub">Received from MEX-vault</div>
+                    </div>
+                    <div>
+                      <div class="pv-tx__amt">+$123.40</div>
+                      <div class="pv-tx__time">02:14</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="v-btn v-btn--secondary" style="justify-content: space-between; width: 100%; margin-top: var(--v-sp-2)">
+                  See all transactions
+                  <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+                </button>
+              </article>
+            </section>
+
+            <!-- ============= Signal band ============= -->
+            <section class="pv-signal" aria-labelledby="pv-signal-title">
+              <div>
+                <div class="pv-signal__mark" aria-hidden="true">
+                  <svg viewBox="0 0 318.75 330.05" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                    <path fill="currentColor" d="M291.67,201.01c-13.58-10.8-27.47-22.56-41.49-35.34,14.38-13.45,28.65-25.98,42.68-37.63,33.14-27.51,34.7-77.82,3.3-107.29-.49-.46-.98-.92-1.47-1.38-31.88-29.92-82.82-24.47-107.81,11.4-8.47,12.16-17.63,24.58-27.51,37.17-9.88-12.58-19.04-25.01-27.51-37.17C106.87-5.1,55.94-10.54,24.06,19.38c-.49.46-.98.92-1.47,1.38-31.4,29.47-29.84,79.79,3.3,107.29,14.03,11.65,28.31,24.17,42.68,37.63-14.02,12.78-27.91,24.54-41.49,35.34-34.2,27.19-36.35,78.36-4.49,108.26l1.47,1.38c31.4,29.47,81.51,24.74,106.86-10.06,8.87-12.19,18.35-24.59,28.46-37.14,10.11,12.55,19.59,24.95,28.46,37.14,25.35,34.81,75.46,39.53,106.86,10.06l1.47-1.38c31.85-29.9,29.7-81.07-4.49-108.26Z" />
+                  </svg>
+                </div>
+                <h2 class="pv-signal__title" id="pv-signal-title">One signal, never two. Voltura keeps the trading desk quiet.</h2>
+                <p class="pv-signal__lead">
+                  Every layout reserves a single luminous focal card — the balance, the alert, the next move.
+                  Surrounding instruments dim into the canvas so the operator's attention always lands first.
+                </p>
+                <div class="pv-signal__cta">
+                  <button class="v-btn v-btn--primary">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-bolt" /></svg>
+                    Open trading desk
+                  </button>
+                  <button class="v-btn v-btn--secondary">
+                    Read the system
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-arrow-right" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="pv-signal__stats">
+                <div>
+                  <div class="pv-signal__stat-lbl">Active signal</div>
+                  <div class="pv-signal__stat-num">BTC/USDT</div>
+                  <div class="pv-signal__stat-sub">▲ 5.21% · 7d</div>
+                </div>
+                <div>
+                  <div class="pv-signal__stat-lbl">Settled vol.</div>
+                  <div class="pv-signal__stat-num">$1.42M</div>
+                  <div class="pv-signal__stat-sub">12 venues · live</div>
+                </div>
+                <div>
+                  <div class="pv-signal__stat-lbl">Open positions</div>
+                  <div class="pv-signal__stat-num">4 / 12</div>
+                  <div class="pv-signal__stat-sub" style="color: var(--v-text-mute)">2 awaiting fill</div>
+                </div>
+                <div>
+                  <div class="pv-signal__stat-lbl">Risk band</div>
+                  <div class="pv-signal__stat-num">Tier 2</div>
+                  <div class="pv-signal__stat-sub" style="color: var(--v-text-mute)">Auto-rebalance on</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
