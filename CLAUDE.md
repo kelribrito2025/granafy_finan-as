@@ -2,10 +2,10 @@
 
 ## Antes de mexer em interface
 
-Leia `DESIGN.md` na raiz do projeto antes de qualquer trabalho de UI (landing, telas do app, componentes, e-mails). Ele descreve o design system Verda Finance: cores, tipografia, espaçamento, raios, componentes e estados de interação, além da seção "Neste projeto", que diz onde o CSS está, onde já é aplicado e quais conflitos existem com o visual atual do app.
+Leia `DESIGN.md` na raiz do projeto antes de qualquer trabalho de UI (telas do app, componentes, landing, e-mails). Ele descreve o design system Voltura: cores, tipografia, espaçamento, raios, componentes e estados de interação, além da seção "Neste projeto", que diz onde o CSS está, em que tela já é aplicado e quais conflitos existem com o visual atual do app.
 
-- Landing: `client/public/site/index.html`, que importa `/site/css/system.css` uma única vez. Use as classes `vf-*` do sistema e só escreva CSS próprio para layout da página.
-- App logado (`client/src`): ainda não adota o sistema. Não misturar tokens `--vf-*` lá sem decisão explícita do dono do produto.
+- Visão geral (`client/src/pages/Home.tsx`): já usa o Voltura, com o CSS em `client/src/styles/voltura.css` sob o escopo `.voltura`. Use as classes `v-*` do sistema e só escreva CSS próprio (`vg-*`) para a composição da página.
+- Demais telas, barra lateral e landing (`client/public/site/index.html`): ainda com o visual anterior do app. Não estender o Voltura a elas sem decisão explícita do dono do produto.
 
 ## Fluxo de entrega
 
