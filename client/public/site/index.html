@@ -55,26 +55,113 @@
      (client/src/components/AuroraSurface.tsx). Fica numa classe porque
      aparece em três lugares: as duas seções escuras e o cartão do hero —
      copiada, uma mudança de tom acabaria aplicada em dois. */
-  /* O painel é o retrato do produto: em tela grande ele fica com mais espaço
-     que o texto, senão o desenho encolhe até virar um quadradinho ilegível.
-     Os 510px do texto são o que os dois botões precisam para caber lado a
-     lado. */
-  @media (min-width: 1200px) {
-    .hero-grade { grid-template-columns: minmax(0, 510px) minmax(0, 1fr) !important; }
+  /* Variáveis do topo escuro: um lugar só para o tom de fundo e o verde de
+     destaque, que aparecem no cabeçalho, no hero e na moldura do painel. */
+  :root {
+    --fundo-escuro:#06120B;
+    --acento:#7EE2A8;
+    --acento-forte:#12B85C;
+    --texto-suave:#B9CCC0;
   }
 
-  /* Abaixo de 1200px as duas colunas deixariam ao painel menos de 400px, e aí
-     ele se espreme até os rótulos se cortarem. Empilhado, ele fica com a
-     largura inteira do contêiner. */
-  @media (max-width: 1199px) {
-    .hero-grade { grid-template-columns: minmax(0, 1fr) !important; }
+  /* O hero é a primeira tela: fundo escuro com um brilho verde vindo de cima,
+     texto centralizado e o painel do produto logo abaixo, em largura inteira.
+     Antes texto e painel dividiam duas colunas; lado a lado o painel encolhia
+     até virar um quadradinho. Embaixo ele fica do tamanho de uma tela real. */
+  .hero {
+    position:relative; isolation:isolate;
+    background:var(--fundo-escuro); color:#FFFFFF;
   }
+  .hero::before {
+    content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(60% 50% at 50% 0%, rgba(126,226,168,.30) 0%, rgba(126,226,168,.08) 45%, rgba(126,226,168,0) 72%),
+      radial-gradient(45% 40% at 50% 100%, rgba(18,184,92,.22) 0%, rgba(18,184,92,0) 70%);
+  }
+  /* Uma grade fina ao fundo, como as landings de produto técnico usam: dá
+     profundidade sem competir com o texto. Some para o centro para não riscar
+     o título. */
+  .hero::after {
+    content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+    background-size:56px 56px;
+    -webkit-mask-image:radial-gradient(70% 60% at 50% 30%, rgba(0,0,0,0) 20%, #000 100%);
+    mask-image:radial-gradient(70% 60% at 50% 30%, rgba(0,0,0,0) 20%, #000 100%);
+  }
+  .hero-texto {
+    max-width:900px; margin:0 auto; padding:88px 24px 56px; width:100%;
+    display:flex; flex-direction:column; align-items:center; text-align:center; gap:22px;
+  }
+  .hero-texto h1 {
+    margin:0; font-size:clamp(36px, 5.6vw, 64px); font-weight:700; letter-spacing:-.04em; line-height:1.04;
+    text-wrap:balance; max-width:21ch;
+  }
+  .hero-texto h1 em { font-style:normal; color:var(--acento); }
+  .hero-texto p { margin:0; font-size:clamp(15px, 1.6vw, 19px); line-height:1.6; color:var(--texto-suave); max-width:600px; text-wrap:pretty; }
+  .hero-selo {
+    display:inline-flex; align-items:center; gap:8px; height:32px; padding:0 14px 0 8px; border-radius:99px;
+    border:1px solid rgba(126,226,168,.35); background:rgba(126,226,168,.08);
+    font-size:12.5px; font-weight:600; color:#DDF5E7; letter-spacing:.01em;
+  }
+  .hero-selo b { height:20px; padding:0 8px; border-radius:99px; background:var(--acento); color:var(--fundo-escuro); font-size:11px; font-weight:700; display:flex; align-items:center; }
 
-  /* Fora dos 1200px do contêiner, o painel avança até perto da beirada da
-     janela. O `min()` zera a margem em tela estreita, onde ela jogaria o
-     painel para fora. O corte fica por conta do `overflow-x:clip` do bloco
-     que envolve a página. */
-  .hero-painel { margin-right: min(0px, calc(608px - 50vw)); }
+  /* Os dois botões da primeira tela. O primeiro é só contorno verde: em fundo
+     escuro um bloco sólido de verde brigaria com o título. O segundo é uma
+     pílula escura, um degrau abaixo, para a demonstração. */
+  .btn-contorno {
+    height:54px; padding:0 26px; border-radius:99px; display:inline-flex; align-items:center; gap:10px;
+    border:1.5px solid var(--acento); color:var(--acento); background:transparent;
+    font-size:15px; font-weight:700; cursor:pointer; white-space:nowrap;
+    transition:background .16s, color .16s, transform .16s, box-shadow .16s;
+  }
+  .btn-contorno:hover { background:var(--acento); color:var(--fundo-escuro); transform:translateY(-1px); box-shadow:0 12px 32px rgba(126,226,168,.28); }
+  .btn-contorno:active { transform:translateY(0); }
+  .btn-escuro {
+    height:54px; padding:0 24px; border-radius:99px; display:inline-flex; align-items:center; gap:10px;
+    background:#16291E; border:1px solid rgba(255,255,255,.10); color:#FFFFFF;
+    font-size:15px; font-weight:600; cursor:pointer; white-space:nowrap;
+    transition:background .16s, border-color .16s, transform .16s;
+  }
+  .btn-escuro:hover { background:#1E3628; border-color:rgba(255,255,255,.18); transform:translateY(-1px); }
+  .btn-escuro:active { transform:translateY(0); }
+  .hero-provas { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 22px; padding-top:4px; }
+  .hero-provas span { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--texto-suave); }
+
+  /* O painel do produto, abaixo do texto. Ele fica numa moldura escura com a
+     barra de janela, e desce para dentro da seção clara seguinte — a mesma
+     medida (`--sobra`) que ele invade é o que a seção de baixo abre de espaço. */
+  .hero-painel {
+    position:relative; z-index:1; width:100%; max-width:1080px; margin:0 auto; padding:0 24px;
+    margin-bottom:calc(var(--sobra) * -1);
+  }
+  :root { --sobra:140px; }
+  .moldura {
+    background:#0C1A12; border:1px solid rgba(255,255,255,.10); border-radius:22px; padding:0;
+    box-shadow:0 40px 100px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.4), 0 0 80px rgba(126,226,168,.10);
+    overflow:hidden;
+  }
+  .moldura-barra { display:flex; align-items:center; gap:7px; height:38px; padding:0 14px; background:#0F2117; border-bottom:1px solid rgba(255,255,255,.07); }
+  .moldura-barra i { width:10px; height:10px; border-radius:99px; background:rgba(255,255,255,.14); display:block; }
+  .moldura-barra span { margin-left:10px; flex:1; max-width:340px; height:22px; border-radius:7px; background:rgba(255,255,255,.06); color:#8FB39E; font-size:11px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .moldura-barra svg { display:inline-block; }
+  /* A cor volta ao tom do app: o hero é branco sobre escuro e o retrato da
+     tela herdaria o branco, apagando os títulos dos cartões. */
+  .moldura-conteudo { padding:10px; background:#0C1A12; color:#0B1F14; }
+  /* O retrato da tela vinha com borda e sombra próprias; dentro da moldura
+     elas viram ruído. */
+  .moldura-conteudo > div { border-color:transparent !important; box-shadow:none !important; border-radius:14px !important; }
+  #o-problema { padding-top:calc(var(--sobra) + 80px) !important; }
+
+  /* Cabeçalho escuro, colado ao topo. Sobre as seções claras ele continua
+     escuro de propósito: é a mesma faixa da primeira tela acompanhando a página. */
+  .topo { position:sticky; top:0; z-index:40; background:rgba(6,18,11,.86); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.08); color:#FFFFFF; }
+  .topo .nav .link { color:var(--texto-suave); }
+  .topo .nav .link:hover { color:#FFFFFF; }
+  .topo .nav .link::after { background:var(--acento); }
+  .entrar-topo { height:40px; padding:0 14px; border-radius:99px; display:flex; align-items:center; font-size:14px; font-weight:600; color:#DDF5E7; cursor:pointer; transition:background .14s; }
+  .entrar-topo:hover { background:rgba(255,255,255,.08); }
+  .cta-topo { height:40px; padding:0 18px; border-radius:99px; background:var(--acento); color:var(--fundo-escuro); display:flex; align-items:center; font-size:14px; font-weight:700; white-space:nowrap; cursor:pointer; transition:background .14s, transform .14s; }
+  .cta-topo:hover { background:#A2F0C2; transform:translateY(-1px); }
 
   /* No celular o cabeçalho fixo precisa caber numa linha: os âncoras saem e
      ficam só a marca e os dois botões, que é o que a pessoa vai usar. Sem
@@ -89,7 +176,12 @@
        sopa de texto cortado. No celular ele mantém a largura de desenho e
        transborda para a direita — quem vê reconhece a tela, e o corte fica
        por conta do `overflow-x:clip` da página. */
-    .hero-painel > div { width:560px; }
+    .moldura { width:580px; }
+    .hero-painel { padding:0 16px; }
+    :root { --sobra:90px; }
+    .hero-texto { padding:56px 20px 40px; }
+    .hero-texto h1 { max-width:none; }
+    .btn-contorno, .btn-escuro { height:50px; padding:0 20px; font-size:14.5px; }
     .barra-topo { padding-left:16px !important; padding-right:16px !important; gap:12px !important; }
     .cta-topo { padding:0 14px !important; }
   }
@@ -99,24 +191,9 @@
   html { scroll-behavior:smooth; }
   [id] { scroll-margin-top:88px; }
 
-  /* O indicador de que a página continua. A primeira tela ocupa 90% da altura,
-     então quase nada da seção seguinte aparece para denunciar que há mais. */
-  .rolar {
-    display:flex; flex-direction:column; align-items:center; gap:9px;
-    padding:16px 0 30px; color:#0A7A42; text-decoration:none;
-  }
-  .rolar:hover { text-decoration:none; }
-  .rolar span { font-size:12.5px; font-weight:600; letter-spacing:.03em; }
-  .rolar-bolinha { animation:rolar-desce 1.9s cubic-bezier(.4,0,.2,1) infinite; }
-  @keyframes rolar-desce {
-    0%   { transform:translateY(0);   opacity:0; }
-    20%  { opacity:1; }
-    75%  { transform:translateY(9px); opacity:0; }
-    100% { transform:translateY(9px); opacity:0; }
-  }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior:auto; }
-    .rolar-bolinha { animation:none; }
+    .btn-contorno:hover, .btn-escuro:hover, .cta-topo:hover { transform:none; }
   }
 
   .aurora {
@@ -133,55 +210,61 @@
      o contêiner. -->
 <div style="display:flex; flex-direction:column; width:100%; overflow-x:clip">
 
-  <div style="position:sticky; top:0; z-index:40; background:rgba(255,255,255,.92); backdrop-filter:blur(10px); border-bottom:1px solid #E3EBE6">
-    <div class="barra-topo" style="max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:28px">
+  <div class="topo">
+    <div class="barra-topo" style="max-width:1200px; margin:0 auto; padding:12px 24px; display:flex; align-items:center; gap:28px">
       <div style="display:flex; align-items:center; gap:10px">
         <span style="width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0">
           <img src="/manus-storage/granafy-icone-verde-512_d6fa67fc.png" alt="" aria-hidden="true" style="display:block; width:36px; height:36px; max-width:none; object-fit:cover; transform:scale(1.18)">
         </span>
-        <span style="font-size:18px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:#0A7A42">Fy</span></span>
+        <span style="font-size:18px; font-weight:700; letter-spacing:-.02em">Grana<span style="color:var(--acento)">Fy</span></span>
       </div>
-      <div class="nav" style="display:flex; align-items:center; gap:22px">
-        <a href="#recursos" class="link" style="font-size:14px; color:#4C6355">Recursos</a>
-        <a href="#como-funciona" class="link" style="font-size:14px; color:#4C6355">Como funciona</a>
-        <a href="#planos" class="link" style="font-size:14px; color:#4C6355">Planos</a>
+      <div class="nav" style="display:flex; align-items:center; gap:24px; margin:0 auto">
+        <a href="#recursos" class="link" style="font-size:14px">Recursos</a>
+        <a href="#como-funciona" class="link" style="font-size:14px">Como funciona</a>
+        <a href="#planos" class="link" style="font-size:14px">Planos</a>
       </div>
-      <div style="margin-left:auto; display:flex; align-items:center; gap:12px">
-        <a href="/login" class="ghost" style="height:42px; padding:0 16px; border-radius:12px; display:flex; align-items:center; font-size:14px; font-weight:600; color:#28382E">Entrar</a>
-        <a href="/cadastro" class="cta cta-topo" style="height:42px; padding:0 18px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; font-size:14px; font-weight:700; white-space:nowrap">Testar<span class="so-desktop">&nbsp;14 dias</span>&nbsp;grátis</a>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px">
+        <a href="/login" class="entrar-topo">Entrar</a>
+        <a href="/cadastro" class="cta-topo">Testar<span class="so-desktop">&nbsp;14 dias</span>&nbsp;grátis</a>
       </div>
     </div>
   </div>
 
-  <div style="background:#F1FBF6; border-bottom:1px solid #DCEDE4; min-height:calc(90vh - 71px); min-height:calc(90svh - 71px); display:flex; flex-direction:column">
-    <div class="hero-grade" style="max-width:1200px; margin:0 auto; padding:72px 24px 0; width:100%; flex:1; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:44px; align-items:center">
-      <div style="display:flex; flex-direction:column; gap:22px; min-width:0">
-        <h1 style="margin:0; font-size:clamp(34px, 5vw, 52px); font-weight:700; letter-spacing:-.035em; line-height:1.08; text-wrap:pretty">O financeiro da sua empresa fechado antes do café da tarde.</h1>
-        <p style="margin:0; font-size:clamp(15px, 1.6vw, 18px); line-height:1.6; color:#28382E; max-width:520px; text-wrap:pretty">Saldo consolidado, contas a pagar e receber, conciliação e DRE — no mesmo lugar, a partir do extrato que você importa. Sem planilha, sem digitar lançamento por lançamento.</p>
-        <div style="display:flex; flex-wrap:wrap; gap:12px">
-          <span class="cta" style="height:52px; padding:0 24px; border-radius:12px; background:#12B85C; color:#FFFFFF; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700">
-            Começar teste grátis
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
-          </span>
-          <span class="ghost" style="height:52px; padding:0 22px; border-radius:12px; background:#FFFFFF; border:1px solid #C7E8D6; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:600; color:#28382E">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A7A42" stroke-width="2"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-            Ver demonstração de 3 min
-          </span>
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:18px; padding-top:6px">
-          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>14 dias sem cartão</span>
-          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Migração da planilha inclusa</span>
-          <span style="display:flex; align-items:center; gap:8px; font-size:13px; color:#4C6355"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#12B85C" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Cancele quando quiser</span>
-        </div>
+  <div class="hero">
+    <div class="hero-texto">
+      <span class="hero-selo"><b>Novo</b>Relatórios de caixa e DRE no mesmo lugar</span>
+      <h1>O financeiro da sua empresa fechado <em>antes do café da tarde</em>.</h1>
+      <p>Saldo consolidado, contas a pagar e receber, conciliação e DRE — a partir do extrato que você importa. Sem planilha, sem digitar lançamento por lançamento.</p>
+      <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; padding-top:4px">
+        <a href="/cadastro" class="btn-contorno">
+          Começar teste grátis
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+        </a>
+        <span class="btn-escuro">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" stroke-width="2"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+          Ver demonstração de 3 min
+        </span>
       </div>
+      <div class="hero-provas">
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>14 dias sem cartão</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Migração da planilha inclusa</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" stroke-width="2.6"><path d="M20 6L9 17l-5-5"></path></svg>Cancele quando quiser</span>
+      </div>
+    </div>
 
-      <!--
-        O painel do hero é um retrato da tela "Visão geral": mesma barra
-        lateral, mesmo cabeçalho, mesmo cartão escuro com a curva de saldo e
-        os mesmos blocos embaixo. Quem chega pelo site precisa reconhecer o
-        produto quando entrar — um desenho "parecido" quebra essa promessa.
-      -->
-      <div class="hero-painel" style="min-width:0; padding-bottom:72px; position:relative">
+    <!--
+      O painel do hero é um retrato da tela "Visão geral": mesma barra
+      lateral, mesmo cabeçalho, mesmo cartão escuro com a curva de saldo e
+      os mesmos blocos embaixo. Quem chega pelo site precisa reconhecer o
+      produto quando entrar — um desenho "parecido" quebra essa promessa.
+    -->
+    <div class="hero-painel">
+      <div class="moldura">
+        <div class="moldura-barra" aria-hidden="true">
+          <i></i><i></i><i></i>
+          <span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 018 0v4"></path></svg>app.granafy.com/visao-geral</span>
+        </div>
+        <div class="moldura-conteudo">
         <div style="background:#EFF4F1; border:1px solid #DCEDE4; border-radius:20px; padding:11px; display:flex; gap:10px; box-shadow:0 28px 70px rgba(11,31,20,.16)">
 
           <div style="width:124px; flex-shrink:0; background:#FFFFFF; border-radius:15px; padding:11px 7px; display:flex; flex-direction:column; gap:12px">
@@ -361,16 +444,9 @@
 
           </div>
         </div>
+        </div>
       </div>
     </div>
-
-    <a href="#o-problema" class="rolar" aria-label="Ver o restante da página">
-      <span>Role para ver mais</span>
-      <svg width="24" height="38" viewBox="0 0 24 38" fill="none" aria-hidden="true">
-        <rect x="1.3" y="1.3" width="21.4" height="35.4" rx="10.7" stroke="currentColor" stroke-width="2.2"></rect>
-        <circle class="rolar-bolinha" cx="12" cy="10.5" r="2.8" fill="currentColor"></circle>
-      </svg>
-    </a>
   </div>
 
 
