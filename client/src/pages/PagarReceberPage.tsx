@@ -10,6 +10,8 @@ import { SidebarStatCard } from "@/components/SidebarStatCard";
 import { GranafyLoader } from "@/components/GranafyLoader";
 import { ChartSkeleton, KpiRowSkeleton } from "@/components/PageSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
+// O design system Voltura, com escopo nesta tela (ver DESIGN.md na raiz).
+import "@/styles/voltura.css";
 import {
   ArrowUpIcon,
   CheckIcon,
@@ -716,15 +718,15 @@ export default function PagarReceberPage() {
     : [];
 
   return (
-    <main className="min-h-screen w-full bg-[#EFF4F1] text-[#0B1F14]">
-      <div className="flex min-h-screen w-full gap-5 p-3 sm:p-5">
+    <main className="voltura vg-pagina">
+      <div className="flex w-full">
         <AppSidebar
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           footer={<OverdueCard count={overduePayables.length} amount={data?.totals.overduePayable ?? 0} />}
         />
 
-        <section className="flex min-w-0 flex-1 flex-col gap-5">
+        <section className="vg-casca vg-conteudo flex min-w-0 flex-1 flex-col gap-5">
           <header className="flex flex-wrap items-center gap-2.5">
             <button type="button" aria-label="Abrir menu" onClick={() => setMobileOpen(true)} className={`${toolButton} xl:hidden`}><SidebarMenuIcon size={18} /></button>
             <PageIcon icon={ArrowUpIcon} />

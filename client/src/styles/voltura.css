@@ -66,6 +66,14 @@
   --v-fill-soft: rgba(26, 31, 23, 0.04);
   --v-fill: rgba(26, 31, 23, 0.06);
 
+  /* Tintas de estado, para as telas que ainda usam a paleta do produto. */
+  --v-acid-soft: rgba(150, 190, 20, 0.16);
+  --v-pos-ink: #2f7a3f;
+  --v-neg-soft: rgba(236, 106, 94, 0.14);
+  --v-neg-ink: #b4372c;
+  --v-warn-soft: rgba(196, 150, 20, 0.16);
+  --v-warn-ink: #8a6a12;
+
   /* Sombra de menu suspenso. */
   --v-shadow-pop: 0 18px 44px rgba(26, 31, 23, 0.16);
 
@@ -1590,6 +1598,386 @@
   .voltura .v-content {
     padding: 16px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   A paleta do produto traduzida para os tokens do sistema.
+
+   As outras telas não foram remarcadas: elas continuam com as classes de cor
+   do app, e é esta tabela que as traduz enquanto estiverem dentro de uma
+   casca `.vg-casca`. A tradução espelha a tabela do tema escuro em
+   `client/src/index.css` — que é o levantamento do que o produto realmente
+   usa —, então cobre o mesmo terreno e envelhece junto com ela.
+
+   Fica ANTES das seções por componente (barra lateral, menu do perfil,
+   modal): em empate de especificidade vence a regra de baixo, e o desenho
+   específico tem de ganhar da tabela geral.
+   -------------------------------------------------------------------------- */
+
+.voltura .vg-casca .bg-white {
+  background-color: var(--v-surface) !important;
+}
+
+.voltura .vg-casca .bg-\[\#EFF4F1\] {
+  background-color: var(--v-canvas) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F8FAF9\],
+.voltura .vg-casca .bg-\[\#F8FCFA\],
+.voltura .vg-casca .bg-\[\#F8FBF9\],
+.voltura .vg-casca .bg-\[\#F7F9F8\],
+.voltura .vg-casca .bg-\[\#F4F8F6\] {
+  background-color: var(--v-fill-soft) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F1F4F2\],
+.voltura .vg-casca .bg-\[\#EDF2EE\],
+.voltura .vg-casca .bg-\[\#EDF2EF\],
+.voltura .vg-casca .bg-\[\#ECEFEC\],
+.voltura .vg-casca .bg-\[\#E7ECE8\],
+.voltura .vg-casca .bg-\[\#E7ECE9\],
+.voltura .vg-casca .bg-\[\#E5ECE7\],
+.voltura .vg-casca .bg-\[\#E8EEEA\],
+.voltura .vg-casca .bg-\[\#DDE5E0\] {
+  background-color: var(--v-fill) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F1FBF6\],
+.voltura .vg-casca .bg-\[\#ECF8F1\],
+.voltura .vg-casca .bg-\[\#E5F7ED\],
+.voltura .vg-casca .bg-\[\#EAF8F0\],
+.voltura .vg-casca .bg-\[\#EAF7EE\],
+.voltura .vg-casca .bg-\[\#E9F3ED\],
+.voltura .vg-casca .bg-\[\#DFF6EA\] {
+  background-color: var(--v-acid-soft) !important;
+}
+
+.voltura .vg-casca .bg-\[\#FDECEA\],
+.voltura .vg-casca .bg-\[\#FFF8F7\],
+.voltura .vg-casca .bg-\[\#F7EAE7\] {
+  background-color: var(--v-neg-soft) !important;
+}
+
+.voltura .vg-casca .bg-\[\#FFF5DD\],
+.voltura .vg-casca .bg-\[\#FFF8E8\],
+.voltura .vg-casca .bg-\[\#FFF9EB\],
+.voltura .vg-casca .bg-\[\#FFF0C9\],
+.voltura .vg-casca .bg-\[\#FFF3E6\],
+.voltura .vg-casca .bg-\[\#FFF4E8\] {
+  background-color: var(--v-warn-soft) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F2EAF8\] {
+  background-color: var(--v-fill) !important;
+}
+
+.voltura .vg-casca .bg-\[\#E8EDF9\] {
+  background-color: var(--v-fill) !important;
+}
+
+.voltura .vg-casca .text-\[\#0B1F14\],
+.voltura .vg-casca .text-\[\#17241C\],
+.voltura .vg-casca .text-\[\#18271F\],
+.voltura .vg-casca .text-\[\#28382E\],
+.voltura .vg-casca .text-\[\#3F5146\] {
+  color: var(--v-text) !important;
+}
+
+.voltura .vg-casca .text-\[\#4C6355\],
+.voltura .vg-casca .text-\[\#607067\],
+.voltura .vg-casca .text-\[\#718077\] {
+  color: var(--v-bone-soft) !important;
+}
+
+.voltura .vg-casca .text-\[\#8A968D\],
+.voltura .vg-casca .text-\[\#9AA69E\],
+.voltura .vg-casca .text-\[\#A8B1AB\],
+.voltura .vg-casca .text-\[\#AAB4AD\],
+.voltura .vg-casca .text-\[\#B3BFB7\],
+.voltura .vg-casca .text-\[\#BCC6BF\],
+.voltura .vg-casca .text-\[\#CDD4CF\] {
+  color: var(--v-text-mute) !important;
+}
+
+.voltura .vg-casca .text-\[\#0A7A42\],
+.voltura .vg-casca .text-\[\#0A9650\],
+.voltura .vg-casca .text-\[\#08773C\],
+.voltura .vg-casca .text-\[\#12B85C\],
+.voltura .vg-casca .text-\[\#315B44\],
+.voltura .vg-casca .text-\[\#478261\] {
+  color: var(--v-acid-ink) !important;
+}
+
+.voltura .vg-casca .text-\[\#B3261E\],
+.voltura .vg-casca .text-\[\#8E1F16\],
+.voltura .vg-casca .text-\[\#C13B32\],
+.voltura .vg-casca .text-\[\#A2352A\],
+.voltura .vg-casca .text-\[\#7D362F\],
+.voltura .vg-casca .text-\[\#9D5A54\],
+.voltura .vg-casca .text-\[\#8A4A45\] {
+  color: var(--v-neg-ink) !important;
+}
+
+.voltura .vg-casca .text-\[\#B87500\],
+.voltura .vg-casca .text-\[\#936000\],
+.voltura .vg-casca .text-\[\#7A5A14\],
+.voltura .vg-casca .text-\[\#725517\],
+.voltura .vg-casca .text-\[\#8A4B00\],
+.voltura .vg-casca .text-\[\#D36F12\] {
+  color: var(--v-warn-ink) !important;
+}
+
+.voltura .vg-casca .text-\[\#6D2385\] {
+  color: var(--v-text-mute) !important;
+}
+
+.voltura .vg-casca .text-\[\#395487\] {
+  color: var(--v-text-mute) !important;
+}
+
+.voltura .vg-casca .border-\[\#DCE5DF\],
+.voltura .vg-casca .border-\[\#DDE5E0\],
+.voltura .vg-casca .border-\[\#DDE9E1\],
+.voltura .vg-casca .border-\[\#DFE6E1\],
+.voltura .vg-casca .border-\[\#E1E8E3\],
+.voltura .vg-casca .border-\[\#E3EAE5\],
+.voltura .vg-casca .border-\[\#E8EEEA\],
+.voltura .vg-casca .border-\[\#EDF1EE\],
+.voltura .vg-casca .border-\[\#C9D5CD\],
+.voltura .vg-casca .border-\[\#E3EBE6\],
+.voltura .vg-casca .border-\[\#EDF2EE\],
+.voltura .vg-casca .border-\[\#F1F4F2\],
+.voltura .vg-casca .border-\[\#F8FAF9\] {
+  border-color: var(--v-hairline) !important;
+}
+
+.voltura .vg-casca .ring-\[\#DCE5DF\],
+.voltura .vg-casca .ring-\[\#DDE8E1\],
+.voltura .vg-casca .ring-\[\#DFE6E1\],
+.voltura .vg-casca .ring-\[\#E1E8E3\],
+.voltura .vg-casca .ring-\[\#E3EBE6\],
+.voltura .vg-casca .ring-\[\#E8EEEA\],
+.voltura .vg-casca .ring-\[\#CFE2D7\] {
+  --tw-ring-color: var(--v-hairline) !important;
+}
+
+.voltura .vg-casca .ring-\[\#BDE8CF\],
+.voltura .vg-casca .ring-\[\#C7E8D6\],
+.voltura .vg-casca .ring-\[\#C8EBD8\],
+.voltura .vg-casca .ring-\[\#CFE9DA\] {
+  --tw-ring-color: var(--v-acid-deep) !important;
+}
+
+.voltura .vg-casca .ring-\[\#F0C8C4\] {
+  --tw-ring-color: var(--v-neg) !important;
+}
+
+.voltura .vg-casca .ring-white {
+  --tw-ring-color: var(--v-surface) !important;
+}
+
+.voltura .vg-casca .hover\:bg-\[\#F1FBF6\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#F1F4F2\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#F4F8F6\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#F8FAF9\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#F8FBF9\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#FAFCFB\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#E8EEEA\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#E7ECE9\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#E5ECE7\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#F0F6F2\]:hover {
+  background-color: var(--v-fill) !important;
+}
+
+.voltura .vg-casca .hover\:bg-\[\#FDECEA\]:hover {
+  background-color: var(--v-neg-soft) !important;
+}
+
+.voltura .vg-casca .hover\:bg-\[\#E4F7ED\]:hover {
+  background-color: var(--v-acid-soft) !important;
+}
+
+.voltura .vg-casca .hover\:text-\[\#0B1F14\]:hover {
+  color: var(--v-text) !important;
+}
+
+.voltura .vg-casca .focus\:bg-white:focus {
+  background-color: var(--v-fill-soft) !important;
+}
+
+.voltura .vg-casca input,
+.voltura .vg-casca select,
+.voltura .vg-casca textarea {
+  color: var(--v-text) !important;
+}
+
+.voltura .vg-casca .bg-\[\#E3EBE6\],
+.voltura .vg-casca .bg-\[\#E3EAE5\],
+.voltura .vg-casca .bg-\[\#E9EEEB\],
+.voltura .vg-casca .bg-\[\#DFE6E1\] {
+  background-color: var(--v-fill) !important;
+}
+
+.voltura .vg-casca .bg-\[\#D8E2DB\],
+.voltura .vg-casca .bg-\[\#C9D5CD\],
+.voltura .vg-casca .bg-\[\#B9C7BE\] {
+  background-color: var(--v-hairline-strong) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F0F6F2\],
+.voltura .vg-casca .bg-\[\#FAFCFB\] {
+  background-color: var(--v-fill-soft) !important;
+}
+
+.voltura .vg-casca .ring-\[\#E3EAE5\] {
+  --tw-ring-color: var(--v-hairline-strong) !important;
+}
+
+.voltura .vg-casca .border-\[\#C9D4CD\],
+.voltura .vg-casca .border-\[\#B9C7BE\] {
+  border-color: var(--v-hairline-strong) !important;
+}
+
+.voltura .vg-casca .border-\[\#C7E8D6\] {
+  border-color: var(--v-acid-soft) !important;
+}
+
+.voltura .vg-casca .stroke-\[\#D8E2DB\] {
+  stroke: var(--v-hairline-strong) !important;
+}
+
+.voltura .vg-casca .bg-\[\#F9DDD9\],
+.voltura .vg-casca .bg-\[\#FFF6F5\] {
+  background-color: var(--v-neg-soft) !important;
+}
+
+.voltura .vg-casca .ring-\[\#F1C7C2\],
+.voltura .vg-casca .ring-\[\#E8A39D\] {
+  --tw-ring-color: var(--v-neg) !important;
+}
+
+.voltura .vg-casca .border-\[\#E8D3B8\] {
+  border-color: var(--v-warn-ink) !important;
+}
+
+.voltura .vg-casca .text-\[\#B08A4A\] {
+  color: var(--v-warn-ink) !important;
+}
+
+.voltura .vg-casca .text-\[\#5C7A68\],
+.voltura .vg-casca .text-\[\#668272\],
+.voltura .vg-casca .text-\[\#93A59A\] {
+  color: var(--v-bone-soft) !important;
+}
+
+.voltura .vg-casca .text-\[\#C9D4CD\],
+.voltura .vg-casca .text-\[\#C2CDC6\],
+.voltura .vg-casca .text-\[\#C8D5CD\] {
+  color: var(--v-text-mute) !important;
+}
+
+.voltura .vg-casca .bg-\[\#9BE3BC\],
+.voltura .vg-casca .bg-\[\#CFEBDD\] {
+  background-color: var(--v-acid-soft) !important;
+}
+
+/* O verde da marca vira o lima do sistema, com texto escuro por cima. */
+.voltura .vg-casca .bg-\[\#12B85C\],
+.voltura .vg-casca .bg-\[\#0A7A42\],
+.voltura .vg-casca .hover\:bg-\[\#0F9E4E\]:hover,
+.voltura .vg-casca .hover\:bg-\[\#0A7A42\]:hover {
+  background-color: var(--v-acid) !important;
+  color: var(--v-text-on-acid) !important;
+}
+
+.voltura .vg-casca .bg-\[\#12B85C\] .text-white,
+.voltura .vg-casca .bg-\[\#0A7A42\] .text-white,
+.voltura .vg-casca .bg-\[\#12B85C\].text-white,
+.voltura .vg-casca .bg-\[\#0A7A42\].text-white {
+  color: var(--v-text-on-acid) !important;
+}
+
+/* Barras de progresso e traços verdes do produto. */
+.voltura .vg-casca .bg-\[\#9BE3BC\],
+.voltura .vg-casca .bg-\[\#CFEBDD\] { background-color: var(--v-acid-soft) !important; }
+.voltura .vg-casca .stroke-\[\#12B85C\] { stroke: var(--v-acid-ink) !important; }
+.voltura .vg-casca .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong) !important; }
+.voltura .vg-casca .fill-\[\#12B85C\] { fill: var(--v-acid-ink) !important; }
+
+/* Campos de formulário dentro da casca. */
+.voltura .vg-casca input,
+.voltura .vg-casca select,
+.voltura .vg-casca textarea { color: var(--v-text); }
+.voltura .vg-casca input::placeholder,
+.voltura .vg-casca textarea::placeholder { color: var(--v-text-mute); }
+.voltura .vg-casca select option { background: var(--v-surface); color: var(--v-text); }
+
+/* Títulos no tipo de display do sistema; o peso continua sendo da página. */
+.voltura .vg-casca h1,
+.voltura .vg-casca h2,
+.voltura .vg-casca h3 {
+  font-family: var(--v-font-display);
+  letter-spacing: -0.015em;
+}
+
+/* Página que não tem a composição do painel: a casca vira o quadro e o
+   conteúdo dela respira nas bordas. */
+.voltura .vg-conteudo {
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .voltura .vg-conteudo {
+    padding: 20px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   O cartão de destaque das outras telas.
+
+   Elas usam a superfície aurora do app (`AuroraSurface`), que é um cartão
+   verde-escuro com o gradiente num `div` de fundo. No sistema esse lugar é o
+   cartão aceso, e é um por tela: o gradiente sai e entra o lima, com o texto
+   escuro por cima. As tintas claras que só existiam para fundo escuro
+   (#8FB39E, #7EE2A8, #C5DACE, #F4A497) viram os tons de cima do lima.
+   -------------------------------------------------------------------------- */
+
+.voltura .vg-casca .bg-\[\#06120B\] {
+  background: radial-gradient(120% 90% at 20% 0%, var(--v-acid-hi) 0%, var(--v-acid) 55%, var(--v-acid-lo) 100%) !important;
+  border: 1px solid var(--v-acid-deep);
+  box-shadow: var(--v-glow-acid);
+  color: var(--v-text-on-acid) !important;
+}
+
+/* A camada do gradiente do app, que aqui não desenha mais nada. */
+.voltura .vg-casca .bg-\[\#06120B\] > [aria-hidden="true"] {
+  display: none !important;
+}
+
+.voltura .vg-casca .bg-\[\#06120B\] .text-white,
+.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#7EE2A8\] {
+  color: var(--v-text-on-acid) !important;
+}
+
+.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#8FB39E\],
+.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#C5DACE\] {
+  color: rgba(20, 24, 26, 0.62) !important;
+}
+
+.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#F4A497\] {
+  color: #7d2418 !important;
+}
+
+.voltura .vg-casca .bg-\[\#06120B\] .border-\[\#1F3D2B\] {
+  border-color: rgba(20, 24, 26, 0.18) !important;
+}
+
+/* Chips escuros de dentro do cartão aceso. */
+.voltura .vg-casca .bg-\[\#06120B\] .bg-\[\#06120B\]\/55,
+.voltura .vg-casca .bg-\[\#06120B\] .bg-white\/10,
+.voltura .vg-casca .bg-\[\#06120B\] .bg-white\/20 {
+  background-color: rgba(20, 24, 26, 0.14) !important;
+  color: var(--v-text-on-acid) !important;
 }
 
 /* --------------------------------------------------------------------------
