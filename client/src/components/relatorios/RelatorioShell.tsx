@@ -174,7 +174,7 @@ export function IlustracaoBarras() {
         <span className="h-[22px] w-[13px] rounded-t bg-[#DCE5DF]" /><span className="h-[34px] w-[13px] rounded-t bg-[#B9C7BE]" /><span className="h-[44px] w-[13px] rounded-t bg-[#7EE2A8]" /><span className="h-[52px] w-[13px] rounded-t bg-[#12B85C]" />
       </span>
       <span className="absolute bottom-3 left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] shadow-[0_6px_16px_rgba(18,184,92,.35)]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--v-text-on-acid, #fff)" strokeWidth="2.6"><path d="M22 7l-8.5 8.5-5-5L2 17" /><polyline points="16 7 22 7 22 13" /></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6"><path d="M22 7l-8.5 8.5-5-5L2 17" /><polyline points="16 7 22 7 22 13" /></svg>
       </span>
     </>
   );

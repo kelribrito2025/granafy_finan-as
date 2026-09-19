@@ -7,81 +7,78 @@
    escopo. Assim o Vite pode juntar este arquivo ao CSS do app sem que o
    fundo citrino ou as fontes vazem para as outras telas.
    ========================================================================== */
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
-
 /* --------------------------------------------------------------------------
    Tokens
    -------------------------------------------------------------------------- */
 
 .voltura {
   /* --------------------------------------------------------------------
-     Cores — tema claro.
+     Cores e tipo: os do GranaFy.
 
-     O Voltura nasceu escuro, mas o painel existe nos dois temas e não pode
-     trocar de desenho junto com a cor: o que muda aqui é só a paleta. A
-     lógica do pacote continua de pé — o canvas atrás, os cartões um passo à
-     frente, a barra lateral um passo atrás e um único cartão aceso em lima.
-     O lima fica como preenchimento; para texto e traço existe o
-     `--v-acid-ink`, o mesmo lima escurecido até ler sobre branco.
+     Do pacote Voltura ficou o desenho — a casca de ponta a ponta, a grade
+     dos cartões, o bloco de KPI, as listas e o espaçamento. A paleta e a
+     fonte são as do produto, nos dois temas, para a tela não mudar de
+     identidade ao trocar de página. Os nomes dos tokens continuam os do
+     pacote: só o valor mudou.
      -------------------------------------------------------------------- */
 
-  /* Color — surfaces */
-  --v-citrine: #b8c44a;
-  --v-citrine-hi: #c4d156;
-  --v-citrine-lo: #a8b440;
-  --v-inkwell: #f1f3ea;
-  --v-inkwell-deep: #e8ebdd;
+  /* Superfícies */
+  --v-inkwell: #eff4f1;
+  --v-inkwell-deep: #ffffff;
   --v-slate: #ffffff;
-  --v-slate-hi: #f6f8ef;
-  --v-hairline: #e2e6d8;
-  --v-hairline-strong: #cdd3be;
+  --v-slate-hi: #f8faf9;
+  --v-hairline: #e3ebe6;
+  --v-hairline-strong: #dfe6e1;
 
-  /* Color — accent (used sparingly) */
-  --v-acid: #d3f23f;
-  --v-acid-hi: #dcf853;
-  --v-acid-lo: #c8e72e;
-  --v-acid-deep: #b6d322;
-  /* O lima legível: texto, traço do gráfico, anel de foco. */
-  --v-acid-ink: #55710a;
+  /* O verde da marca */
+  --v-acid: #12b85c;
+  --v-acid-hi: #3ed07c;
+  --v-acid-lo: #0f9e4e;
+  --v-acid-deep: #0a7a42;
+  /* O verde de texto, que é mais escuro para ler sobre branco. */
+  --v-acid-ink: #0a7a42;
+  /* A superfície aurora do produto, que é o fundo do cartão de destaque. */
+  --v-aurora:
+    radial-gradient(135% 115% at 88% -12%, rgba(18, 184, 92, 0.58) 0%, rgba(18, 184, 92, 0.18) 44%, rgba(18, 184, 92, 0) 70%),
+    radial-gradient(120% 100% at 4% 106%, rgba(13, 148, 136, 0.34) 0%, rgba(13, 148, 136, 0) 62%),
+    radial-gradient(85% 60% at 66% 34%, rgba(126, 226, 168, 0.16) 0%, rgba(126, 226, 168, 0) 62%),
+    linear-gradient(158deg, #0d2a1b 0%, #08190f 58%, #06120b 100%);
 
-  /* Color — type */
-  --v-bone: #1a1f17;
-  --v-bone-soft: #3c4438;
-  --v-moss: #6b7364;
-  --v-moss-deep: #aeb5a4;
+  /* Texto */
+  --v-bone: #0b1f14;
+  --v-bone-soft: #4c6355;
+  --v-moss: #8a968d;
+  --v-moss-deep: #b9c7be;
 
-  /* Color — categorical (data only) */
-  --v-cat-coral: #d9772c;
-  --v-cat-magenta: #bc3c77;
-  --v-cat-green: #3f9f52;
-  --v-cat-blue: #2f7fc6;
+  /* Cores de dado: a família verde do produto. */
+  --v-cat-coral: #12b85c;
+  --v-cat-magenta: #0a7a42;
+  --v-cat-green: #7ee2a8;
+  --v-cat-blue: #c7e8d6;
 
-  /* Color — signal */
-  --v-pos: #8fe27a;
-  --v-neg: #ec6a5e;
+  /* Sinal */
+  --v-pos: #0a7a42;
+  --v-pos-ink: #0a7a42;
+  --v-neg: #b3261e;
+  --v-neg-ink: #b3261e;
 
-  /* Preenchimentos de apoio: hover de linha e fundo de chip. */
-  --v-fill-soft: rgba(26, 31, 23, 0.04);
-  --v-fill: rgba(26, 31, 23, 0.06);
+  /* Preenchimentos de apoio */
+  --v-fill-soft: #f8faf9;
+  --v-fill: #f1f4f2;
 
-  /* Tintas de estado, para as telas que ainda usam a paleta do produto. */
-  --v-acid-soft: rgba(150, 190, 20, 0.16);
-  --v-pos-ink: #2f7a3f;
-  --v-neg-soft: rgba(236, 106, 94, 0.14);
-  --v-neg-ink: #b4372c;
-  --v-warn-soft: rgba(196, 150, 20, 0.16);
-  --v-warn-ink: #8a6a12;
+  /* Tintas de estado */
+  --v-acid-soft: #f1fbf6;
+  --v-neg-soft: #fdecea;
+  --v-warn-soft: #fff5dd;
+  --v-warn-ink: #b87500;
 
-  /* Traço de apoio por cima do cartão aceso, igual nos dois temas. */
-  --v-on-acid-line: rgba(20, 24, 26, 0.18);
+  /* Tintas de dentro do cartão de destaque, que é escuro nos dois temas. */
+  --v-on-acid-mute: #8fb39e;
+  --v-on-acid-fill: rgba(255, 255, 255, 0.12);
+  --v-on-acid-line: #1f3d2b;
 
-  /* Sombra de menu suspenso. */
-  --v-shadow-pop: 0 18px 44px rgba(26, 31, 23, 0.16);
-
-  /* Véu atrás de um modal. */
-  --v-scrim: rgba(26, 31, 23, 0.36);
+  --v-shadow-pop: 0 18px 44px rgba(11, 31, 20, 0.16);
+  --v-scrim: rgba(7, 21, 13, 0.45);
 
   /* Semantic alias */
   --v-page: var(--v-inkwell);
@@ -91,13 +88,15 @@
   --v-border: var(--v-hairline);
   --v-text: var(--v-bone);
   --v-text-mute: var(--v-moss);
-  --v-text-on-acid: #14181a;
+  /* O destaque é escuro com texto branco, como o cartão do produto. */
+  --v-text-on-acid: #ffffff;
   color-scheme: light;
 
   /* Typography */
-  --v-font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
-  --v-font-body: "Inter", system-ui, sans-serif;
-  --v-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  /* A fonte é a do produto; o pacote trazia outras três. */
+  --v-font-display: "Geist", "Geist Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --v-font-body: var(--v-font-display);
+  --v-font-mono: var(--v-font-display);
 
   --v-fs-12: 0.75rem;
   --v-fs-13: 0.8125rem;
@@ -155,13 +154,11 @@
   --v-elev-card: 0 0 0 1px var(--v-hairline);
   --v-elev-card-hover: 0 0 0 1px var(--v-hairline-strong);
   --v-elev-recess: inset 0 0 0 1px #1a1f20;
-  --v-glow-acid:
-    0 0 0 1px rgba(211, 242, 63, 0.28),
-    0 12px 40px -12px rgba(211, 242, 63, 0.45);
-  --v-glow-acid-soft: 0 8px 28px -10px rgba(211, 242, 63, 0.55);
+  --v-glow-acid: none;
+  --v-glow-acid-soft: none;
 
   /* Focus */
-  --v-focus-ring: 0 0 0 2px var(--v-canvas), 0 0 0 4px var(--v-acid-ink);
+  --v-focus-ring: 0 0 0 2px var(--v-canvas), 0 0 0 4px var(--v-acid);
 
   /* Motion */
   --v-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -170,67 +167,46 @@
   --v-dur-slow: 280ms;
 }
 
-/* Cores — tema escuro, que é como o pacote foi desenhado. */
+/* Cores — tema escuro do produto (mesma tabela de client/src/index.css). */
 .dark .voltura {
-  /* Color — surfaces */
-  --v-citrine: #b8c44a;
-  --v-citrine-hi: #c4d156;
-  --v-citrine-lo: #a8b440;
-  --v-inkwell: #15191a;
-  --v-inkwell-deep: #10141a;
-  --v-slate: #1d2123;
-  --v-slate-hi: #232729;
-  --v-hairline: #262b2c;
-  --v-hairline-strong: #323839;
+  --v-inkwell: #0d1812;
+  --v-inkwell-deep: #14241b;
+  --v-slate: #14241b;
+  --v-slate-hi: #192a20;
+  --v-hairline: #2a3d31;
+  --v-hairline-strong: #2c503b;
 
-  /* Color — accent (used sparingly) */
-  --v-acid: #d3f23f;
-  --v-acid-hi: #dcf853;
-  --v-acid-lo: #c8e72e;
-  --v-acid-deep: #b6d322;
+  --v-acid: #12b85c;
+  --v-acid-hi: #3ed07c;
+  --v-acid-lo: #0f9e4e;
+  --v-acid-deep: #0a7a42;
+  --v-acid-ink: #70dca0;
 
-  /* Color — type */
-  --v-bone: #ecefe8;
-  --v-bone-soft: #cfd3cb;
-  --v-moss: #7a8278;
-  --v-moss-deep: #4a5048;
+  --v-bone: #edf5f0;
+  --v-bone-soft: #a9b8ae;
+  --v-moss: #8fa096;
+  --v-moss-deep: #6c8578;
 
-  /* Color — categorical (data only) */
-  --v-cat-coral: #e58940;
-  --v-cat-magenta: #c84b86;
-  --v-cat-green: #5ac36b;
-  --v-cat-blue: #3a8fd9;
+  --v-cat-coral: #12b85c;
+  --v-cat-magenta: #70dca0;
+  --v-cat-green: #1f4230;
+  --v-cat-blue: #2c503b;
 
-  /* Color — signal */
-  --v-pos: #8fe27a;
-  --v-neg: #ec6a5e;
-
-  /* No escuro o lima já lê sobre o canvas: texto e preenchimento são o mesmo. */
-  --v-acid-ink: var(--v-acid);
-
-  --v-fill-soft: rgba(236, 239, 232, 0.04);
-  --v-fill: rgba(236, 239, 232, 0.06);
-
-  --v-acid-soft: rgba(211, 242, 63, 0.12);
-  --v-pos-ink: var(--v-pos);
-  --v-neg-soft: rgba(236, 106, 94, 0.14);
+  --v-pos: #70dca0;
+  --v-pos-ink: #70dca0;
+  --v-neg: #ff968c;
   --v-neg-ink: #ff968c;
-  --v-warn-soft: rgba(240, 193, 110, 0.14);
+
+  --v-fill-soft: #192a20;
+  --v-fill: #203329;
+
+  --v-acid-soft: #173c2a;
+  --v-neg-soft: #3b2421;
+  --v-warn-soft: #3b3020;
   --v-warn-ink: #f0c16e;
 
   --v-shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.45);
-
-  --v-scrim: rgba(4, 6, 4, 0.62);
-
-  /* Semantic alias */
-  --v-page: var(--v-citrine);
-  --v-canvas: var(--v-inkwell);
-  --v-surface: var(--v-slate);
-  --v-surface-recess: var(--v-inkwell-deep);
-  --v-border: var(--v-hairline);
-  --v-text: var(--v-bone);
-  --v-text-mute: var(--v-moss);
-  --v-text-on-acid: #14181a;
+  --v-scrim: rgba(4, 9, 6, 0.62);
   color-scheme: dark;
 }
 
@@ -567,21 +543,13 @@
 
 /* Luminous focal card — the single bright signal in any layout */
 .voltura .v-card--focal {
-  background:
-    radial-gradient(120% 90% at 20% 0%, var(--v-acid-hi) 0%, var(--v-acid) 55%, var(--v-acid-lo) 100%);
+  background: var(--v-aurora);
+  background-color: #06120b;
   color: var(--v-text-on-acid);
-  border: 1px solid var(--v-acid-deep);
-  box-shadow: var(--v-glow-acid);
+  border: 0;
+  box-shadow: none;
   position: relative;
   overflow: hidden;
-}
-
-.voltura .v-card--focal::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(60% 40% at 80% 100%, rgba(255, 255, 255, 0.18), transparent 70%);
-  pointer-events: none;
 }
 
 .voltura .v-card__head {
@@ -625,7 +593,7 @@
 }
 
 .voltura .v-card--focal .v-kpi__label {
-  color: rgba(20, 24, 26, 0.62);
+  color: var(--v-on-acid-mute);
 }
 
 .voltura .v-kpi__value {
@@ -646,7 +614,7 @@
 }
 
 .voltura .v-card--focal .v-kpi__sub {
-  color: rgba(20, 24, 26, 0.7);
+  color: var(--v-on-acid-mute);
 }
 
 .voltura .v-kpi-grid {
@@ -702,12 +670,12 @@
 .voltura .v-btn--primary {
   background: var(--v-acid);
   color: var(--v-text-on-acid);
-  border-color: var(--v-acid-deep);
-  box-shadow: var(--v-glow-acid-soft);
+  border-color: var(--v-acid);
+  box-shadow: none;
 }
 
 .voltura .v-btn--primary:hover {
-  background: var(--v-acid-hi);
+  background: var(--v-acid-lo);
 }
 
 .voltura .v-btn--secondary {
@@ -773,21 +741,21 @@
 }
 
 .voltura .v-chip--delta-up {
-  color: #0e1a0e;
-  background: var(--v-pos);
+  color: var(--v-pos-ink);
+  background: var(--v-acid-soft);
   border-color: transparent;
 }
 
 .voltura .v-chip--delta-down {
-  color: #1c0908;
-  background: var(--v-neg);
+  color: var(--v-neg-ink);
+  background: var(--v-neg-soft);
   border-color: transparent;
 }
 
 .voltura .v-chip--on-acid {
-  background: rgba(20, 24, 26, 0.14);
+  background: var(--v-on-acid-fill);
   color: var(--v-text-on-acid);
-  border-color: rgba(20, 24, 26, 0.16);
+  border-color: transparent;
 }
 
 /* --------------------------------------------------------------------------
@@ -880,7 +848,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--v-canvas);
+  background: var(--v-surface);
   border: 1px solid var(--v-hairline);
   border-radius: var(--v-r-pill);
   padding: 3px;
@@ -898,8 +866,9 @@
 }
 
 .voltura .v-pill-tabs__item--active {
-  background: var(--v-slate);
-  color: var(--v-text);
+  background: var(--v-acid);
+  color: var(--v-text-on-acid);
+  font-weight: 700;
 }
 
 /* --------------------------------------------------------------------------
@@ -1135,7 +1104,7 @@
   width: 32px;
   height: 32px;
   border-radius: var(--v-r-pill);
-  background: rgba(90, 195, 107, 0.12);
+  background: var(--v-acid-soft);
   color: var(--v-pos);
   display: grid;
   place-items: center;
@@ -1143,7 +1112,7 @@
 }
 
 .voltura .v-list__icon--neg {
-  background: rgba(236, 106, 94, 0.12);
+  background: var(--v-neg-soft);
   color: var(--v-neg);
 }
 
@@ -1430,7 +1399,7 @@
 }
 
 .voltura .vg-focal__pe {
-  border-top: 1px solid rgba(20, 24, 26, 0.16);
+  border-top: 1px solid var(--v-on-acid-line);
   padding-top: var(--v-sp-4);
 }
 
@@ -1444,13 +1413,13 @@
   width: 32px;
   height: 32px;
   border-radius: var(--v-r-pill);
-  background: rgba(20, 24, 26, 0.14);
+  background: var(--v-on-acid-fill);
   color: var(--v-text-on-acid);
   box-shadow: none;
 }
 
 .voltura .vg-olho button:hover {
-  background: rgba(20, 24, 26, 0.24);
+  background: rgba(255, 255, 255, 0.2);
   color: var(--v-text-on-acid);
 }
 
@@ -1943,54 +1912,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   O cartão de destaque das outras telas.
-
-   Elas usam a superfície aurora do app (`AuroraSurface`), que é um cartão
-   verde-escuro com o gradiente num `div` de fundo. No sistema esse lugar é o
-   cartão aceso, e é um por tela: o gradiente sai e entra o lima, com o texto
-   escuro por cima. As tintas claras que só existiam para fundo escuro
-   (#8FB39E, #7EE2A8, #C5DACE, #F4A497) viram os tons de cima do lima.
-   -------------------------------------------------------------------------- */
-
-.voltura .vg-casca .bg-\[\#06120B\] {
-  background: radial-gradient(120% 90% at 20% 0%, var(--v-acid-hi) 0%, var(--v-acid) 55%, var(--v-acid-lo) 100%) !important;
-  border: 1px solid var(--v-acid-deep);
-  box-shadow: var(--v-glow-acid);
-  color: var(--v-text-on-acid) !important;
-}
-
-/* A camada do gradiente do app, que aqui não desenha mais nada. */
-.voltura .vg-casca .bg-\[\#06120B\] > [aria-hidden="true"] {
-  display: none !important;
-}
-
-.voltura .vg-casca .bg-\[\#06120B\] .text-white,
-.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#7EE2A8\] {
-  color: var(--v-text-on-acid) !important;
-}
-
-.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#8FB39E\],
-.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#C5DACE\] {
-  color: rgba(20, 24, 26, 0.62) !important;
-}
-
-.voltura .vg-casca .bg-\[\#06120B\] .text-\[\#F4A497\] {
-  color: #7d2418 !important;
-}
-
-.voltura .vg-casca .bg-\[\#06120B\] .border-\[\#1F3D2B\] {
-  border-color: rgba(20, 24, 26, 0.18) !important;
-}
-
-/* Chips escuros de dentro do cartão aceso. */
-.voltura .vg-casca .bg-\[\#06120B\] .bg-\[\#06120B\]\/55,
-.voltura .vg-casca .bg-\[\#06120B\] .bg-white\/10,
-.voltura .vg-casca .bg-\[\#06120B\] .bg-white\/20 {
-  background-color: rgba(20, 24, 26, 0.14) !important;
-  color: var(--v-text-on-acid) !important;
-}
-
-/* --------------------------------------------------------------------------
    Barra lateral do app, vestida de Voltura dentro da Visão geral.
 
    A barra (`AppSidebar`) é compartilhada por todas as telas e continua com as
@@ -2072,28 +1993,16 @@
 .voltura aside button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: var(--v-fill-soft) !important; }
 .voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\],
 .voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]:hover {
-  background: var(--v-canvas) !important;
-  color: var(--v-text) !important;
-  font-weight: 600;
-}
-.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]::before {
-  content: "";
-  position: absolute;
-  /* A barra fica no recuo da própria barra lateral: em -14px ela encosta na
-     borda e o `overflow-hidden` do `aside` come metade dela. */
-  left: -8px;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: var(--v-r-pill);
   background: var(--v-acid) !important;
+  color: var(--v-text-on-acid) !important;
+  font-weight: 700;
 }
-.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\] .bg-white\/20 { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; }
+.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\] .bg-white\/20 { background: rgba(255, 255, 255, 0.2) !important; color: var(--v-text-on-acid) !important; }
 
 /* Trilho recolhido */
 .voltura .z-\[70\] .text-\[\#C5DACE\] { color: var(--v-text-mute) !important; }
 .voltura .z-\[70\] .hover\:bg-white\/10:hover { background: var(--v-fill-soft) !important; color: var(--v-text) !important; }
-.voltura .z-\[70\] button.bg-\[\#12B85C\] { background: var(--v-canvas) !important; color: var(--v-text) !important; box-shadow: inset 3px 0 0 var(--v-acid); }
+.voltura .z-\[70\] button.bg-\[\#12B85C\] { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; }
 .voltura .z-\[70\] .bg-white\/10 { background: var(--v-hairline) !important; }
 .voltura .z-\[70\] .border-\[\#0B1F14\] { border-color: var(--v-surface-recess) !important; }
 .voltura .z-\[70\] .bg-\[\#B3261E\] { background: var(--v-neg) !important; color: #1c0908 !important; }
@@ -2108,7 +2017,7 @@
 .voltura .z-\[70\] .z-\[80\] .bg-\[\#F1FBF6\] { background: var(--v-surface) !important; border: 1px solid var(--v-hairline); }
 .voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full { color: var(--v-text-mute) !important; border-radius: var(--v-r-sm); }
 .voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: var(--v-fill-soft) !important; }
-.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full.bg-\[\#12B85C\] { background: var(--v-canvas) !important; color: var(--v-text) !important; box-shadow: inset 3px 0 0 var(--v-acid); }
+.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full.bg-\[\#12B85C\] { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
 
@@ -2268,17 +2177,14 @@
 }
 
 /* --------------------------------------------------------------------------
-   Tipo e forma das telas que não foram remarcadas.
+   A faixa do topo das telas traduzidas.
 
-   Traduzir só a cor deixava cada tela com a tipografia e a geometria antigas
-   ao lado da Visão geral, que é o desenho do sistema. Aqui o resto do
-   caminho: a barra do topo ganha a forma da barra do painel, os títulos e os
-   números grandes passam para o tipo de display, os rótulos em caixa alta
-   ganham o espacejamento do sistema e os raios dos cartões passam para os do
-   pacote. Continua sendo tradução — nenhuma tela foi remarcada.
+   A única parte desta folha que mexe em forma fora do painel: o `<header>`
+   de cada tela vira a mesma faixa com filete da Visão geral, que é o que
+   alinha o título com os cartões de baixo. Tipo, raio e sombra continuam
+   os da tela.
    -------------------------------------------------------------------------- */
 
-/* A barra do topo: mesma faixa com filete embaixo do painel da Visão geral. */
 .voltura .vg-conteudo > header {
   margin: -16px -16px 0;
   padding: 16px;
@@ -2291,63 +2197,4 @@
     margin: -20px -20px 0;
     padding: 18px 20px;
   }
-}
-
-/* Dígitos alinhados em coluna, que é como o sistema mostra qualquer cifra. */
-.voltura .vg-casca {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Números grandes: o tipo de display carrega a hierarquia. */
-.voltura .vg-casca .text-\[22px\],
-.voltura .vg-casca .text-\[24px\],
-.voltura .vg-casca .text-\[26px\],
-.voltura .vg-casca .text-\[28px\],
-.voltura .vg-casca .text-\[30px\],
-.voltura .vg-casca .text-\[32px\],
-.voltura .vg-casca .text-\[34px\],
-.voltura .vg-casca .text-\[36px\],
-.voltura .vg-casca .text-\[40px\],
-.voltura .vg-casca .text-\[42px\],
-.voltura .vg-casca .text-2xl,
-.voltura .vg-casca .text-3xl {
-  font-family: var(--v-font-display);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
-
-/* Títulos: cartão, seção e página. */
-.voltura .vg-casca h1,
-.voltura .vg-casca h2,
-.voltura .vg-casca h3,
-.voltura .vg-casca h4,
-.voltura .vg-casca .text-xl,
-.voltura .vg-casca .text-lg,
-.voltura .vg-casca .text-\[15px\].font-bold,
-.voltura .vg-casca .text-\[16px\].font-bold,
-.voltura .vg-casca .text-\[17px\].font-bold,
-.voltura .vg-casca .text-\[18px\].font-bold,
-.voltura .vg-casca .text-\[14px\].font-bold {
-  font-family: var(--v-font-display);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-
-/* Rótulos e cabeçalhos de tabela em caixa alta. */
-.voltura .vg-casca .uppercase {
-  font-family: var(--v-font-body);
-  font-weight: 500;
-  letter-spacing: 0.14em;
-}
-
-/* Raios: cartão do pacote, bloco interno do pacote. */
-.voltura .vg-casca .rounded-\[20px\] { border-radius: var(--v-r-xl); }
-.voltura .vg-casca .rounded-\[16px\],
-.voltura .vg-casca .rounded-xl { border-radius: var(--v-r-md); }
-
-/* O cartão do sistema é recortado por um filete, não por sombra. */
-.voltura .vg-casca .bg-white.rounded-\[20px\],
-.voltura .vg-casca .bg-white.rounded-\[16px\] {
-  border: 1px solid var(--v-hairline);
-  box-shadow: none;
 }

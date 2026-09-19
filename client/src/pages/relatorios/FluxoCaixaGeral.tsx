@@ -11,8 +11,8 @@ function IlustracaoCurva() {
   return (
     <>
       <svg width="72" height="46" viewBox="0 0 72 46" fill="none" className="absolute left-5 top-[26px]" aria-hidden="true">
-        <polyline points="2,40 16,32 30,36 44,18 58,22 70,6" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="70" cy="6" r="5" fill="var(--v-acid-ink, #12B85C)" />
+        <polyline points="2,40 16,32 30,36 44,18 58,22 70,6" stroke="#12B85C" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="70" cy="6" r="5" fill="#12B85C" />
       </svg>
       <span className="absolute bottom-3 left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-[22px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">+</span>
     </>
@@ -80,16 +80,16 @@ export default function FluxoCaixaGeral() {
                 </div>
                 <div className="relative h-[220px] border-b border-l border-[#E3EBE6]">
                   <svg viewBox="0 0 600 220" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-                    <polygon points={`${poly} 600,220 0,220`} fill="var(--v-acid-ink, #12B85C)" opacity=".12" />
-                    <polyline points={poly} fill="none" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="3" />
+                    <polygon points={`${poly} 600,220 0,220`} fill="#12B85C" opacity=".12" />
+                    <polyline points={poly} fill="none" stroke="#12B85C" strokeWidth="3" />
                   </svg>
                   <svg viewBox="0 0 600 220" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
                     {pontosDaCurva.map(([x, y], i) => (
                       <g key={i}>
                         <title>{`${linhas[i]!.rotulo}: ${dinheiro(linhas[i]!.saldoFinal)}`}</title>
                         {i === pontosDaCurva.length - 1
-                          ? <circle cx={x} cy={y} r="5.5" fill="var(--v-acid-ink, #12B85C)" />
-                          : <circle cx={x} cy={y} r="4.5" fill="var(--v-surface, #fff)" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="3" />}
+                          ? <circle cx={x} cy={y} r="5.5" fill="#12B85C" />
+                          : <circle cx={x} cy={y} r="4.5" fill="#fff" stroke="#12B85C" strokeWidth="3" />}
                       </g>
                     ))}
                   </svg>

@@ -100,7 +100,7 @@ export default function RelatoriosHub() {
           tom={lucro === undefined ? undefined : lucro >= 0 ? "positivo" : "negativo"}
           previa={(
             <div className="flex w-[150px] flex-col gap-[7px]">
-              {[["Receita", 100, "var(--v-acid-ink, #12B85C)"], ["Custos", 46, "var(--v-neg-ink, #F0A6A0)"]].map(([nome, p, cor]) => (
+              {[["Receita", 100, "#12B85C"], ["Custos", 46, "#F0A6A0"]].map(([nome, p, cor]) => (
                 <span key={nome as string} className="flex items-center gap-2"><span className="w-12 text-[10px] text-[#8A968D]">{nome}</span><span className="h-1.5 flex-1 overflow-hidden rounded bg-[#EDF2EE]"><span className="block h-full" style={{ width: `${p}%`, background: cor as string }} /></span></span>
               ))}
             </div>
@@ -126,9 +126,9 @@ export default function RelatoriosHub() {
           kicker="Saldo consolidado" valor={dinheiro(saldoHoje)}
           previa={(
             <svg width="150" height="56" viewBox="0 0 150 56" fill="none" aria-hidden="true">
-              <polygon points="0,44 30,38 60,26 90,30 120,14 150,6 150,56 0,56" fill="var(--v-acid-ink, #12B85C)" opacity=".12" />
-              <polyline points="0,44 30,38 60,26 90,30 120,14 150,6" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="150" cy="6" r="4" fill="var(--v-acid-ink, #12B85C)" />
+              <polygon points="0,44 30,38 60,26 90,30 120,14 150,6 150,56 0,56" fill="#12B85C" opacity=".12" />
+              <polyline points="0,44 30,38 60,26 90,30 120,14 150,6" stroke="#12B85C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="150" cy="6" r="4" fill="#12B85C" />
             </svg>
           )}
         />

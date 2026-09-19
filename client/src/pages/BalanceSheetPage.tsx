@@ -717,15 +717,15 @@ function EvolutionChart({ points }: { points: EvolutionPoint[] }) {
         role="img"
         aria-label="Evolução do patrimônio líquido"
       >
-        {[47, 95, 143].map(y => <line key={y} x1="0" y1={y} x2={chart.width} y2={y} stroke="var(--v-on-acid-line, #1F3D2B)" strokeWidth="1" />)}
+        {[47, 95, 143].map(y => <line key={y} x1="0" y1={y} x2={chart.width} y2={y} stroke="#1F3D2B" strokeWidth="1" />)}
         {chart.plotted.length > 1 && (
           <>
-            <polygon points={`${line} ${chart.width},${chart.height} 0,${chart.height}`} fill="var(--v-text-on-acid, #12B85C)" opacity=".16" />
-            <polyline points={line} fill="none" stroke="var(--v-text-on-acid, #12B85C)" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+            <polygon points={`${line} ${chart.width},${chart.height} 0,${chart.height}`} fill="#12B85C" opacity=".16" />
+            <polyline points={line} fill="none" stroke="#12B85C" strokeWidth="3" vectorEffect="non-scaling-stroke" />
           </>
         )}
       </svg>
-      <ChartDot x={last.x} y={last.y} width={chart.width} height={chart.height} size={10} color="var(--v-text-on-acid, #7EE2A8)" />
+      <ChartDot x={last.x} y={last.y} width={chart.width} height={chart.height} size={10} color="#7EE2A8" />
     </div>
   );
 }

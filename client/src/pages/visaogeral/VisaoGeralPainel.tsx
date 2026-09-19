@@ -170,7 +170,7 @@ export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
                 <span className="v-kpi__label">Caixa disponível</span>
                 <div className="v-card__actions">
                   {/* O olhinho mora aqui, e só aqui: ver HideValuesButton. */}
-                  <HideValuesButton tone="light" className="vg-olho" />
+                  <HideValuesButton tone="onDark" className="vg-olho" />
                   <span className="v-chip v-chip--on-acid">{accountCount} {accountCount === 1 ? "conta" : "contas"}</span>
                 </div>
               </div>
@@ -191,12 +191,12 @@ export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
                     role="img"
                     aria-label="Evolução do saldo no período selecionado"
                   >
-                    <polygon points={cashCurve.areaPoints} fill="#14181a" opacity="0.10" />
+                    <polygon points={cashCurve.areaPoints} fill="#12B85C" opacity="0.22" />
                     <polyline
                       points={cashCurve.linePoints}
                       fill="none"
-                      stroke="#14181a"
-                      strokeWidth="2.5"
+                      stroke="#7EE2A8"
+                      strokeWidth="3.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       vectorEffect="non-scaling-stroke"
@@ -207,13 +207,12 @@ export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
                     y={cashCurve.lastPoint.y}
                     width={cashCurve.width}
                     height={cashCurve.height}
-                    size={10}
-                    color="#14181a"
-                    ringColor="rgba(20,24,26,0.18)"
+                    size={9}
+                    color="#FFFFFF"
                   />
                   </>
                 ) : (
-                  <span className="flex h-full items-center text-[12px] font-medium" style={{ color: "rgba(20,24,26,0.62)" }}>Sem histórico de movimentações</span>
+                  <span className="flex h-full items-center text-[12px] font-medium" style={{ color: "var(--v-on-acid-mute)" }}>Sem histórico de movimentações</span>
                 )}
               </div>
               <div className="v-kpi-grid vg-focal__pe">
@@ -297,7 +296,7 @@ export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
                 </div>
                 <div className="v-card__actions vg-legenda">
                   <span className="v-dist__item"><span className="v-dist__dot" style={{ background: "var(--v-acid)" }} />Entradas</span>
-                  <span className="v-dist__item"><span className="v-dist__dot" style={{ background: "var(--v-moss-deep)" }} />Saídas</span>
+                  <span className="v-dist__item"><span className="v-dist__dot" style={{ background: "#F4A497" }} />Saídas</span>
                 </div>
               </header>
               <div className="vg-grafico">
@@ -325,7 +324,7 @@ export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
                           <span className="v-caption">Saídas {formatMoney(month.outgoing)}</span>
                         </span>
                         <span className="barra-do-grafico flex-1 rounded-t-[4px] transition-[filter] duration-200 group-hover:brightness-110" style={{ background: "var(--v-acid)", height: `${Math.max(month.incoming > 0 ? 3 : 0, (month.incoming / chartScale) * 100)}%`, animationDelay: `${index * 55}ms` }} />
-                        <span className="barra-do-grafico flex-1 rounded-t-[4px] transition-[filter] duration-200 group-hover:brightness-125" style={{ background: index === months.length - 1 ? "var(--v-moss)" : "var(--v-moss-deep)", height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%`, animationDelay: `${index * 55 + 28}ms` }} />
+                        <span className="barra-do-grafico flex-1 rounded-t-[4px] transition-[filter] duration-200 group-hover:brightness-125" style={{ background: index === months.length - 1 ? "#E5533D" : "#F4A497", height: `${Math.max(month.outgoing > 0 ? 3 : 0, (month.outgoing / chartScale) * 100)}%`, animationDelay: `${index * 55 + 28}ms` }} />
                       </div>
                       );
                     })}

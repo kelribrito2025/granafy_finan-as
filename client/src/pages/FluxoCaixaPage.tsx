@@ -99,13 +99,13 @@ function BalanceCurve({ data }: { data: DailyData }) {
     <>
       <div className="relative h-[180px] border-b border-l border-[#E3EBE6]">
         <svg viewBox="0 0 600 180" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-          <polygon points={areaOf(realizedPath, 0, at(lastRealized).x)} fill="var(--v-acid-ink, #12B85C)" opacity=".14" />
-          <polyline points={realizedPath} fill="none" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="3" />
+          <polygon points={areaOf(realizedPath, 0, at(lastRealized).x)} fill="#12B85C" opacity=".14" />
+          <polyline points={realizedPath} fill="none" stroke="#12B85C" strokeWidth="3" />
           {projectedPath && (
             <>
-              <polygon points={areaOf(projectedPath, at(lastRealized).x, 600)} fill="var(--v-acid-ink, #12B85C)" opacity=".07" />
-              <polyline points={projectedPath} fill="none" stroke="var(--v-acid-deep, #9BE3BC)" strokeWidth="3" strokeDasharray="7 6" />
-              <line x1={at(lastRealized).x} y1="0" x2={at(lastRealized).x} y2="180" stroke="var(--v-hairline-strong, #E3EBE6)" strokeWidth="2" />
+              <polygon points={areaOf(projectedPath, at(lastRealized).x, 600)} fill="#12B85C" opacity=".07" />
+              <polyline points={projectedPath} fill="none" stroke="#9BE3BC" strokeWidth="3" strokeDasharray="7 6" />
+              <line x1={at(lastRealized).x} y1="0" x2={at(lastRealized).x} y2="180" stroke="#E3EBE6" strokeWidth="2" />
             </>
           )}
         </svg>
@@ -348,9 +348,9 @@ function FluxoVazio({ onCadastrarConta, onNovoLancamento }: { onCadastrarConta: 
       <div aria-hidden="true" className="relative flex h-[112px] w-[112px] items-center justify-center">
         <span className="absolute inset-0 rounded-[36px] bg-[#F1FBF6]" />
         <svg width="80" height="52" viewBox="0 0 80 52" fill="none" className="absolute left-[16px] top-[22px]">
-          <path d="M2 44C12 44 16 14 26 14s14 22 24 22 16-28 26-28" stroke="var(--v-hairline-strong, #B9C7BE)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 6" />
-          <path d="M2 44C12 44 16 30 26 30" stroke="var(--v-acid-ink, #12B85C)" strokeWidth="3.5" strokeLinecap="round" />
-          <circle cx="26" cy="30" r="5" fill="var(--v-acid-ink, #12B85C)" />
+          <path d="M2 44C12 44 16 14 26 14s14 22 24 22 16-28 26-28" stroke="#B9C7BE" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 6" />
+          <path d="M2 44C12 44 16 30 26 30" stroke="#12B85C" strokeWidth="3.5" strokeLinecap="round" />
+          <circle cx="26" cy="30" r="5" fill="#12B85C" />
         </svg>
         <span className="absolute bottom-[10px] left-1/2 flex h-[34px] w-[34px] -translate-x-1/2 items-center justify-center rounded-full bg-[#12B85C] text-white shadow-[0_6px_16px_rgba(18,184,92,.35)]">
           <PlusIcon size={16} />
