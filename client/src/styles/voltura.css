@@ -69,6 +69,9 @@
   /* Sombra de menu suspenso. */
   --v-shadow-pop: 0 18px 44px rgba(26, 31, 23, 0.16);
 
+  /* Véu atrás de um modal. */
+  --v-scrim: rgba(26, 31, 23, 0.36);
+
   /* Semantic alias */
   --v-page: var(--v-inkwell);
   --v-canvas: var(--v-inkwell);
@@ -198,6 +201,8 @@
   --v-fill: var(--v-fill);
 
   --v-shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.45);
+
+  --v-scrim: rgba(4, 6, 4, 0.62);
 
   /* Semantic alias */
   --v-page: var(--v-citrine);
@@ -1784,4 +1789,82 @@
 
 .voltura .vg-topo__acoes button[title].rounded-\[14px\] {
   border-radius: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Modal "Novo lançamento", aberto de dentro da Visão geral.
+
+   O componente é compartilhado e continua com a marcação dele; aqui entram
+   só cor e borda, presas ao `.drawer-enter` para não alcançar o mesmo modal
+   quando ele abre de outra tela. O `!important` e a especificidade extra
+   existem pelo mesmo motivo da barra lateral: no tema escuro o app repinta
+   estas classes com `!important`.
+   -------------------------------------------------------------------------- */
+
+/* O embrulho não desenha nada: existe só para o modal herdar os tokens. */
+.voltura.vg-portal {
+  display: contents;
+}
+
+.voltura .drawer-backdrop-enter {
+  background: var(--v-scrim) !important;
+}
+
+.voltura form.drawer-enter {
+  background: var(--v-surface) !important;
+  color: var(--v-text) !important;
+  border: 1px solid var(--v-hairline);
+  box-shadow: var(--v-shadow-pop) !important;
+}
+
+.voltura .drawer-enter h2 {
+  font-family: var(--v-font-display);
+  font-weight: 600;
+}
+
+/* Superfícies */
+.voltura .drawer-enter .bg-white { background: var(--v-surface) !important; }
+.voltura .drawer-enter .bg-\[\#F8FAF9\],
+.voltura .drawer-enter .hover\:bg-\[\#F8FAF9\]:hover { background: var(--v-fill-soft) !important; }
+.voltura .drawer-enter .bg-\[\#F1F4F2\],
+.voltura .drawer-enter .hover\:bg-\[\#E7ECE9\]:hover { background: var(--v-fill) !important; }
+.voltura .drawer-enter .bg-\[\#F1FBF6\],
+.voltura .drawer-enter .bg-\[\#FFF8E8\] { background: var(--v-canvas) !important; border: 1px solid var(--v-hairline); }
+.voltura .drawer-enter .bg-\[\#DFF6EA\] { background: var(--v-fill) !important; }
+/* O verde da marca é o lima cheio: botão de salvar e opção escolhida. */
+.voltura .drawer-enter .bg-\[\#12B85C\],
+.voltura .drawer-enter .hover\:bg-\[\#0F9E4E\]:hover { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; }
+
+/* Bordas e anéis */
+.voltura .drawer-enter .border-\[\#E3EAE5\],
+.voltura .drawer-enter .border-\[\#EDF1EE\],
+.voltura .drawer-enter .border-\[\#C9D5CD\] { border-color: var(--v-hairline) !important; }
+.voltura .drawer-enter .ring-\[\#CFE2D7\] { --tw-ring-color: var(--v-hairline-strong); }
+.voltura .drawer-enter .border-\[\#12B85C\],
+.voltura .drawer-enter .focus-within\:border-\[\#12B85C\]:focus-within { border-color: var(--v-acid-ink) !important; }
+
+/* Texto */
+.voltura .drawer-enter .text-\[\#0B1F14\],
+.voltura .drawer-enter .text-\[\#28382E\] { color: var(--v-text) !important; }
+.voltura .drawer-enter .text-\[\#4C6355\],
+.voltura .drawer-enter .text-\[\#8A968D\],
+.voltura .drawer-enter .text-\[\#725517\] { color: var(--v-text-mute) !important; }
+.voltura .drawer-enter .text-\[\#0A7A42\],
+.voltura .drawer-enter .hover\:text-\[\#075E34\]:hover { color: var(--v-acid-ink) !important; }
+.voltura .drawer-enter .text-\[\#B3261E\] { color: var(--v-neg) !important; }
+/* A opção escolhida fica sobre o lima: o verde de rótulo some ali. */
+.voltura .drawer-enter .bg-\[\#12B85C\] .text-\[\#0A7A42\],
+.voltura .drawer-enter .bg-\[\#12B85C\].text-\[\#0A7A42\] { color: var(--v-text-on-acid) !important; }
+
+/* Campos: o fundo do canvas separa o campo do cartão nos dois temas. */
+.voltura .drawer-enter input,
+.voltura .drawer-enter select,
+.voltura .drawer-enter textarea {
+  color: var(--v-text);
+  background-color: transparent;
+}
+
+.voltura .drawer-enter input::placeholder,
+.voltura .drawer-enter textarea::placeholder {
+  color: var(--v-text-mute);
 }
