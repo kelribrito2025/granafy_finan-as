@@ -1630,3 +1630,53 @@
 .voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full.bg-\[\#12B85C\] { background: var(--v-canvas); color: var(--v-text); box-shadow: inset 3px 0 0 var(--v-acid); }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
+
+/* --------------------------------------------------------------------------
+   Menu do perfil (avatar e dropdown), componente do app dentro da barra
+   superior da Visão geral. Só cor e forma, como na barra lateral.
+   -------------------------------------------------------------------------- */
+
+.voltura .vg-topo__acoes button[title].rounded-\[14px\] {
+  height: 38px;
+  border-radius: var(--v-r-pill);
+  border: 1px solid var(--v-hairline-strong);
+  background: transparent;
+  padding-left: 3px;
+  padding-right: 8px;
+}
+.voltura .vg-topo__acoes button[title].rounded-\[14px\]:hover,
+.voltura .vg-topo__acoes button[title].rounded-\[14px\].bg-\[\#F1FBF6\] { background: rgba(236, 239, 232, 0.05); border-color: var(--v-text-mute); }
+.voltura .vg-topo__acoes button[title].rounded-\[14px\] .bg-\[\#DFF6EA\] { background: var(--v-acid); color: var(--v-text-on-acid); width: 30px; height: 30px; }
+.voltura .vg-topo__acoes button[title].rounded-\[14px\] .text-\[\#8A968D\] { color: var(--v-text-mute); }
+
+.voltura .vg-topo__acoes .popover-enter.bg-white {
+  background: var(--v-surface);
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-xl);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: var(--v-text);
+  --tw-ring-color: transparent;
+}
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#DFF6EA\] { background: var(--v-acid); color: var(--v-text-on-acid); }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1F4F2\] { background: var(--v-hairline); }
+.voltura .vg-topo__acoes .popover-enter .text-\[\#8A968D\],
+.voltura .vg-topo__acoes .popover-enter .text-\[\#4C6355\] { color: var(--v-text-mute); }
+.voltura .vg-topo__acoes .popover-enter .text-\[\#28382E\] { color: var(--v-text); }
+.voltura .vg-topo__acoes .popover-enter .text-\[\#0A7A42\] { color: var(--v-text); }
+.voltura .vg-topo__acoes .popover-enter strong { font-family: var(--v-font-display); font-weight: 600; }
+/* Empresa atual: cartão recuado com borda fina; o ícone da empresa em ácido */
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] { background: var(--v-canvas); border: 1px solid var(--v-hairline); border-radius: var(--v-r-md); }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\]:hover { border-color: var(--v-hairline-strong); }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] .bg-\[\#12B85C\] { background: var(--v-acid); color: var(--v-text-on-acid); }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] .text-\[\#0A7A42\] { color: var(--v-acid); }
+.voltura .vg-topo__acoes .popover-enter .rounded-\[12px\] { border-radius: var(--v-r-sm); }
+.voltura .vg-topo__acoes .popover-enter .hover\:bg-\[\#F1FBF6\]:hover { background: rgba(236, 239, 232, 0.05); }
+.voltura .vg-topo__acoes .popover-enter .hover\:bg-\[\#FDECEA\]:hover { background: rgba(236, 106, 94, 0.12); }
+.voltura .vg-topo__acoes .popover-enter .text-\[\#B3261E\] { color: var(--v-neg); }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#0B1F14\] { background: var(--v-canvas); border: 1px solid var(--v-hairline); }
+/* Aparência: as duas opções em pílula, ativa em Slate */
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-options { background: var(--v-canvas); border: 1px solid var(--v-hairline); border-radius: var(--v-r-pill); }
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-options button { border-radius: var(--v-r-pill); }
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-active { background: var(--v-slate-hi); color: var(--v-text); }
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive { color: var(--v-text-mute); }
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive:hover { background: rgba(236, 239, 232, 0.05); color: var(--v-text); }
