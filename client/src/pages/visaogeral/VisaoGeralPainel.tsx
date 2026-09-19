@@ -34,11 +34,13 @@ function Tabler({ d, size = 18, sw = 1.5, className, style }: { d: string[]; siz
 }
 
 /**
- * A Visão geral no tema escuro: o design system Voltura.
+ * O painel da Visão geral, desenhado com o design system Voltura.
  *
- * Só o desenho mora aqui; os dados chegam prontos de `useVisaoGeral`.
+ * Um desenho só para os dois temas: as cores vêm dos tokens do `voltura.css`,
+ * que trocam de valor quando o app entra no escuro. Só o desenho mora aqui;
+ * os dados chegam prontos de `useVisaoGeral`.
  */
-export function VisaoGeralEscura({ vg }: { vg: VisaoGeral }) {
+export function VisaoGeralPainel({ vg }: { vg: VisaoGeral }) {
   const {
     setLocation, period, setPeriod, dashboard, dashboardQuery,
     atrasadas, pendentes, recebimentosHoje, nadaPendente,
@@ -402,7 +404,7 @@ export function VisaoGeralEscura({ vg }: { vg: VisaoGeral }) {
                 ) : (
                   <div className="v-list">
                     {atrasadas > 0 && <button type="button" onClick={() => setLocation("/lancamentos")} className="v-list__row vg-linha"><span className="v-list__icon v-list__icon--neg"><Tabler d={TABLER.saida} size={16} /></span><span className="v-list__title">{atrasadas} conta{atrasadas === 1 ? "" : "s"} em atraso</span><span className="v-chip v-chip--delta-down">{formatMoney(dashboard?.overdue.amount ?? 0)}</span></button>}
-                    {pendentes > 0 && <button type="button" onClick={() => setLocation("/lancamentos")} className="v-list__row vg-linha"><span className="v-list__icon" style={{ background: "rgba(236,239,232,0.06)", color: "var(--v-text)" }}><Tabler d={TABLER.recibo} size={16} /></span><span className="v-list__title">{pendentes} lançamento{pendentes === 1 ? "" : "s"} pendente{pendentes === 1 ? "" : "s"}</span><span className="v-chip">Revisar</span></button>}
+                    {pendentes > 0 && <button type="button" onClick={() => setLocation("/lancamentos")} className="v-list__row vg-linha"><span className="v-list__icon" style={{ background: "var(--v-fill)", color: "var(--v-text)" }}><Tabler d={TABLER.recibo} size={16} /></span><span className="v-list__title">{pendentes} lançamento{pendentes === 1 ? "" : "s"} pendente{pendentes === 1 ? "" : "s"}</span><span className="v-chip">Revisar</span></button>}
                     {recebimentosHoje > 0 && <button type="button" onClick={() => setLocation("/lancamentos")} className="v-list__row vg-linha"><span className="v-list__icon"><Tabler d={TABLER.entrada} size={16} /></span><span className="v-list__title">{recebimentosHoje} recebimento{recebimentosHoje === 1 ? "" : "s"} hoje</span><span className="v-chip v-chip--delta-up">{formatMoney(dashboard?.dueToday.amount ?? 0)}</span></button>}
                   </div>
                 )}

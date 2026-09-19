@@ -16,41 +16,61 @@
    -------------------------------------------------------------------------- */
 
 .voltura {
+  /* --------------------------------------------------------------------
+     Cores — tema claro.
+
+     O Voltura nasceu escuro, mas o painel existe nos dois temas e não pode
+     trocar de desenho junto com a cor: o que muda aqui é só a paleta. A
+     lógica do pacote continua de pé — o canvas atrás, os cartões um passo à
+     frente, a barra lateral um passo atrás e um único cartão aceso em lima.
+     O lima fica como preenchimento; para texto e traço existe o
+     `--v-acid-ink`, o mesmo lima escurecido até ler sobre branco.
+     -------------------------------------------------------------------- */
+
   /* Color — surfaces */
   --v-citrine: #b8c44a;
   --v-citrine-hi: #c4d156;
   --v-citrine-lo: #a8b440;
-  --v-inkwell: #15191a;
-  --v-inkwell-deep: #10141a;
-  --v-slate: #1d2123;
-  --v-slate-hi: #232729;
-  --v-hairline: #262b2c;
-  --v-hairline-strong: #323839;
+  --v-inkwell: #f1f3ea;
+  --v-inkwell-deep: #e8ebdd;
+  --v-slate: #ffffff;
+  --v-slate-hi: #f6f8ef;
+  --v-hairline: #e2e6d8;
+  --v-hairline-strong: #cdd3be;
 
   /* Color — accent (used sparingly) */
   --v-acid: #d3f23f;
   --v-acid-hi: #dcf853;
   --v-acid-lo: #c8e72e;
   --v-acid-deep: #b6d322;
+  /* O lima legível: texto, traço do gráfico, anel de foco. */
+  --v-acid-ink: #55710a;
 
   /* Color — type */
-  --v-bone: #ecefe8;
-  --v-bone-soft: #cfd3cb;
-  --v-moss: #7a8278;
-  --v-moss-deep: #4a5048;
+  --v-bone: #1a1f17;
+  --v-bone-soft: #3c4438;
+  --v-moss: #6b7364;
+  --v-moss-deep: #aeb5a4;
 
   /* Color — categorical (data only) */
-  --v-cat-coral: #e58940;
-  --v-cat-magenta: #c84b86;
-  --v-cat-green: #5ac36b;
-  --v-cat-blue: #3a8fd9;
+  --v-cat-coral: #d9772c;
+  --v-cat-magenta: #bc3c77;
+  --v-cat-green: #3f9f52;
+  --v-cat-blue: #2f7fc6;
 
   /* Color — signal */
   --v-pos: #8fe27a;
   --v-neg: #ec6a5e;
 
+  /* Preenchimentos de apoio: hover de linha e fundo de chip. */
+  --v-fill-soft: rgba(26, 31, 23, 0.04);
+  --v-fill: rgba(26, 31, 23, 0.06);
+
+  /* Sombra de menu suspenso. */
+  --v-shadow-pop: 0 18px 44px rgba(26, 31, 23, 0.16);
+
   /* Semantic alias */
-  --v-page: var(--v-citrine);
+  --v-page: var(--v-inkwell);
   --v-canvas: var(--v-inkwell);
   --v-surface: var(--v-slate);
   --v-surface-recess: var(--v-inkwell-deep);
@@ -58,6 +78,7 @@
   --v-text: var(--v-bone);
   --v-text-mute: var(--v-moss);
   --v-text-on-acid: #14181a;
+  color-scheme: light;
 
   /* Typography */
   --v-font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
@@ -126,13 +147,68 @@
   --v-glow-acid-soft: 0 8px 28px -10px rgba(211, 242, 63, 0.55);
 
   /* Focus */
-  --v-focus-ring: 0 0 0 2px var(--v-canvas), 0 0 0 4px var(--v-acid);
+  --v-focus-ring: 0 0 0 2px var(--v-canvas), 0 0 0 4px var(--v-acid-ink);
 
   /* Motion */
   --v-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --v-dur-fast: 120ms;
   --v-dur-base: 180ms;
   --v-dur-slow: 280ms;
+}
+
+/* Cores — tema escuro, que é como o pacote foi desenhado. */
+.dark .voltura {
+  /* Color — surfaces */
+  --v-citrine: #b8c44a;
+  --v-citrine-hi: #c4d156;
+  --v-citrine-lo: #a8b440;
+  --v-inkwell: #15191a;
+  --v-inkwell-deep: #10141a;
+  --v-slate: #1d2123;
+  --v-slate-hi: #232729;
+  --v-hairline: #262b2c;
+  --v-hairline-strong: #323839;
+
+  /* Color — accent (used sparingly) */
+  --v-acid: #d3f23f;
+  --v-acid-hi: #dcf853;
+  --v-acid-lo: #c8e72e;
+  --v-acid-deep: #b6d322;
+
+  /* Color — type */
+  --v-bone: #ecefe8;
+  --v-bone-soft: #cfd3cb;
+  --v-moss: #7a8278;
+  --v-moss-deep: #4a5048;
+
+  /* Color — categorical (data only) */
+  --v-cat-coral: #e58940;
+  --v-cat-magenta: #c84b86;
+  --v-cat-green: #5ac36b;
+  --v-cat-blue: #3a8fd9;
+
+  /* Color — signal */
+  --v-pos: #8fe27a;
+  --v-neg: #ec6a5e;
+
+  /* No escuro o lima já lê sobre o canvas: texto e preenchimento são o mesmo. */
+  --v-acid-ink: var(--v-acid);
+
+  --v-fill-soft: var(--v-fill-soft);
+  --v-fill: var(--v-fill);
+
+  --v-shadow-pop: 0 24px 60px rgba(0, 0, 0, 0.45);
+
+  /* Semantic alias */
+  --v-page: var(--v-citrine);
+  --v-canvas: var(--v-inkwell);
+  --v-surface: var(--v-slate);
+  --v-surface-recess: var(--v-inkwell-deep);
+  --v-border: var(--v-hairline);
+  --v-text: var(--v-bone);
+  --v-text-mute: var(--v-moss);
+  --v-text-on-acid: #14181a;
+  color-scheme: dark;
 }
 
 /* --------------------------------------------------------------------------
@@ -336,13 +412,13 @@
   align-items: center;
   gap: var(--v-sp-3);
   padding: var(--v-sp-2) var(--v-sp-3);
-  color: var(--v-acid);
+  color: var(--v-acid-ink);
 }
 
 .voltura .v-brand__mark {
   width: 26px;
   height: 26px;
-  color: var(--v-acid);
+  color: var(--v-acid-ink);
   display: inline-flex;
 }
 
@@ -407,7 +483,7 @@
 
 .voltura .v-nav__item:hover {
   color: var(--v-text);
-  background: rgba(236, 239, 232, 0.04);
+  background: var(--v-fill-soft);
 }
 
 .voltura .v-nav__item--active {
@@ -619,7 +695,7 @@
 
 .voltura .v-btn--secondary:hover {
   border-color: var(--v-text-mute);
-  background: rgba(236, 239, 232, 0.04);
+  background: var(--v-fill-soft);
 }
 
 .voltura .v-btn--ghost {
@@ -630,7 +706,7 @@
 
 .voltura .v-btn--ghost:hover {
   color: var(--v-text);
-  background: rgba(236, 239, 232, 0.04);
+  background: var(--v-fill-soft);
 }
 
 .voltura .v-btn--icon {
@@ -659,7 +735,7 @@
   height: 24px;
   padding: 0 10px;
   border-radius: var(--v-r-pill);
-  background: rgba(236, 239, 232, 0.06);
+  background: var(--v-fill);
   color: var(--v-text);
   font-size: var(--v-fs-12);
   font-weight: 500;
@@ -725,7 +801,7 @@
 .voltura .v-input:focus,
 .voltura .v-input:focus-visible {
   outline: none;
-  border-color: var(--v-acid);
+  border-color: var(--v-acid-ink);
   box-shadow: 0 0 0 3px rgba(211, 242, 63, 0.18);
 }
 
@@ -1109,7 +1185,7 @@
 
 .voltura .v-chart__line {
   fill: none;
-  stroke: var(--v-acid);
+  stroke: var(--v-acid-ink);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1305,7 +1381,7 @@
   top: 46px;
   z-index: 30;
   width: 320px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), var(--v-elev-card);
+  box-shadow: var(--v-shadow-pop), var(--v-elev-card);
 }
 
 /* O cartão luminoso */
@@ -1467,7 +1543,7 @@
 }
 
 .voltura .vg-linha:hover {
-  background: rgba(236, 239, 232, 0.04);
+  background: var(--v-fill-soft);
 }
 
 .voltura .vg-lancamentos {
@@ -1552,15 +1628,15 @@
   border-radius: 0;
 }
 .voltura .z-\[70\] .z-\[80\] {
-  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--v-shadow-pop);
 }
 
 /* Marca: o anel e o nome */
 .voltura aside .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
 .voltura aside .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
-.voltura aside .stroke-\[\#12B85C\] { stroke: var(--v-acid); }
+.voltura aside .stroke-\[\#12B85C\] { stroke: var(--v-acid-ink); }
 .voltura aside .text-\[\#0B1F14\] { color: var(--v-text) !important; }
-.voltura aside .text-\[\#12B85C\] { color: var(--v-acid) !important; }
+.voltura aside .text-\[\#12B85C\] { color: var(--v-acid-ink) !important; }
 .voltura aside .font-bold.tracking-\[-0\.035em\] { font-family: var(--v-font-display); font-weight: 600; letter-spacing: -0.02em; }
 
 /* Títulos dos grupos e textos apagados */
@@ -1568,15 +1644,15 @@
 .voltura aside .text-\[\#8A968D\],
 .voltura aside .text-\[\#4C6355\],
 .voltura aside .text-\[\#28382E\] { color: var(--v-text-mute) !important; }
-.voltura aside .text-\[\#0A7A42\] { color: var(--v-acid) !important; }
+.voltura aside .text-\[\#0A7A42\] { color: var(--v-acid-ink) !important; }
 .voltura aside .text-\[\#B3261E\] { color: var(--v-neg) !important; }
 
 /* Fundos claros dos botões e do cartão de contas */
 .voltura aside .hover\:bg-\[\#F1FBF6\]:hover,
 .voltura aside .hover\:bg-\[\#F1F4F2\]:hover,
-.voltura aside .hover\:bg-\[\#DFF6EA\]:hover { background: rgba(236, 239, 232, 0.05) !important; color: var(--v-text) !important; }
+.voltura aside .hover\:bg-\[\#DFF6EA\]:hover { background: var(--v-fill-soft) !important; color: var(--v-text) !important; }
 .voltura aside .bg-\[\#F1FBF6\] { background: var(--v-surface) !important; border: 1px solid var(--v-hairline); }
-.voltura aside .bg-\[\#F1F4F2\] { background: rgba(236, 239, 232, 0.06) !important; color: var(--v-text) !important; border: 1px solid var(--v-hairline); }
+.voltura aside .bg-\[\#F1F4F2\] { background: var(--v-fill) !important; color: var(--v-text) !important; border: 1px solid var(--v-hairline); }
 .voltura aside .bg-\[\#0A7A42\] { background: var(--v-acid) !important; }
 .voltura aside .bg-\[\#B9C7BE\] { background: var(--v-hairline-strong) !important; }
 .voltura aside .hover\:bg-\[\#8FB39E\]:hover { background: var(--v-text-mute) !important; }
@@ -1590,7 +1666,7 @@
   color: var(--v-text-mute) !important;
   transition: background-color var(--v-dur-fast) var(--v-ease), color var(--v-dur-fast) var(--v-ease);
 }
-.voltura aside button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: rgba(236, 239, 232, 0.04) !important; }
+.voltura aside button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: var(--v-fill-soft) !important; }
 .voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\],
 .voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]:hover {
   background: var(--v-canvas) !important;
@@ -1600,7 +1676,9 @@
 .voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]::before {
   content: "";
   position: absolute;
-  left: -14px;
+  /* A barra fica no recuo da própria barra lateral: em -14px ela encosta na
+     borda e o `overflow-hidden` do `aside` come metade dela. */
+  left: -8px;
   top: 8px;
   bottom: 8px;
   width: 3px;
@@ -1611,22 +1689,22 @@
 
 /* Trilho recolhido */
 .voltura .z-\[70\] .text-\[\#C5DACE\] { color: var(--v-text-mute) !important; }
-.voltura .z-\[70\] .hover\:bg-white\/10:hover { background: rgba(236, 239, 232, 0.05) !important; color: var(--v-text) !important; }
+.voltura .z-\[70\] .hover\:bg-white\/10:hover { background: var(--v-fill-soft) !important; color: var(--v-text) !important; }
 .voltura .z-\[70\] button.bg-\[\#12B85C\] { background: var(--v-canvas) !important; color: var(--v-text) !important; box-shadow: inset 3px 0 0 var(--v-acid); }
 .voltura .z-\[70\] .bg-white\/10 { background: var(--v-hairline) !important; }
 .voltura .z-\[70\] .border-\[\#0B1F14\] { border-color: var(--v-surface-recess) !important; }
 .voltura .z-\[70\] .bg-\[\#B3261E\] { background: var(--v-neg) !important; color: #1c0908 !important; }
 /* O painel que abre ao passar o mouse no trilho é a barra inteira: mesmas regras. */
 .voltura .z-\[70\] .z-\[80\] .text-\[\#0B1F14\] { color: var(--v-text) !important; }
-.voltura .z-\[70\] .z-\[80\] .text-\[\#12B85C\] { color: var(--v-acid) !important; }
+.voltura .z-\[70\] .z-\[80\] .text-\[\#12B85C\] { color: var(--v-acid-ink) !important; }
 .voltura .z-\[70\] .z-\[80\] .text-\[\#B3BFB7\],
 .voltura .z-\[70\] .z-\[80\] .text-\[\#8A968D\],
 .voltura .z-\[70\] .z-\[80\] .text-\[\#4C6355\],
 .voltura .z-\[70\] .z-\[80\] .text-\[\#28382E\] { color: var(--v-text-mute) !important; }
-.voltura .z-\[70\] .z-\[80\] .text-\[\#0A7A42\] { color: var(--v-acid) !important; }
+.voltura .z-\[70\] .z-\[80\] .text-\[\#0A7A42\] { color: var(--v-acid-ink) !important; }
 .voltura .z-\[70\] .z-\[80\] .bg-\[\#F1FBF6\] { background: var(--v-surface) !important; border: 1px solid var(--v-hairline); }
 .voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full { color: var(--v-text-mute) !important; border-radius: var(--v-r-sm); }
-.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: rgba(236, 239, 232, 0.04) !important; }
+.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full:hover { color: var(--v-text) !important; background: var(--v-fill-soft) !important; }
 .voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full.bg-\[\#12B85C\] { background: var(--v-canvas) !important; color: var(--v-text) !important; box-shadow: inset 3px 0 0 var(--v-acid); }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
 .voltura .z-\[70\] .z-\[80\] .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
@@ -1645,7 +1723,7 @@
   padding-right: 8px;
 }
 .voltura .vg-topo__acoes button[title].rounded-\[14px\]:hover,
-.voltura .vg-topo__acoes button[title].rounded-\[14px\].bg-\[\#F1FBF6\] { background: rgba(236, 239, 232, 0.05) !important; border-color: var(--v-text-mute) !important; }
+.voltura .vg-topo__acoes button[title].rounded-\[14px\].bg-\[\#F1FBF6\] { background: var(--v-fill-soft) !important; border-color: var(--v-text-mute) !important; }
 .voltura .vg-topo__acoes button[title].rounded-\[14px\] .bg-\[\#DFF6EA\] { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; width: 30px; height: 30px; }
 .voltura .vg-topo__acoes button[title].rounded-\[14px\] .text-\[\#8A968D\] { color: var(--v-text-mute) !important; }
 
@@ -1668,9 +1746,9 @@
 .voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] { background: var(--v-canvas) !important; border: 1px solid var(--v-hairline); border-radius: var(--v-r-md); }
 .voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\]:hover { border-color: var(--v-hairline-strong) !important; }
 .voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] .bg-\[\#12B85C\] { background: var(--v-acid) !important; color: var(--v-text-on-acid) !important; }
-.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] .text-\[\#0A7A42\] { color: var(--v-acid) !important; }
+.voltura .vg-topo__acoes .popover-enter .bg-\[\#F1FBF6\] .text-\[\#0A7A42\] { color: var(--v-acid-ink) !important; }
 .voltura .vg-topo__acoes .popover-enter .rounded-\[12px\] { border-radius: var(--v-r-sm); }
-.voltura .vg-topo__acoes .popover-enter .hover\:bg-\[\#F1FBF6\]:hover { background: rgba(236, 239, 232, 0.05) !important; }
+.voltura .vg-topo__acoes .popover-enter .hover\:bg-\[\#F1FBF6\]:hover { background: var(--v-fill-soft) !important; }
 .voltura .vg-topo__acoes .popover-enter .hover\:bg-\[\#FDECEA\]:hover { background: rgba(236, 106, 94, 0.12) !important; }
 .voltura .vg-topo__acoes .popover-enter .text-\[\#B3261E\] { color: var(--v-neg) !important; }
 .voltura .vg-topo__acoes .popover-enter .bg-\[\#0B1F14\] { background: var(--v-canvas) !important; border: 1px solid var(--v-hairline); }
@@ -1679,7 +1757,7 @@
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-options button { border-radius: var(--v-r-pill); }
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-active { background: var(--v-slate-hi) !important; color: var(--v-text) !important; }
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive { color: var(--v-text-mute) !important; }
-.voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive:hover { background: rgba(236, 239, 232, 0.05) !important; color: var(--v-text) !important; }
+.voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive:hover { background: var(--v-fill-soft) !important; color: var(--v-text) !important; }
 
 /* --------------------------------------------------------------------------
    Raio dos botões: o do produto, não o do pacote.
