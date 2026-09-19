@@ -1680,3 +1680,30 @@
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-active { background: var(--v-slate-hi) !important; color: var(--v-text) !important; }
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive { color: var(--v-text-mute) !important; }
 .voltura .vg-topo__acoes .popover-enter .theme-toggle-inactive:hover { background: rgba(236, 239, 232, 0.05) !important; color: var(--v-text) !important; }
+
+/* --------------------------------------------------------------------------
+   Raio dos botões: o do produto, não o do pacote.
+
+   O Voltura desenha todo botão em pílula. Aqui o mesmo botão existe nas
+   outras telas com 12px de raio, e no tema escuro ele não pode mudar de
+   forma só porque mudou de cor — quem alterna o tema veria a barra superior
+   inteira se remodelar. Pílula continua valendo onde ela é informação e não
+   decoração: chips, barra de distribuição, pontos e avatares.
+   -------------------------------------------------------------------------- */
+
+.voltura .v-btn,
+.voltura .v-btn--icon {
+  border-radius: 12px;
+}
+
+.voltura .v-pill-tabs {
+  border-radius: 12px;
+}
+
+.voltura .v-pill-tabs__item {
+  border-radius: 9px;
+}
+
+.voltura .vg-topo__acoes button[title].rounded-\[14px\] {
+  border-radius: 14px;
+}
