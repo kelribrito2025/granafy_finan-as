@@ -121,12 +121,22 @@ const LIMITE_DESFAZER = 500;
 /** Teto de linhas de um arquivo exportado. */
 const LIMITE_EXPORTACAO = 20_000;
 
-const exportacaoSchema = z.object({
+/*
+ * O objeto base fica sem `refine`: no zod 4, um objeto refinado não pode ser
+ * estendido, e `exportar` precisa acrescentar `accountIds`. A checagem de
+ * "fim depois do início" entra por fora, nos dois esquemas.
+ */
+const exportacaoBase = z.object({
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   /** Exclusivo: o primeiro dia fora do recorte. */
   end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   status: z.enum(["todos", "Pago", "Pendente"]).default("todos"),
-}).refine(v => v.end > v.start, { message: "O fim precisa vir depois do início" });
+});
+const fimDepoisDoInicio = { message: "O fim precisa vir depois do início" };
+const exportacaoSchema = exportacaoBase.refine(v => v.end > v.start, fimDepoisDoInicio);
+const exportarSchema = exportacaoBase
+  .extend({ accountIds: z.array(z.number().int().min(0)).max(200).optional() })
+  .refine(v => v.end > v.start, fimDepoisDoInicio);
 
 async function lancamentosParaExportar(escopo: Escopo, input: { start: string; end: string; status: "todos" | "Pago" | "Pendente" }) {
   const registros = await db.listTransactionsByPeriod(escopo, input.start, input.end);
@@ -1057,7 +1067,7 @@ export const transactionsRouter = router({
   }),
 
   exportar: protectedProcedure
-    .input(exportacaoSchema.extend({ accountIds: z.array(z.number().int().min(0)).max(200).optional() }))
+    .input(exportarSchema)
     .query(async ({ ctx, input }) => {
       const todas = await lancamentosParaExportar(escopoDe(ctx), input);
       const escolhidas = input.accountIds ? new Set(input.accountIds) : null;
