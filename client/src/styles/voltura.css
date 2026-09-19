@@ -1518,3 +1518,100 @@
     padding: 16px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Barra lateral do app, vestida de Voltura dentro da Visão geral.
+
+   A barra (`AppSidebar`) é compartilhada por todas as telas e continua com as
+   classes dela; aqui só se sobrepõe cor e forma, sob o escopo `.voltura`, do
+   mesmo jeito que o tema escuro do app faz em index.css. Dois pontos de
+   entrada: `aside` é a barra inteira (e a gaveta do celular) e `.z-\[70\]` é o
+   trilho recolhido, que a barra desenha num `position: fixed` próprio.
+   -------------------------------------------------------------------------- */
+
+.voltura aside,
+.voltura .z-\[70\] .bg-\[\#0B1F14\],
+.voltura .z-\[70\] .bg-white {
+  background: var(--v-surface-recess) !important;
+  border: 1px solid var(--v-hairline);
+  border-radius: var(--v-r-2xl);
+  box-shadow: var(--v-elev-recess);
+  color: var(--v-text);
+  font-family: var(--v-font-body);
+}
+
+/* Marca: o anel e o nome */
+.voltura aside .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
+.voltura aside .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
+.voltura aside .stroke-\[\#12B85C\] { stroke: var(--v-acid); }
+.voltura aside .text-\[\#0B1F14\] { color: var(--v-text); }
+.voltura aside .text-\[\#12B85C\] { color: var(--v-acid); }
+.voltura aside .font-bold.tracking-\[-0\.035em\] { font-family: var(--v-font-display); font-weight: 600; letter-spacing: -0.02em; }
+
+/* Títulos dos grupos e textos apagados */
+.voltura aside .text-\[\#B3BFB7\] { color: var(--v-text-mute); letter-spacing: 0.14em; font-weight: 500; }
+.voltura aside .text-\[\#8A968D\],
+.voltura aside .text-\[\#4C6355\],
+.voltura aside .text-\[\#28382E\] { color: var(--v-text-mute); }
+.voltura aside .text-\[\#0A7A42\] { color: var(--v-acid); }
+.voltura aside .text-\[\#B3261E\] { color: var(--v-neg); }
+
+/* Fundos claros dos botões e do cartão de contas */
+.voltura aside .hover\:bg-\[\#F1FBF6\]:hover,
+.voltura aside .hover\:bg-\[\#F1F4F2\]:hover,
+.voltura aside .hover\:bg-\[\#DFF6EA\]:hover { background: rgba(236, 239, 232, 0.05); color: var(--v-text); }
+.voltura aside .bg-\[\#F1FBF6\] { background: var(--v-surface); border: 1px solid var(--v-hairline); }
+.voltura aside .bg-\[\#F1F4F2\] { background: rgba(236, 239, 232, 0.06); color: var(--v-text); border: 1px solid var(--v-hairline); }
+.voltura aside .bg-\[\#0A7A42\] { background: var(--v-acid); }
+.voltura aside .bg-\[\#B9C7BE\] { background: var(--v-hairline-strong); }
+.voltura aside .hover\:bg-\[\#8FB39E\]:hover { background: var(--v-text-mute); }
+
+/* Itens do menu: forma de pílula suave, item ativo com a barra ácida à esquerda */
+.voltura aside button.rounded-\[12px\].w-full {
+  position: relative;
+  border-radius: var(--v-r-sm);
+  font-size: var(--v-fs-13);
+  font-weight: 500;
+  color: var(--v-text-mute);
+  transition: background-color var(--v-dur-fast) var(--v-ease), color var(--v-dur-fast) var(--v-ease);
+}
+.voltura aside button.rounded-\[12px\].w-full:hover { color: var(--v-text); background: rgba(236, 239, 232, 0.04); }
+.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\],
+.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]:hover {
+  background: var(--v-canvas);
+  color: var(--v-text);
+  font-weight: 600;
+}
+.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\]::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: var(--v-r-pill);
+  background: var(--v-acid);
+}
+.voltura aside button.rounded-\[12px\].w-full.bg-\[\#12B85C\] .bg-white\/20 { background: var(--v-acid); color: var(--v-text-on-acid); }
+
+/* Trilho recolhido */
+.voltura .z-\[70\] .text-\[\#C5DACE\] { color: var(--v-text-mute); }
+.voltura .z-\[70\] .hover\:bg-white\/10:hover { background: rgba(236, 239, 232, 0.05); color: var(--v-text); }
+.voltura .z-\[70\] button.bg-\[\#12B85C\] { background: var(--v-canvas); color: var(--v-text); box-shadow: inset 3px 0 0 var(--v-acid); }
+.voltura .z-\[70\] .bg-white\/10 { background: var(--v-hairline); }
+.voltura .z-\[70\] .border-\[\#0B1F14\] { border-color: var(--v-surface-recess); }
+.voltura .z-\[70\] .bg-\[\#B3261E\] { background: var(--v-neg); color: #1c0908; }
+/* O painel que abre ao passar o mouse no trilho é a barra inteira: mesmas regras. */
+.voltura .z-\[70\] .z-\[80\] .text-\[\#0B1F14\] { color: var(--v-text); }
+.voltura .z-\[70\] .z-\[80\] .text-\[\#12B85C\] { color: var(--v-acid); }
+.voltura .z-\[70\] .z-\[80\] .text-\[\#B3BFB7\],
+.voltura .z-\[70\] .z-\[80\] .text-\[\#8A968D\],
+.voltura .z-\[70\] .z-\[80\] .text-\[\#4C6355\],
+.voltura .z-\[70\] .z-\[80\] .text-\[\#28382E\] { color: var(--v-text-mute); }
+.voltura .z-\[70\] .z-\[80\] .text-\[\#0A7A42\] { color: var(--v-acid); }
+.voltura .z-\[70\] .z-\[80\] .bg-\[\#F1FBF6\] { background: var(--v-surface); border: 1px solid var(--v-hairline); }
+.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full { color: var(--v-text-mute); border-radius: var(--v-r-sm); }
+.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full:hover { color: var(--v-text); background: rgba(236, 239, 232, 0.04); }
+.voltura .z-\[70\] .z-\[80\] button.rounded-\[12px\].w-full.bg-\[\#12B85C\] { background: var(--v-canvas); color: var(--v-text); box-shadow: inset 3px 0 0 var(--v-acid); }
+.voltura .z-\[70\] .z-\[80\] .stroke-\[\#D8E2DB\] { stroke: var(--v-hairline-strong); }
+.voltura .z-\[70\] .z-\[80\] .stroke-\[\#0B1F14\] { stroke: var(--v-text); }
