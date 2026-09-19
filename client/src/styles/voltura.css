@@ -1260,8 +1260,8 @@
 .voltura.vg-pagina {
   min-height: 100vh;
   width: 100%;
-  padding: 12px;
-  background: var(--v-page);
+  padding: 0;
+  background: var(--v-canvas);
   color: var(--v-text);
   font-family: var(--v-font-body);
   font-size: var(--v-fs-14);
@@ -1269,18 +1269,10 @@
   -webkit-font-smoothing: antialiased;
 }
 
-@media (min-width: 640px) {
-  .voltura.vg-pagina {
-    padding: 20px;
-  }
-}
-
+/* A casca é a página inteira: sem moldura citrina, sem cantos, sem vão. */
 .voltura .vg-casca {
   background: var(--v-canvas);
-  border-radius: var(--v-r-2xl);
-  box-shadow: var(--v-elev-recess);
-  overflow: hidden;
-  min-height: calc(100vh - 40px);
+  min-height: 100vh;
 }
 
 .voltura .vg-topo {
@@ -1533,11 +1525,34 @@
 .voltura .z-\[70\] .bg-\[\#0B1F14\],
 .voltura .z-\[70\] .bg-white {
   background: var(--v-surface-recess) !important;
-  border: 1px solid var(--v-hairline);
-  border-radius: var(--v-r-2xl);
-  box-shadow: var(--v-elev-recess);
+  border: 0;
+  border-right: 1px solid var(--v-hairline);
+  border-radius: 0;
+  box-shadow: none;
   color: var(--v-text);
   font-family: var(--v-font-body);
+}
+
+/* Colada à borda da janela e com a altura toda, tanto a barra inteira (fixa
+   no celular, grudada no desktop) quanto o trilho recolhido e o painel que
+   abre ao passar o mouse nele. */
+.voltura aside {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: 100vh;
+}
+.voltura .z-\[70\] {
+  left: 0;
+  top: 0;
+}
+.voltura .z-\[70\] .bg-\[\#0B1F14\],
+.voltura .z-\[70\] .z-\[80\] {
+  height: 100vh;
+  border-radius: 0;
+}
+.voltura .z-\[70\] .z-\[80\] {
+  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.45);
 }
 
 /* Marca: o anel e o nome */

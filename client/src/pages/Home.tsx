@@ -245,7 +245,7 @@ export default function Home() {
 
   return (
     <main className="voltura vg-pagina">
-      <div className="flex w-full gap-5">
+      <div className="flex w-full">
         <AppSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
         <section className="vg-casca flex min-w-0 flex-1 flex-col">
